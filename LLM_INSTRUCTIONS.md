@@ -39,5 +39,5 @@ This file contains universal instructions for all AI models (Jules, Claude, Gemi
 
 ## Project Structure & Submodules
 - Maintain documentation of all submodules with their URLs, descriptions, versions, dates, and build numbers.
-- Document the project directory structure and code structure.
+- Document the project directory structure and code structure in `STRUCTURE.md`.
 - List all libraries with versions and locations, and how they are used.
