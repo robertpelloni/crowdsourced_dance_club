@@ -10,6 +10,8 @@
         h1, h2 { color: #a020f0; }
         .card { background: #1e1e1e; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
         .current-track { border-left: 4px solid #00ffcc; }
+        .progress-container { width: 100%; background: #333; border-radius: 4px; height: 10px; margin-top: 15px; position: relative; overflow: hidden; }
+        .progress-bar { height: 100%; background: #00ffcc; width: 0%; transition: width 1s linear; }
         .track-list { display: grid; gap: 10px; }
         .track-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #252525; border-radius: 4px; }
         .track-info { flex-grow: 1; }
@@ -78,6 +80,8 @@
 
                 if (data.type === 'QUEUE_SYNC') {
                     updateUI(data);
+                } else if (data.type === 'VIBE_SCORE') {
+                    updateVibeIndicator(data);
                 } else if (data.type === 'ERROR') {
                     showError(data.message);
                 } else if (data.type === 'REQUEST_ACCEPTED') {
@@ -112,23 +116,59 @@
 
         function renderCatalog(tracks) {
             catalogEl.innerHTML = tracks.map(track => `
-                <div class="track-item">
+                <div class="track-item" id="catalog-${track.id}">
                     <div class="track-info">
                         <strong>${track.title}</strong> - ${track.artist}
                         <div class="track-meta">${track.bpm} BPM | ${track.key} | Energy: ${track.energy}</div>
+                        <div class="track-meta vibe-indicator" style="color: #888;">Match: --</div>
                     </div>
                     <button class="btn" onclick="requestSong('${track.id}')">Request</button>
                 </div>
             `).join('');
+
+            // Fetch vibe scores for catalog
+            tracks.forEach(track => {
+                ws.send(JSON.stringify({ action: 'GET_VIBE_SCORE', track_id: track.id }));
+            });
         }
 
+        function updateVibeIndicator(data) {
+            const el = document.querySelector(`#catalog-${data.track_id} .vibe-indicator`);
+            if (el) {
+                const score = (data.score * 100).toFixed(0);
+                el.innerText = `Match: ${score}%`;
+                if (data.score > 0.8) el.style.color = '#00ffcc';
+                else if (data.score > 0.5) el.style.color = '#ffcc00';
+                else el.style.color = '#ff5555';
+            }
+        }
+
+        let playbackTimer;
         function updateUI(data) {
             // Now Playing
             const cp = data.current_track;
             nowPlayingEl.innerHTML = `
                 <strong>${cp.title}</strong> - ${cp.artist}
                 <div class="track-meta">${cp.bpm} BPM | ${cp.key} | Energy: ${cp.energy}</div>
+                <div class="progress-container">
+                    <div id="playback-progress" class="progress-bar"></div>
+                </div>
             `;
+
+            if (playbackTimer) clearInterval(playbackTimer);
+            const progressBar = document.getElementById('playback-progress');
+            const duration = data.duration;
+            const startTime = data.start_time;
+
+            playbackTimer = setInterval(() => {
+                const now = Date.now() / 1000;
+                // Note: Server uses asyncio loop time which might differ from Date.now()
+                // In a real app we'd sync clock or use relative offsets.
+                // For this prototype we estimate.
+                const elapsed = now - startTime;
+                const percent = Math.min(100, (elapsed / duration) * 100);
+                progressBar.style.width = percent + '%';
+            }, 1000);
 
             // Queue
             if (data.queue.length === 0) {

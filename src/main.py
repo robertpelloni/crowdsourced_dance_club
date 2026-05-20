@@ -3,6 +3,8 @@ import json
 import os
 import sqlite3
 import sys
+import time
+from contextlib import asynccontextmanager
 from typing import List, Dict, Optional, Tuple
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException
@@ -52,6 +54,10 @@ class TrackState:
     def __init__(self):
         # Current track being played
         self.current_track: Dict = TRACK_CATALOG["track_001"]
+        # Start time of the current track (epoch seconds)
+        self.start_time: float = time.time()
+        # Duration of current track in seconds (default 180 for simulation)
+        self.duration: float = 180.0
         # Target BPM for the room
         self.target_bpm: float = 145.0
         # Upcoming tracks submitted and approved
@@ -95,6 +101,8 @@ class ConnectionManager:
         return {
             "type": "QUEUE_SYNC",
             "current_track": dj_state.current_track,
+            "start_time": dj_state.start_time,
+            "duration": dj_state.duration,
             "target_bpm": dj_state.target_bpm,
             "queue": dj_state.upcoming_queue
         }
@@ -135,6 +143,38 @@ def is_harmonically_compatible(key1: str, key2: str) -> bool:
 
     return False
 
+def get_random_compatible_track(current_track: Dict) -> Optional[Dict]:
+    """Finds a random compatible track from the catalog as a fallback."""
+    compatible = []
+    for track in TRACK_CATALOG.values():
+        if track["id"] == current_track["id"]:
+            continue
+        fits, _ = evaluate_track_fit(track, current_track)
+        if fits:
+            compatible.append(track)
+
+    import random
+    return random.choice(compatible) if compatible else None
+
+def calculate_vibe_score(track: Dict, current_track: Dict) -> float:
+    """
+    Calculates a compatibility score (0.0 to 1.0) between two tracks.
+    Considers BPM, Energy, and Key.
+    """
+    # BPM Score (max 5.0 delta)
+    bpm_delta = abs(track["bpm"] - current_track["bpm"])
+    bpm_score = max(0, 1 - (bpm_delta / 5.0))
+
+    # Energy Score (max 3.0 delta)
+    energy_delta = abs(track["energy"] - current_track["energy"])
+    energy_score = max(0, 1 - (energy_delta / 3.0))
+
+    # Key Score
+    key_score = 1.0 if is_harmonically_compatible(track["key"], current_track["key"]) else 0.0
+
+    # Weighted Average
+    return (bpm_score * 0.3) + (energy_score * 0.3) + (key_score * 0.4)
+
 def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool, str]:
     """
     Algorithmic Vibe Check: Assesses if a requested song safely fits
@@ -161,7 +201,45 @@ def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool
 
     return True, "Track fits the sonic profile perfectly."
 
-app = FastAPI(title="Algorithmic DJ Conductor Server")
+async def playback_simulation_loop():
+    """
+    Background task that simulates track progress and transitions.
+    """
+    while True:
+        now = time.time()
+        remaining = dj_state.start_time + dj_state.duration - now
+
+        if remaining <= 0:
+            # Transition to next track
+            if dj_state.upcoming_queue:
+                next_item = dj_state.upcoming_queue.pop(0)
+                dj_state.current_track = next_item["track"]
+            else:
+                # Select random compatible track from catalog
+                fallback = get_random_compatible_track(dj_state.current_track)
+                if fallback:
+                    dj_state.current_track = fallback
+                # else keep playing current (loop)
+
+            dj_state.start_time = now
+            # In real life duration varies, but for simulation we use 180s
+            dj_state.duration = 180.0
+            await manager.broadcast_queue_update()
+            print(f"[SYSTEM] Transitioned to: {dj_state.current_track['title']}")
+
+        # Check every 1 second
+        await asyncio.sleep(1)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifecycle manager for the FastAPI application."""
+    # Startup: Initialize background tasks
+    loop_task = asyncio.create_task(playback_simulation_loop())
+    yield
+    # Shutdown: Clean up tasks
+    loop_task.cancel()
+
+app = FastAPI(title="Algorithmic DJ Conductor Server", lifespan=lifespan)
 
 # Serve static files for the client prototype
 app.mount("/static", StaticFiles(directory="src/static"), name="static")
@@ -195,7 +273,16 @@ async def websocket_endpoint(websocket: WebSocket):
 
             action = message.get("action")
 
-            if action == "REQUEST_SONG":
+            if action == "GET_VIBE_SCORE":
+                track_id = message.get("track_id")
+                track = TRACK_CATALOG.get(track_id)
+                if track:
+                    score = calculate_vibe_score(track, dj_state.current_track)
+                    await websocket.send_json({"type": "VIBE_SCORE", "track_id": track_id, "score": score})
+                else:
+                    await websocket.send_json({"type": "ERROR", "message": "Track not found."})
+
+            elif action == "REQUEST_SONG":
                 track_id = message.get("track_id")
                 requested_track = TRACK_CATALOG.get(track_id)
 
@@ -230,10 +317,17 @@ async def websocket_endpoint(websocket: WebSocket):
                         break
 
                 if found:
-                    # Reorder queue based on votes
-                    # In Phase 2, we might want more complex reordering that still considers FIT
-                    # For now, just sort by votes descending.
-                    dj_state.upcoming_queue.sort(key=lambda x: x["votes"], reverse=True)
+                    # Reorder queue based on weighted score of votes and vibe compatibility
+                    # vibe_score is 0-1, votes can be any integer.
+                    # We normalize votes roughly (e.g. log scale or just simple multiplier)
+                    # For now: 70% Vibe Score + 30% Normalized Votes
+                    for item in dj_state.upcoming_queue:
+                        vibe = calculate_vibe_score(item["track"], dj_state.current_track)
+                        # Normalize votes: 1 vote = 0.1, 10 votes = 1.0 (capped)
+                        vote_score = min(1.0, item["votes"] * 0.1)
+                        item["weighted_score"] = (vibe * 0.7) + (vote_score * 0.3)
+
+                    dj_state.upcoming_queue.sort(key=lambda x: x.get("weighted_score", 0), reverse=True)
                     await manager.broadcast_queue_update()
                 else:
                     await websocket.send_json({"type": "ERROR", "message": "Track not found in queue."})

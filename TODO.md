@@ -11,6 +11,8 @@
 - [x] Implement Harmonic Key matching logic.
 - [x] Implement user voting system for queue reordering.
 - [x] Develop web-based client prototype.
+- [x] Implement Playback Simulation & Auto-Transitions.
+- [x] Implement "Vibe-Aware" Weighted Ranking.
 
 ## Phase 2: Mobile Client Prototype
 - [ ] Design and implement basic React Native client.

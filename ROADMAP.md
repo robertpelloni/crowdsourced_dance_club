@@ -11,6 +11,8 @@
 - [x] Implement Harmonic Key Matching (Camelot Wheel).
 - [x] Implement User Voting System for queue reordering.
 - [x] Develop web-based client prototype.
+- [x] Implement Playback Simulation & Auto-Transitions.
+- [x] Implement "Vibe-Aware" Weighted Ranking.
 - [ ] Design and implement basic React Native client.
 - [ ] Connect client to Conductor Server via WebSockets.
 - [ ] Implement song request and voting UI.

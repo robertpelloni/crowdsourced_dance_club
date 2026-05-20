@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.4] - 2025-05-14
+### Added
+- Implemented `playback_simulation_loop` for automatic track transitions.
+- Implemented "Vibe-Aware" weighted ranking (Votes + Compatibility).
+- Enhanced web client with progress bars and match percentage indicators.
+- Added `GET_VIBE_SCORE` and `VIBE_SCORE` WebSocket protocol messages.
+
 ## [0.1.3] - 2025-05-14
 ### Added
 - Implemented Harmonic Key Matching (Camelot Wheel).

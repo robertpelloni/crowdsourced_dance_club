@@ -1,6 +1,6 @@
-# 🌌 Crowdsourced Dance Club (v0.1.3)
+# 🌌 Crowdsourced Dance Club (v0.1.4)
 
-[![Version](https://img.shields.io/badge/version-0.1.3-blueviolet)](./VERSION.md)
+[![Version](https://img.shields.io/badge/version-0.1.4-blueviolet)](./VERSION.md)
 [![Status](https://img.shields.io/badge/status-active-success)](./ROADMAP.md)
 
 **Crowdsourced Dance Club** is a next-generation, real-time algorithmic club-night engine. It allows dancers to dynamically steer the musical direction of a venue via a mobile app, while a central "AI Conductor" ensures harmonic perfection and energetic flow.
