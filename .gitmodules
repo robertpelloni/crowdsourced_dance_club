@@ -1,0 +1,3 @@
+[submodule "external/auto_dj_script"]
+	path = external/auto_dj_script
+	url = https://github.com/robertpelloni/auto_dj_script.git
