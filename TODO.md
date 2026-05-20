@@ -8,8 +8,9 @@
 - [x] Implement `evaluate_track_fit` logic.
 - [x] Set up SQLite database for `TRACK_CATALOG`.
 - [x] Write unit tests for fit logic and API endpoints.
-- [ ] Implement Harmonic Key matching logic.
-- [ ] Implement user voting system for queue reordering.
+- [x] Implement Harmonic Key matching logic.
+- [x] Implement user voting system for queue reordering.
+- [x] Develop web-based client prototype.
 
 ## Phase 2: Mobile Client Prototype
 - [ ] Design and implement basic React Native client.

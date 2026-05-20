@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.3] - 2025-05-14
+### Added
+- Implemented Harmonic Key Matching (Camelot Wheel).
+- Implemented User Voting System for queue reordering.
+- Developed web-based client prototype in `src/static/index.html`.
+- Integrated static file serving in FastAPI.
+
 ## [0.1.2] - 2025-05-14
 ### Added
 - Merged feature branches (v5.5.0, v5.7.0, v5.8.0) into `auto_dj_script` submodule.

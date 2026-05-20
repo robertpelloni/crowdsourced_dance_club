@@ -6,6 +6,8 @@ import sys
 from typing import List, Dict, Optional, Tuple
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 DB_PATH = "tracks.db"
@@ -53,6 +55,7 @@ class TrackState:
         # Target BPM for the room
         self.target_bpm: float = 145.0
         # Upcoming tracks submitted and approved
+        # Each entry is a dict: {"track": Dict, "votes": int}
         self.upcoming_queue: List[Dict] = []
         # List of active WebSocket connections
         self.connected_clients: List[WebSocket] = []
@@ -98,6 +101,40 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+def is_harmonically_compatible(key1: str, key2: str) -> bool:
+    """
+    Checks if two Camelot keys are compatible.
+    Compatible keys are the same, +/- 1 step, or parallel major/minor.
+    Example: '8A' is compatible with '8A', '7A', '9A', and '8B'.
+    """
+    if not key1 or not key2:
+        return False
+
+    if key1 == key2:
+        return True
+
+    try:
+        val1 = int(key1[:-1])
+        mode1 = key1[-1]
+        val2 = int(key2[:-1])
+        mode2 = key2[-1]
+
+        # Parallel major/minor (e.g., 8A -> 8B)
+        if val1 == val2 and mode1 != mode2:
+            return True
+
+        # Same mode, +/- 1 step
+        if mode1 == mode2:
+            diff = abs(val1 - val2)
+            # Handle wrap-around (12 to 1)
+            if diff == 1 or diff == 11:
+                return True
+
+    except (ValueError, IndexError):
+        return False
+
+    return False
+
 def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool, str]:
     """
     Algorithmic Vibe Check: Assesses if a requested song safely fits
@@ -106,6 +143,7 @@ def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool
     Rules:
     1. BPM Delta: Maximum allowed difference is 5.0 BPM to avoid heavy distortion.
     2. Energy Delta: Maximum allowed difference is 3.0 to avoid abrupt vibe shifts.
+    3. Harmonic Compatibility: Keys must be within 1 step on the Camelot Wheel or parallel.
     """
     # Rule 1: Tempo Check
     bpm_delta = abs(requested_track["bpm"] - current_track["bpm"])
@@ -117,13 +155,21 @@ def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool
     if energy_delta > 3.0:
          return False, "Energy delta error: Transition is too abrupt for the current floor vibe."
 
+    # Rule 3: Harmonic Check
+    if not is_harmonically_compatible(requested_track["key"], current_track["key"]):
+        return False, f"Harmonic clash: {requested_track['key']} is not compatible with current track's {current_track['key']}."
+
     return True, "Track fits the sonic profile perfectly."
 
 app = FastAPI(title="Algorithmic DJ Conductor Server")
 
+# Serve static files for the client prototype
+app.mount("/static", StaticFiles(directory="src/static"), name="static")
+
 @app.get("/")
 async def root():
-    return {"message": "Algorithmic DJ Conductor Server is running."}
+    """Serve the client prototype index.html at the root."""
+    return FileResponse("src/static/index.html")
 
 @app.get("/catalog")
 async def get_catalog():
@@ -162,12 +208,36 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if fits:
                     # Append to queue and notify the entire room via real-time broadcast
-                    dj_state.upcoming_queue.append(requested_track)
+                    # Check if already in queue
+                    if any(item["track"]["id"] == track_id for item in dj_state.upcoming_queue):
+                        await websocket.send_json({"type": "ERROR", "message": "Track already in queue."})
+                        continue
+
+                    dj_state.upcoming_queue.append({"track": requested_track, "votes": 1})
                     await websocket.send_json({"type": "REQUEST_ACCEPTED", "message": reason, "track": requested_track})
                     await manager.broadcast_queue_update()
                 else:
                     # Deny request and give the user feedback on why it failed the vibe check
                     await websocket.send_json({"type": "REQUEST_DENIED", "message": reason})
+
+            elif action == "VOTE_TRACK":
+                track_id = message.get("track_id")
+                found = False
+                for item in dj_state.upcoming_queue:
+                    if item["track"]["id"] == track_id:
+                        item["votes"] += 1
+                        found = True
+                        break
+
+                if found:
+                    # Reorder queue based on votes
+                    # In Phase 2, we might want more complex reordering that still considers FIT
+                    # For now, just sort by votes descending.
+                    dj_state.upcoming_queue.sort(key=lambda x: x["votes"], reverse=True)
+                    await manager.broadcast_queue_update()
+                else:
+                    await websocket.send_json({"type": "ERROR", "message": "Track not found in queue."})
+
             else:
                 await websocket.send_json({"type": "ERROR", "message": f"Unknown action: {action}"})
 

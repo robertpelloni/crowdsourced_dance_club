@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crowdsourced Dance Club - Client Prototype</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #121212; color: #eee; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1, h2 { color: #a020f0; }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        .current-track { border-left: 4px solid #00ffcc; }
+        .track-list { display: grid; gap: 10px; }
+        .track-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #252525; border-radius: 4px; }
+        .track-info { flex-grow: 1; }
+        .track-meta { font-size: 0.8em; color: #888; }
+        .btn { background: #a020f0; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn:hover { background: #c040ff; }
+        .btn-vote { background: #00ffcc; color: #121212; }
+        .btn-vote:hover { background: #33ffdd; }
+        .queue-item { border-left: 4px solid #a020f0; }
+        .status { font-size: 0.9em; color: #00ffcc; margin-bottom: 10px; }
+        #message-log { font-size: 0.8em; color: #ff5555; height: 20px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌌 Crowdsourced Dance Club</h1>
+        <div id="status" class="status">Connecting...</div>
+        <div id="message-log"></div>
+
+        <div class="card current-track">
+            <h2>Now Playing</h2>
+            <div id="now-playing">
+                Loading current track...
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Upcoming Queue</h2>
+            <div id="queue" class="track-list">
+                Queue is empty. Request a song below!
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Available Catalog</h2>
+            <div id="catalog" class="track-list">
+                Loading catalog...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const logEl = document.getElementById('message-log');
+        const nowPlayingEl = document.getElementById('now-playing');
+        const queueEl = document.getElementById('queue');
+        const catalogEl = document.getElementById('catalog');
+
+        let ws;
+
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/clubgoer`;
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                statusEl.innerText = 'Connected';
+                statusEl.style.color = '#00ffcc';
+                fetchCatalog();
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                console.log('WS Message:', data);
+
+                if (data.type === 'QUEUE_SYNC') {
+                    updateUI(data);
+                } else if (data.type === 'ERROR') {
+                    showError(data.message);
+                } else if (data.type === 'REQUEST_ACCEPTED') {
+                    showError(data.message, '#00ffcc');
+                } else if (data.type === 'REQUEST_DENIED') {
+                    showError(data.message);
+                }
+            };
+
+            ws.onclose = () => {
+                statusEl.innerText = 'Disconnected. Retrying...';
+                statusEl.style.color = '#ff5555';
+                setTimeout(connect, 3000);
+            };
+        }
+
+        function showError(msg, color = '#ff5555') {
+            logEl.innerText = msg;
+            logEl.style.color = color;
+            setTimeout(() => { logEl.innerText = ''; }, 5000);
+        }
+
+        async function fetchCatalog() {
+            try {
+                const response = await fetch('/catalog');
+                const tracks = await response.json();
+                renderCatalog(tracks);
+            } catch (err) {
+                console.error('Failed to fetch catalog', err);
+            }
+        }
+
+        function renderCatalog(tracks) {
+            catalogEl.innerHTML = tracks.map(track => `
+                <div class="track-item">
+                    <div class="track-info">
+                        <strong>${track.title}</strong> - ${track.artist}
+                        <div class="track-meta">${track.bpm} BPM | ${track.key} | Energy: ${track.energy}</div>
+                    </div>
+                    <button class="btn" onclick="requestSong('${track.id}')">Request</button>
+                </div>
+            `).join('');
+        }
+
+        function updateUI(data) {
+            // Now Playing
+            const cp = data.current_track;
+            nowPlayingEl.innerHTML = `
+                <strong>${cp.title}</strong> - ${cp.artist}
+                <div class="track-meta">${cp.bpm} BPM | ${cp.key} | Energy: ${cp.energy}</div>
+            `;
+
+            // Queue
+            if (data.queue.length === 0) {
+                queueEl.innerHTML = 'Queue is empty. Request a song below!';
+            } else {
+                queueEl.innerHTML = data.queue.map(item => `
+                    <div class="track-item queue-item">
+                        <div class="track-info">
+                            <strong>${item.track.title}</strong> - ${item.track.artist}
+                            <div class="track-meta">${item.track.bpm} BPM | ${item.track.key} | Votes: ${item.votes}</div>
+                        </div>
+                        <button class="btn btn-vote" onclick="voteTrack('${item.track.id}')">Vote</button>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function requestSong(trackId) {
+            ws.send(JSON.stringify({ action: 'REQUEST_SONG', track_id: trackId }));
+        }
+
+        function voteTrack(trackId) {
+            ws.send(JSON.stringify({ action: 'VOTE_TRACK', track_id: trackId }));
+        }
+
+        connect();
+    </script>
+</body>
+</html>
