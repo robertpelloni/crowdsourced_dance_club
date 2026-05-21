@@ -15,20 +15,21 @@
 - [x] Implement "Vibe-Aware" Weighted Ranking.
 - [x] Implement Energy Ramping & Genre Compatibility Matrix.
 
-## Phase 3: Official Mobile Client & Hardware Integration (Next)
-- [ ] Initialize React Native / Expo Mobile App.
-- [ ] Implement QR Code check-in for venue sync.
-- [ ] Design Real-Time Audio Engine OSC/WebSocket protocol.
-- [ ] Connect client to Conductor Server via WebSockets.
-- [ ] Implement song request and voting UI.
+## Phase 3: Official Mobile Client & Hardware Integration (In Progress)
+- [x] Implement "DJ Control Panel" (Admin Mode) in PWA.
+- [x] Implement QR Code check-in API (/sync-qr).
+- [x] Initialize React Native / Expo Mobile App.
+- [x] Design Real-Time Audio Engine Protocol (`AUDIO_ENGINE_PROTOCOL.md`).
+- [ ] Connect mobile client to Conductor Server via WebSockets.
+- [ ] Implement song request and voting UI in Mobile App.
 
-## Phase 3: Real-Time Audio Engine
+## Phase 4: Real-Time Audio Engine
 - [ ] Research and select C++ audio framework (JUCE/PortAudio).
 - [ ] Implement low-latency playback loop.
 - [ ] Implement real-time time-stretching and crossfading.
-- [ ] Integrate Audio Engine with Conductor Server.
+- [ ] Integrate Audio Engine with Conductor Server using the Protocol.
 
-## Phase 4: Polish & Deployment
+## Phase 5: Polish & Deployment
 - [ ] Advanced "Fit" algorithms using machine learning.
 - [ ] Comprehensive UI/UX polish for mobile apps.
 - [ ] Scalable cloud deployment for Conductor Server.

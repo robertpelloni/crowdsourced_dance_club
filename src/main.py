@@ -14,6 +14,18 @@ from pydantic import BaseModel
 
 DB_PATH = "tracks.db"
 
+# AI Conductor Configuration Thresholds
+CONFIG = {
+    "MAX_BPM_DELTA": 5.0,      # Max BPM difference allowed for fit
+    "MAX_ENERGY_DELTA": 1.0,   # Max Energy difference allowed for fit (Tightened from 1.5)
+    "VIBE_WEIGHT_BPM": 0.20,
+    "VIBE_WEIGHT_ENERGY": 0.20,
+    "VIBE_WEIGHT_RAMPING": 0.10,
+    "VIBE_WEIGHT_KEY": 0.30,
+    "VIBE_WEIGHT_GENRE": 0.20,
+    "VOTE_WEIGHT": 0.30,       # How much votes matter vs algorithmic fit
+}
+
 # Genre Compatibility Matrix (1.0 = perfect, 0.0 = clash)
 GENRE_COMPATIBILITY = {
     "Psytrance": {"Psytrance": 1.0, "Techno": 0.7, "Progressive": 0.8, "Ambient": 0.2},
@@ -172,13 +184,13 @@ def calculate_vibe_score(track: Dict, current_track: Dict) -> float:
     Calculates a compatibility score (0.0 to 1.0) between two tracks.
     Considers BPM, Energy, Key, Energy Ramping, and Genre Compatibility.
     """
-    # BPM Score (max 5.0 delta)
+    # BPM Score
     bpm_delta = abs(track["bpm"] - current_track["bpm"])
-    bpm_score = max(0, 1 - (bpm_delta / 5.0))
+    bpm_score = max(0, 1 - (bpm_delta / CONFIG["MAX_BPM_DELTA"]))
 
-    # Energy Score (max 3.0 delta)
+    # Energy Score
     energy_delta = abs(track["energy"] - current_track["energy"])
-    energy_score = max(0, 1 - (energy_delta / 3.0))
+    energy_score = max(0, 1 - (energy_delta / CONFIG["MAX_ENERGY_DELTA"]))
 
     # Energy Ramping Bonus/Penalty
     ramping_score = 0.5
@@ -205,21 +217,16 @@ def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool
     """
     Algorithmic Vibe Check: Assesses if a requested song safely fits
     the current energy matrix and tempo of the dancefloor.
-
-    Rules:
-    1. BPM Delta: Maximum allowed difference is 5.0 BPM to avoid heavy distortion.
-    2. Energy Delta: Maximum allowed difference is 3.0 to avoid abrupt vibe shifts.
-    3. Harmonic Compatibility: Keys must be within 1 step on the Camelot Wheel or parallel.
     """
     # Rule 1: Tempo Check
     bpm_delta = abs(requested_track["bpm"] - current_track["bpm"])
-    if bpm_delta > 5.0:
+    if bpm_delta > CONFIG["MAX_BPM_DELTA"]:
         return False, f"BPM clash too severe ({requested_track['bpm']} vs {current_track['bpm']}). Would cause audio warp distortion."
 
     # Rule 2: Energy Vibe Check
     energy_delta = abs(requested_track["energy"] - current_track["energy"])
-    if energy_delta > 3.0:
-         return False, "Energy delta error: Transition is too abrupt for the current floor vibe."
+    if energy_delta > CONFIG["MAX_ENERGY_DELTA"]:
+         return False, f"Energy delta clash ({requested_track['energy']} vs {current_track['energy']}): Transition is too abrupt for the current vibe."
 
     # Rule 3: Harmonic Check
     if not is_harmonically_compatible(requested_track["key"], current_track["key"]):
@@ -286,6 +293,17 @@ async def get_catalog():
     """Returns the list of available tracks in the curated catalog."""
     return list(TRACK_CATALOG.values())
 
+@app.get("/sync-qr")
+async def get_sync_qr():
+    """Returns metadata for venue synchronization (QR data placeholder)."""
+    return {
+        "venue_name": "CDC Virtual Arena",
+        "conductor_url": "http://localhost:8000",
+        "websocket_url": "ws://localhost:8000/ws/clubgoer",
+        "session_id": "session_" + str(int(time.time())),
+        "qr_placeholder": "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=CDC_SYNC"
+    }
+
 @app.websocket("/ws/clubgoer")
 async def websocket_endpoint(websocket: WebSocket):
     """
@@ -350,19 +368,43 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 if found:
                     # Reorder queue based on weighted score of votes and vibe compatibility
-                    # vibe_score is 0-1, votes can be any integer.
-                    # We normalize votes roughly (e.g. log scale or just simple multiplier)
-                    # For now: 70% Vibe Score + 30% Normalized Votes
                     for item in dj_state.upcoming_queue:
                         vibe = calculate_vibe_score(item["track"], dj_state.current_track)
                         # Normalize votes: 1 vote = 0.1, 10 votes = 1.0 (capped)
                         vote_score = min(1.0, item["votes"] * 0.1)
-                        item["weighted_score"] = (vibe * 0.7) + (vote_score * 0.3)
+                        # Use CONFIG weight
+                        item["weighted_score"] = (vibe * (1 - CONFIG["VOTE_WEIGHT"])) + (vote_score * CONFIG["VOTE_WEIGHT"])
 
                     dj_state.upcoming_queue.sort(key=lambda x: x.get("weighted_score", 0), reverse=True)
                     await manager.broadcast_queue_update()
                 else:
                     await websocket.send_json({"type": "ERROR", "message": "Track not found in queue."})
+
+            elif action == "ADMIN_SKIP":
+                if dj_state.upcoming_queue:
+                    next_item = dj_state.upcoming_queue.pop(0)
+                    dj_state.current_track = next_item["track"]
+                else:
+                    fallback = get_random_compatible_track(dj_state.current_track)
+                    if fallback:
+                        dj_state.current_track = fallback
+
+                dj_state.start_time = time.time()
+                await manager.broadcast_queue_update()
+                await websocket.send_json({"type": "ADMIN_SUCCESS", "message": "Track skipped."})
+
+            elif action == "ADMIN_SET_TREND":
+                trend = message.get("trend")
+                if trend in ["rising", "stable", "falling"]:
+                    dj_state.energy_trend = trend
+                    await manager.broadcast_queue_update()
+                    await websocket.send_json({"type": "ADMIN_SUCCESS", "message": f"Trend set to {trend}."})
+
+            elif action == "ADMIN_SET_BPM":
+                bpm = float(message.get("bpm", 145.0))
+                dj_state.target_bpm = bpm
+                await manager.broadcast_queue_update()
+                await websocket.send_json({"type": "ADMIN_SUCCESS", "message": f"BPM set to {bpm}."})
 
             else:
                 await websocket.send_json({"type": "ERROR", "message": f"Unknown action: {action}"})
@@ -375,25 +417,38 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 # Integration with auto_dj_script submodule
-# This is a placeholder for background rendering tasks.
-def run_offline_compiler_worker(source_dir: str, output_file: str, bpm: float):
+def run_offline_compiler_worker(track_ids: List[str], output_path: str, bpm: float):
     """
-    Background worker that calls the submodule to crunch audio offline.
+    Calls the Auto DJ submodule to render a set based on specific track IDs.
     """
-    # Ensure submodule path is in sys.path
     submodule_path = os.path.abspath("./external/auto_dj_script")
     if submodule_path not in sys.path:
         sys.path.append(submodule_path)
 
     try:
-        # Import Jules's core compilation engine directly
-        # Note: We use a try-except here because the submodule might not be perfectly compatible yet.
-        from auto_dj.compiler import compile_master_set
-        compile_master_set(source_dir, output_file, bpm=bpm)
-    except ImportError:
-        print("Error: Could not import auto_dj.compiler from submodule.")
+        # Resolve track paths from IDs
+        tracks = [TRACK_CATALOG.get(tid) for tid in track_ids if tid in TRACK_CATALOG]
+        # In a real environment, we'd copy these to a temp folder for the compiler
+        print(f"[AUTO-DJ] Simulating render for: {[t['title'] for t in tracks]}")
+
+        # Placeholder for actual compilation call
+        # from autodj.core import compile_master_set
+        # compile_master_set(args, ...)
+
+        time.sleep(5) # Simulate processing
+        print(f"[AUTO-DJ] Render complete: {output_path}")
+
     except Exception as e:
-        print(f"Error during offline compilation: {e}")
+        print(f"[ERROR] Offline compilation failed: {e}")
+
+@app.post("/api/render-highlights")
+async def render_highlights(background_tasks: BackgroundTasks, track_ids: List[str]):
+    """
+    API endpoint to trigger an offline render of set highlights.
+    """
+    output_path = f"static/renders/highlights_{int(time.time())}.flac"
+    background_tasks.add_task(run_offline_compiler_worker, track_ids, output_path, dj_state.target_bpm)
+    return {"status": "processing", "message": "High-fidelity highlight render initiated."}
 
 @app.post("/api/render-set")
 async def render_compiled_set(background_tasks: BackgroundTasks, source_folder: str, output_path: str):

@@ -36,8 +36,8 @@ def test_evaluate_track_fit_boundary():
     fits, _ = evaluate_track_fit(requested_bpm, current)
     assert fits is True
 
-    # Exactly 3.0 energy difference
-    requested_energy = {"id": "3", "bpm": 145.0, "energy": 6.0, "key": "9A"}
+    # Exactly 1.0 energy difference (matching tightened CONFIG)
+    requested_energy = {"id": "3", "bpm": 145.0, "energy": 8.0, "key": "9A"}
     fits, _ = evaluate_track_fit(requested_energy, current)
     assert fits is True
 

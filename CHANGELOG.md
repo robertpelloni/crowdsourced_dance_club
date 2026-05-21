@@ -1,42 +1,22 @@
-# Changelog
+# CHANGELOG
 
-## [0.1.5] - 2025-05-14
+## [0.1.7] - 2024-05-23
 ### Added
-- Refactored Web Client into a Mobile-First PWA Prototype with bottom navigation.
-- Implemented Energy Ramping logic (Rising/Falling/Stable energy trends).
-- Implemented Genre Compatibility Matrix for sophisticated vibe assessment.
-- Expanded track catalog in `init_db.py` to 11 tracks across multiple genres.
-- Added visual Energy Trend indicators to the UI.
+- Created `AUDIO_ENGINE_PROTOCOL.md` to define JSON communication for C++ integration.
+- Initialized `mobile/` directory with React Native / Expo scaffold.
+- Comprehensive documentation overhaul (`VISION.md`, `MEMORY.md`, `STRUCTURE.md`, `IDEAS.md`).
+- Synchronized all model instruction files (`CLAUDE.md`, `GEMINI.md`, etc.).
 
-## [0.1.4] - 2025-05-14
+## [0.1.6] - 2024-05-22
 ### Added
-- Implemented `playback_simulation_loop` for automatic track transitions.
-- Implemented "Vibe-Aware" weighted ranking (Votes + Compatibility).
-- Enhanced web client with progress bars and match percentage indicators.
-- Added `GET_VIBE_SCORE` and `VIBE_SCORE` WebSocket protocol messages.
+- Mobile-first PWA prototype with bottom navigation.
+- Hidden "Admin Mode" with 5-tap gesture activation.
+- `Playback Simulation` with auto-transition logic.
+- `/sync-qr` endpoint for venue onboarding.
+- Intelligent merge of `auto_dj_script` feature branches (v5.5, v5.7, v5.8).
 
-## [0.1.3] - 2025-05-14
-### Added
-- Implemented Harmonic Key Matching (Camelot Wheel).
-- Implemented User Voting System for queue reordering.
-- Developed web-based client prototype in `src/static/index.html`.
-- Integrated static file serving in FastAPI.
-
-## [0.1.2] - 2025-05-14
-### Added
-- Merged feature branches (v5.5.0, v5.7.0, v5.8.0) into `auto_dj_script` submodule.
-- Updated project roadmap and structure documentation.
-
-## [0.1.1] - 2025-05-14
-### Added
-- Integrated `auto_dj_script` as a git submodule.
-- Implemented Python FastAPI Conductor Server with WebSockets.
-- Implemented Algorithmic Vibe Check (BPM and Energy fit).
-- Implemented SQLite persistence for the track catalog.
-- Added comprehensive unit and integration tests.
-
-## [0.1.0] - 2025-05-14
-### Added
-- Initial project structure.
-- Comprehensive documentation: `AGENTS.md`, `VISION.md`, `MEMORY.md`, `ROADMAP.md`, `TODO.md`, `LLM_INSTRUCTIONS.md`, `CLAUDE.md`, `GEMINI.md`, `GPT.md`, `copilot-instructions.md`.
-- Centralized `VERSION.md`.
+## [0.1.0] - [0.1.5]
+- Initial Conductor Server setup.
+- WebSocket integration.
+- Harmonic Key and Vibe Fit algorithms.
+- SQLite persistence.

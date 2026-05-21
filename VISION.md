@@ -1,24 +1,15 @@
-# Project Vision: Crowdsourced Dance Club
+# VISION.md
 
 ## Ultimate Goal
-To build a collaborative, algorithmic club-night engine where users dynamically steer the musical direction via a mobile application.
+To create a "collaborative, algorithmic club-night engine" where dancers dynamically influence the music's direction via a smartphone app.
 
-## 3-Tier System Architecture
+## Key Design Principles
+1. **Interactive Democracy:** Users vote and request songs, but the AI Conductor ensures a cohesive "vibe" and harmonic flow.
+2. **Zero-Latency Mixing:** A dedicated C++ engine handles real-time time-stretching and DSP to prevent audio dropouts.
+3. **Harmonic Intelligence:** The system uses Camelot Wheel logic and energy profiling to select the best transitions.
+4. **Mobile Integration:** Venue-aware check-in (QR) and real-time state synchronization.
 
-### 1. Mobile Client App (React Native or Flutter)
-- **Workflow:** Users at the venue see the current track (artwork, BPM, key) and a voting queue.
-- **Action:** Browse curated catalog, submit requests, or vote on upcoming songs.
-- **Networking:** Persistent WebSocket connection for real-time updates.
-
-### 2. Python AI Conductor (The Gatekeeper Server)
-- **Role:** Brain of the operation.
-- **Function:** Hosts API endpoints, manages votes, runs "Theme & Fit" evaluation logic.
-- **Fit Algorithm:** Evaluates requests against the current track based on Harmonic Distance (Camelot Wheel ±1) and Energy Variance (±5% energy).
-
-### 3. Low-Latency Audio Engine (The Heavy Lifter)
-- **Role:** Real-time audio playback.
-- **Implementation:** C++ (JUCE, SuperCollider) or specialized Node.js/C++ pipeline.
-- **Function:** High-priority steady audio buffer, instant linear interpolation time-stretching, automated frequency filters for crossfading.
-
-## Offline Compilation Integration
-Uses `auto_dj_script` as a submodule for high-quality offline rendering of planned sets.
+## Architecture
+- **Layer 1: Mobile Clients** (React Native) - User interface for voting/requests.
+- **Layer 2: Python AI Conductor** (FastAPI) - The "brains" that evaluates fit and manages the queue.
+- **Layer 3: C++ Audio Engine** (JUCE/PortAudio) - The high-performance playback engine.

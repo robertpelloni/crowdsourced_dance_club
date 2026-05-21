@@ -1,6 +1,6 @@
-# 🌌 Crowdsourced Dance Club (v0.1.5)
+# 🌌 Crowdsourced Dance Club (v0.1.7)
 
-[![Version](https://img.shields.io/badge/version-0.1.5-blueviolet)](./VERSION.md)
+[![Version](https://img.shields.io/badge/version-0.1.7-blueviolet)](./VERSION.md)
 [![Status](https://img.shields.io/badge/status-active-success)](./ROADMAP.md)
 
 **Crowdsourced Dance Club** is a next-generation, real-time algorithmic club-night engine. It allows dancers to dynamically steer the musical direction of a venue via a mobile app, while a central "AI Conductor" ensures harmonic perfection and energetic flow.
@@ -18,7 +18,7 @@ The system is split into three distinct layers to ensure low-latency performance
 Every request is evaluated against the currently playing track:
 - **BPM Sync:** Maximum $\pm 5.0$ BPM delta to prevent extreme audio warping.
 - **Energy Flow:** Maximum $\pm 3.0$ energy variance to maintain the dancefloor vibe.
-- **Harmonic Key (Coming Soon):** Camelot Wheel step matching for transparent transitions.
+- **Harmonic Key:** Camelot Wheel step matching for transparent transitions.
 
 ## 🚀 Getting Started
 

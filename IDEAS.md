@@ -1,22 +1,14 @@
-# Improvements & Expansion Ideas
+# IDEAS.md
 
-## Conductor Server
-- **Harmonic Key Matching:** Implement full Camelot Wheel logic for smoother transitions.
-- **Dynamic Energy Scaling:** Adjust the allowed energy delta based on the time of night (e.g., more variance allowed during peak hours).
-- **User Reputation System:** Weight votes based on a user's history of "good" requests (songs that kept the floor moving).
-- **Genre Sub-tagging:** Add more granular tags (Full-on, Twilight, Progressive) to the fit algorithm.
-- **Auto-BPM Ramping:** Slowly adjust the room BPM to match the vibe without sudden jumps.
+## Algorithmic Enhancements
+- **Energy Derivative Voting:** If many users vote "Up" simultaneously, trigger an "Energy Peak" event that speeds up the BPM and shifts the energy trend to "Rising".
+- **Haptic Sync:** Use the mobile app's haptic motor to pulse on the beat (synchronized via server-side NTP-like protocol).
+- **Genre Heatmaps:** Show a visual map of the tracks currently in the catalog and their "fit" relative to the playing track.
 
-## Mobile Client
-- **Real-time Waveform Visualization:** Show the upcoming transition point.
-- **Collaborative Playlist Creation:** Allow users to propose "mini-sets" of 3-4 songs.
-- **Social Features:** "Like" current track, see who else is on the floor.
+## Infrastructure
+- **Peer-to-Peer Sync:** Explore using WebRTC for clients to sync state directly in case of spotty venue Wi-Fi.
+- **Auto-Gain Control:** Implement EBU R128 loudness normalization in the C++ engine.
 
-## Audio Engine
-- **Vibe-Responsive DSP:** Link high-pass filters or reverb to the aggregate "excitement" level of the crowd votes.
-- **AI-Driven Crossfading:** Use neural networks to find the optimal transition point between two tracks.
-- **Live Stream Integration:** Broadcast the mix to remote listeners with real-time metadata.
-
-## General
-- **Porting to Rust:** Consider rewriting the conductor logic in Rust for extreme performance and safety.
-- **Hardware Controller Integration:** Allow a physical DJ to "intervene" or supervise the AI decisions.
+## Social Features
+- **DJ Profiles:** Allow users to see who requested the current track (if opted-in).
+- **Vibe Badges:** Award users for requesting tracks that "save the dancefloor" (high fit score).
