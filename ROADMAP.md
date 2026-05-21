@@ -23,11 +23,14 @@
 - [x] Connect mobile client to Conductor Server via WebSockets.
 - [x] Implement song request and voting UI in Mobile App.
 
-## Phase 4: Real-Time Audio Engine
+## Phase 4: Real-Time Audio Engine (In Progress)
+- [x] Design Real-Time Audio Engine Protocol (`AUDIO_ENGINE_PROTOCOL.md`).
+- [x] Implement proactive `TRACK_SYNC` logic in Conductor.
+- [x] Create Mock Audio Engine for protocol verification (`src/mock_engine.py`).
 - [ ] Research and select C++ audio framework (JUCE/PortAudio).
 - [ ] Implement low-latency playback loop.
 - [ ] Implement real-time time-stretching and crossfading.
-- [ ] Integrate Audio Engine with Conductor Server using the Protocol.
+- [ ] Integrate C++ Audio Engine with Conductor Server.
 
 ## Phase 5: Polish & Deployment
 - [ ] Advanced "Fit" algorithms using machine learning.

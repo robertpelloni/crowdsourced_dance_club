@@ -82,11 +82,15 @@ class TrackState:
         self.target_bpm: float = 145.0
         # Target energy trend: "rising", "stable", or "falling"
         self.energy_trend: str = "stable"
+        # Peak mode status
+        self.is_peak_mode: bool = False
         # Upcoming tracks submitted and approved
         # Each entry is a dict: {"track": Dict, "votes": int}
         self.upcoming_queue: List[Dict] = []
         # List of active WebSocket connections
         self.connected_clients: List[WebSocket] = []
+        # History of vote timestamps for velocity calculation
+        self.vote_history: List[float] = []
 
 dj_state = TrackState()
 
@@ -243,11 +247,54 @@ def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool
 async def playback_simulation_loop():
     """
     Background task that simulates track progress and transitions.
+    Includes logic for Voting Velocity and Energy Peaks.
     """
     while True:
         now = time.time()
         remaining = dj_state.start_time + dj_state.duration - now
 
+        # 1. Calculate Voting Velocity (votes in the last 60 seconds)
+        dj_state.vote_history = [t for t in dj_state.vote_history if now - t < 60]
+        vote_velocity = len(dj_state.vote_history)
+
+        # 2. Trigger Energy Peak if velocity is high (> 5 votes/min for prototype)
+        if vote_velocity >= 5 and not dj_state.is_peak_mode:
+            dj_state.is_peak_mode = True
+            dj_state.energy_trend = "rising"
+            dj_state.target_bpm += 2.0
+            print(f"[SYSTEM] ENERGY PEAK DETECTED! Velocity: {vote_velocity} votes/min. Ramping up.")
+            await manager.broadcast_queue_update()
+        elif vote_velocity < 2 and dj_state.is_peak_mode:
+            dj_state.is_peak_mode = False
+            dj_state.energy_trend = "stable"
+            print(f"[SYSTEM] Peak energy subsiding. Velocity: {vote_velocity} votes/min.")
+            await manager.broadcast_queue_update()
+
+        # 3. Proactive TRACK_SYNC (15s before transition)
+        if 14.5 <= remaining <= 15.5:
+            if dj_state.upcoming_queue:
+                next_track = dj_state.upcoming_queue[0]["track"]
+                sync_payload = {
+                    "type": "TRACK_SYNC",
+                    "data": {
+                        "track_id": next_track["id"],
+                        "filepath": next_track.get("filepath", f"tracks/{next_track['id']}.flac"),
+                        "bpm": next_track["bpm"],
+                        "key": next_track["key"],
+                        "energy": next_track["energy"],
+                        "transition_timestamp": dj_state.start_time + dj_state.duration,
+                        "crossfade_duration": 15.0
+                    }
+                }
+                # Broadcast to all clients (including the future C++ Engine)
+                for client in dj_state.connected_clients:
+                    try:
+                        await client.send_json(sync_payload)
+                    except:
+                        pass
+                print(f"[SYSTEM] Proactive TRACK_SYNC sent for: {next_track['title']}")
+
+        # 4. Handle Transitions
         if remaining <= 0:
             # Transition to next track
             if dj_state.upcoming_queue:
@@ -363,6 +410,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 for item in dj_state.upcoming_queue:
                     if item["track"]["id"] == track_id:
                         item["votes"] += 1
+                        dj_state.vote_history.append(time.time())
                         found = True
                         break
 
@@ -426,16 +474,31 @@ def run_offline_compiler_worker(track_ids: List[str], output_path: str, bpm: flo
         sys.path.append(submodule_path)
 
     try:
-        # Resolve track paths from IDs
-        tracks = [TRACK_CATALOG.get(tid) for tid in track_ids if tid in TRACK_CATALOG]
-        # In a real environment, we'd copy these to a temp folder for the compiler
-        print(f"[AUTO-DJ] Simulating render for: {[t['title'] for t in tracks]}")
+        from autodj.core import compile_master_set
 
-        # Placeholder for actual compilation call
-        # from autodj.core import compile_master_set
-        # compile_master_set(args, ...)
+        # Create a mock args object for the submodule
+        class Args:
+            def __init__(self, input_dir, output_file, target_bpm):
+                self.input = input_dir
+                self.output = output_file
+                self.bpm = target_bpm
+                self.end_bpm = target_bpm
+                self.beats_per_bar = 4
+                self.transition_bars = 8
+                self.lowpass = 500
+                self.highpass = 1500
+                self.archetype = 'auto'
 
-        time.sleep(5) # Simulate processing
+        # In a real scenario, we'd copy the specific files to a temporary directory
+        # For this implementation, we assume track files are in a standard location
+        input_dir = "tracks/"
+        if not os.path.exists(input_dir):
+            os.makedirs(input_dir)
+
+        args = Args(input_dir, output_path, bpm)
+
+        print(f"[AUTO-DJ] Starting high-fidelity render to: {output_path}")
+        compile_master_set(args)
         print(f"[AUTO-DJ] Render complete: {output_path}")
 
     except Exception as e:

@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [0.1.9] - 2024-05-23
+### Added
+- Implemented **Voting Velocity** tracking and **Energy Peaks** in the Conductor.
+- Implemented proactive **TRACK_SYNC** broadcasting (15s before transitions).
+- Wired offline rendering to the actual `auto_dj_script` submodule core.
+- Created `src/mock_engine.py` for protocol verification.
+- Integrated automated energy trend shifting based on crowd engagement.
+
 ## [0.1.8] - 2024-05-23
 ### Added
 - Created `LIBRARIES.md` with detailed dependency analysis.

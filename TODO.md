@@ -24,6 +24,8 @@
 - [x] Implement Haptic Feedback on transitions.
 
 ## Phase 4: Real-Time Audio Engine
+- [x] Implement proactive `TRACK_SYNC` broadcasting.
+- [x] Create `src/mock_engine.py` for testing.
 - [ ] Research and select C++ audio framework (JUCE/PortAudio).
 - [ ] Implement low-latency playback loop.
 
