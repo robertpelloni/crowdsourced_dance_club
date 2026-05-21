@@ -40,6 +40,10 @@
 - [x] Implement haptic beat synchronization (Mobile).
 - [x] Implement Mobile QR Sync for venue onboarding.
 - [x] Implement Highlight Rendering trigger from mobile.
+- [x] Implement Energy Derivative detection (Surge control).
+- [x] Implement real-time DSP Filter Sweeps (C++).
+- [x] Implement real-time peak limiting (C++).
+- [x] Implement Genre Archetype evolution.
 - [ ] Integrate C++ Audio Engine with Conductor Server state machine.
 
 ## Phase 5: Polish & Deployment

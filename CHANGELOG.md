@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## [0.2.8] - 2024-05-23
+### Added
+- Implemented **Genre Archetype Evolution** in the Conductor.
+- Implemented **Audio Peak Limiting** (Soft Clipper) in the C++ engine.
+- Added **Animated Vibe Visualizer** (Vibe Orb) to the mobile app.
+- Implemented **Session Leaderboard** synchronization.
+- Enhanced **Highlight Render Worker** with isolated file logic.
+
+## [0.2.7] - 2024-05-23
+### Added
+- Implemented **Energy Derivative Logic** to detect sudden surges in crowd voting.
+- Implemented **DSP Intensify (HPF Sweeps)** in the C++ Audio Engine.
+- Added **Session Leaderboard** to Conductor and Mobile app.
+- Created exhaustive **LLM_INSTRUCTIONS.md** with architectural mandates.
+- Enhanced C++ engine with automated filter sweep processing.
+
 ## [0.2.6] - 2024-05-23
 ### Added
 - Implemented **Mobile QR Sync** using `BarCodeScanner` for dynamic venue connection.

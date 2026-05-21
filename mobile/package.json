@@ -1,6 +1,6 @@
 {
   "name": "algorithmic-dj-mobile",
-  "version": "0.2.6",
+  "version": "0.2.8",
   "main": "app/App.js",
   "scripts": {
     "start": "expo start",

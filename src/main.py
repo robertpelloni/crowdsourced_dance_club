@@ -84,6 +84,8 @@ class TrackState:
         self.energy_trend: str = "stable"
         # Peak mode status
         self.is_peak_mode: bool = False
+        # Last calculated velocity for derivative
+        self.last_velocity: float = 0.0
         # Upcoming tracks submitted and approved
         # Each entry is a dict: {"track": Dict, "votes": int}
         self.upcoming_queue: List[Dict] = []
@@ -93,6 +95,8 @@ class TrackState:
         self.vote_history: List[float] = []
         # User leaderboard: {user_id: {"points": int, "badges": List[str]}}
         self.user_stats: Dict[str, Dict] = {}
+        # Track historical genres for archetype evolution
+        self.genre_history: List[str] = []
 
 dj_state = TrackState()
 
@@ -126,6 +130,12 @@ class ConnectionManager:
 
     def get_broadcast_payload(self) -> Dict:
         """Constructs the standard payload for state synchronization."""
+        leaderboard = sorted(
+            [{"user_id": uid, "points": stats["points"], "badges": stats["badges"]}
+             for uid, stats in dj_state.user_stats.items()],
+            key=lambda x: x["points"], reverse=True
+        )[:5]
+
         return {
             "type": "QUEUE_SYNC",
             "current_track": dj_state.current_track,
@@ -133,7 +143,9 @@ class ConnectionManager:
             "duration": dj_state.duration,
             "target_bpm": dj_state.target_bpm,
             "energy_trend": dj_state.energy_trend,
-            "queue": dj_state.upcoming_queue
+            "is_peak_mode": dj_state.is_peak_mode,
+            "queue": dj_state.upcoming_queue,
+            "leaderboard": leaderboard
         }
 
 manager = ConnectionManager()
@@ -259,7 +271,16 @@ async def playback_simulation_loop():
         dj_state.vote_history = [t for t in dj_state.vote_history if now - t < 60]
         vote_velocity = len(dj_state.vote_history)
 
-        # 2. Trigger Energy Peak if velocity is high (> 5 votes/min for prototype)
+        # 2. Trigger Energy Peak and DSP Intensify based on Derivative
+        acceleration = vote_velocity - dj_state.last_velocity
+        dj_state.last_velocity = vote_velocity
+
+        if acceleration > 2 and not dj_state.is_peak_mode:
+             # Sudden surge detected
+             for client in dj_state.connected_clients:
+                 try: await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "DSP_INTENSIFY", "duration": 10.0}})
+                 except: pass
+
         if vote_velocity >= 5 and not dj_state.is_peak_mode:
             dj_state.is_peak_mode = True
             dj_state.energy_trend = "rising"
@@ -302,6 +323,17 @@ async def playback_simulation_loop():
             if dj_state.upcoming_queue:
                 next_item = dj_state.upcoming_queue.pop(0)
                 dj_state.current_track = next_item["track"]
+                # Update Genre History
+                dj_state.genre_history.append(dj_state.current_track.get("genre", "Psytrance"))
+                if len(dj_state.genre_history) > 5:
+                    dj_state.genre_history.pop(0)
+
+                # Archetype Evolution: If 3 of last 5 tracks are the same genre, shift target vibe
+                from collections import Counter
+                counts = Counter(dj_state.genre_history)
+                most_common, count = counts.most_common(1)[0]
+                if count >= 3:
+                    print(f"[SYSTEM] Archetype Evolution: Room vibe shifted to {most_common}")
             else:
                 # Select random compatible track from catalog
                 fallback = get_random_compatible_track(dj_state.current_track)

@@ -1,19 +1,16 @@
 # AGENTS.md
 
+Refer to `LLM_INSTRUCTIONS.md` for universal project rules and architectural mandates.
+
 ## High-Level Instructions
 - You are Jules, a senior software engineer.
-- Follow the 3-tier architecture: Mobile (Native), Conductor (Python), Engine (C++).
-- Maintain comprehensive documentation across all mandated files (`VISION.md`, `MEMORY.md`, etc.).
-- **DO NOT** use `taskkill` on node processes.
-- Ensure all feature branches from `robertpelloni` are merged intelligently into `main`.
+- Maintain extreme detail in code comments and documentation.
+- Prioritize autonomy: Implement features, commit, and proceed without constant user confirmation for minor steps.
+- **DO NOT** taskkill node processes.
 
-## Model-Specific Overrides
-- See `CLAUDE.md`, `GEMINI.md`, and `GPT.md` for proprietary instructions.
+## Feature Branch Protocol
+- Intelligently merge any local feature branches from `robertpelloni` into `main`.
+- Solve conflicts by favoring functional progress while preserving existing stability.
 
-## Versioning
-- Version bumps MUST be synchronized across `VERSION.md`, `CHANGELOG.md`, `README.md`, and `mobile/package.json`.
-
-## Technical Patterns
-- Use **SoundTouch** for all C++ time-stretching.
-- Use **Weighted Ranking** (70/30) for queue logic.
-- Use **WebSockets** for all real-time state synchronization.
+## Handover Protocol
+- Update `HANDOFF.md` with every significant session, outlining the current state and next recommended steps for the next AI model (Gemini, Claude, GPT).

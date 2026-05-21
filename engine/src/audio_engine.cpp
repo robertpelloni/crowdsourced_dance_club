@@ -9,6 +9,8 @@ AudioEngine::AudioEngine() : stream(nullptr), running(false),
                              is_transitioning(false), transition_progress(0.0),
                              transition_duration_frames(44100.0 * 15.0),
                              transition_timestamp(0.0),
+                             is_intensifying(false), intensify_progress(0.0),
+                             intensify_duration_frames(44100.0 * 10.0),
                              target_bpm(145.0), last_state_time_ms(0) {
 
     st_current.setSampleRate(44100);
@@ -16,6 +18,9 @@ AudioEngine::AudioEngine() : stream(nullptr), running(false),
 
     st_next.setSampleRate(44100);
     st_next.setChannels(2);
+
+    hpf_l.set_cutoff(20.0f, 44100.0f);
+    hpf_r.set_cutoff(20.0f, 44100.0f);
 }
 
 AudioEngine::~AudioEngine() {
@@ -95,7 +100,6 @@ void AudioEngine::handle_track_sync(const json& data) {
         transition_timestamp = timestamp;
         update_tempo();
         st_next.clear();
-        std::cout << "[AUDIO] Prepared transition at " << timestamp << std::endl;
     }
 }
 
@@ -108,10 +112,16 @@ void AudioEngine::handle_master_control(const json& data) {
         if (next_buffer.loaded) {
             is_transitioning = true;
             transition_progress = 0.0;
-            // Shorten transition for manual skip: 2 seconds
             transition_duration_frames = 44100.0 * 2.0;
             std::cout << "[AUDIO] >>> MANUAL SKIP INITIATED <<<" << std::endl;
         }
+    }
+    if (data.contains("action") && data["action"] == "DSP_INTENSIFY") {
+        is_intensifying = true;
+        intensify_progress = 0.0;
+        double duration = data.value("duration", 10.0);
+        intensify_duration_frames = 44100.0 * duration;
+        std::cout << "[AUDIO] >>> DSP INTENSIFY: HPF SWEEP START <<<" << std::endl;
     }
 }
 
@@ -153,11 +163,9 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
     auto now_s = (double)std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count() / 1000000.0;
 
-    // Check for transition start
     if (!self->is_transitioning && self->next_buffer.loaded && self->transition_timestamp > 0 && now_s >= self->transition_timestamp) {
         self->is_transitioning = true;
         self->transition_progress = 0.0;
-        std::cout << "[AUDIO] >>> TRIGGERING TRANSITION <<<" << std::endl;
     }
 
     static float stretched_curr[4096];
@@ -165,7 +173,6 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
     int samples_received_curr = 0;
     int samples_received_next = 0;
 
-    // 1. Current Buffer Processing
     if (self->current_buffer.loaded && self->current_buffer.position < self->current_buffer.frames) {
         if (self->st_current.numSamples() < framesPerBuffer) {
             int samples_to_feed = std::min((int)(self->current_buffer.frames - self->current_buffer.position), 512);
@@ -175,7 +182,6 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
     }
     samples_received_curr = self->st_current.receiveSamples(stretched_curr, framesPerBuffer);
 
-    // 2. Next Buffer Processing (if transitioning)
     if (self->is_transitioning && self->next_buffer.loaded && self->next_buffer.position < self->next_buffer.frames) {
         if (self->st_next.numSamples() < framesPerBuffer) {
             int samples_to_feed = std::min((int)(self->next_buffer.frames - self->next_buffer.position), 512);
@@ -185,7 +191,6 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
         samples_received_next = self->st_next.receiveSamples(stretched_next, framesPerBuffer);
     }
 
-    // 3. Mix Output
     for (unsigned int i = 0; i < framesPerBuffer; i++) {
         float left = 0.0f;
         float right = 0.0f;
@@ -197,14 +202,39 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
             left += stretched_curr[i * 2] * gain_curr;
             right += stretched_curr[i * 2 + 1] * gain_curr;
         }
-
         if (self->is_transitioning && i < (unsigned int)samples_received_next) {
             left += stretched_next[i * 2] * gain_next;
             right += stretched_next[i * 2 + 1] * gain_next;
         }
 
-        *out++ = left;
-        *out++ = right;
+        // Apply HPF Sweep
+        if (self->is_intensifying) {
+            float phase = self->intensify_progress;
+            // Sweep from 20Hz up to 2000Hz and back down
+            float cutoff = 20.0f + 1980.0f * (1.0f - std::abs(2.0f * phase - 1.0f));
+            self->hpf_l.set_cutoff(cutoff, 44100.0f);
+            self->hpf_r.set_cutoff(cutoff, 44100.0f);
+
+            left = self->hpf_l.process(left);
+            right = self->hpf_r.process(right);
+
+            self->intensify_progress = self->intensify_progress + (1.0 / self->intensify_duration_frames);
+            if (self->intensify_progress >= 1.0) {
+                self->is_intensifying = false;
+                self->hpf_l.set_cutoff(20.0f, 44100.0f);
+                self->hpf_r.set_cutoff(20.0f, 44100.0f);
+            }
+        }
+
+        // 4. Peak Limiting (Simple Soft Clipper)
+        auto soft_clip = [](float x) {
+            if (x > 1.0f) return 1.0f;
+            if (x < -1.0f) return -1.0f;
+            return x;
+        };
+
+        *out++ = soft_clip(left);
+        *out++ = soft_clip(right);
 
         if (self->is_transitioning) {
             self->transition_progress = self->transition_progress + (1.0 / self->transition_duration_frames);
@@ -215,7 +245,6 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
                 self->current_buffer = std::move(self->next_buffer);
                 self->next_buffer.loaded = false;
                 self->st_current.clear();
-                // Reset duration for future transitions
                 self->transition_duration_frames = 44100.0 * 15.0;
             }
         }

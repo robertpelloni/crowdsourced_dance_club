@@ -36,6 +36,10 @@
 - [x] Implement Vibe Badge gamification.
 - [x] Implement Mobile QR Sync scanner.
 - [x] Refine Conductor highlight worker with temporary directories.
+- [x] Implement Energy Derivative voting acceleration.
+- [x] Implement real-time HPF sweeps in C++.
+- [x] Implement audio soft-clipper in C++.
+- [x] Implement animated Vibe Visualizer in mobile app.
 - [ ] Refine SoundTouch buffer management (FIFO logic).
 
 ## Bug Fixes

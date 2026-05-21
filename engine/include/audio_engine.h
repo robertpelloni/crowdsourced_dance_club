@@ -12,6 +12,28 @@
 
 using json = nlohmann::json;
 
+// Simple One-pole High-Pass Filter for real-time sweeps
+struct HighPassFilter {
+    float last_in;
+    float last_out;
+    float alpha;
+
+    HighPassFilter() : last_in(0), last_out(0), alpha(0) {}
+
+    void set_cutoff(float cutoff, float sample_rate) {
+        float rc = 1.0f / (2.0f * M_PI * cutoff);
+        float dt = 1.0f / sample_rate;
+        alpha = rc / (rc + dt);
+    }
+
+    float process(float in) {
+        float out = alpha * (last_out + in - last_in);
+        last_in = in;
+        last_out = out;
+        return out;
+    }
+};
+
 struct AudioBuffer {
     std::vector<float> data;
     sf_count_t frames;
@@ -77,11 +99,17 @@ private:
     std::atomic<bool> is_transitioning;
     std::atomic<double> transition_progress;
     double transition_duration_frames;
-    std::atomic<double> transition_timestamp; // Epoch seconds
+    std::atomic<double> transition_timestamp;
+
+    std::atomic<bool> is_intensifying;
+    std::atomic<double> intensify_progress;
+    double intensify_duration_frames;
+
+    HighPassFilter hpf_l;
+    HighPassFilter hpf_r;
 
     std::atomic<double> target_bpm;
 
-    // Internal timing
     uint64_t last_state_time_ms;
 };
 

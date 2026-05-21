@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions, TextInput } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions, TextInput, Animated } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { BarCodeScanner } from 'expo-barcode-scanner';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState('dance'); // 'dance', 'request', 'profile', 'sync'
+  const [currentView, setCurrentView] = useState('dance');
   const [currentTrack, setCurrentTrack] = useState(null);
   const [queue, setQueue] = useState([]);
   const [catalog, setCatalog] = useState([]);
@@ -15,14 +15,15 @@ export default function App() {
   const [isPeakMode, setIsPeakMode] = useState(false);
   const [targetBPM, setTargetBPM] = useState(145.0);
   const [vibeStats, setVibeStats] = useState({ points: 0, badges: [] });
+  const [leaderboard, setLeaderboard] = useState([]);
 
-  // Dynamic Networking (Syncable)
   const [serverUrl, setServerUrl] = useState('localhost:8000');
   const [hasPermission, setHasPermission] = useState(null);
   const [scanned, setScanned] = useState(false);
 
   const ws = useRef(null);
   const hapticTimer = useRef(null);
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const API_URL = `http://${serverUrl}`;
   const WS_URL = `ws://${serverUrl}/ws/clubgoer`;
@@ -47,6 +48,11 @@ export default function App() {
         hapticTimer.current = setInterval(() => {
             if (isPeakMode) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
             else Haptics.selectionAsync();
+
+            Animated.sequence([
+                Animated.timing(pulseAnim, { toValue: 1.2, duration: 100, useNativeDriver: true }),
+                Animated.timing(pulseAnim, { toValue: 1, duration: 100, useNativeDriver: true })
+            ]).start();
         }, beatInterval);
     }
   }, [targetBPM, connected, !!currentTrack, isPeakMode]);
@@ -69,6 +75,7 @@ export default function App() {
         setEnergyTrend(data.energy_trend || 'stable');
         setIsPeakMode(data.is_peak_mode || false);
         setTargetBPM(data.target_bpm || 145.0);
+        setLeaderboard(data.leaderboard || []);
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } else if (data.type === 'REQUEST_ACCEPTED' || data.type === 'REQUEST_DENIED' || data.type === 'ERROR') {
         if (data.user_stats) setVibeStats(data.user_stats);
@@ -95,7 +102,6 @@ export default function App() {
     try {
         const syncData = JSON.parse(data);
         if (syncData.conductor_url) {
-            // strip http:// if present
             const host = syncData.conductor_url.replace('http://', '').replace('https://', '');
             setServerUrl(host);
             setCurrentView('dance');
@@ -112,7 +118,7 @@ export default function App() {
         const response = await fetch(`${API_URL}/api/render-highlights`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(["track_001", "track_002"]) // Placeholder list
+            body: JSON.stringify(["track_001", "track_002"])
         });
         const data = await response.json();
         alert(data.message);
@@ -162,6 +168,10 @@ export default function App() {
 
   const renderDanceView = () => (
     <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.visualizerContainer}>
+            <Animated.View style={[styles.vibeOrb, { transform: [{ scale: pulseAnim }], backgroundColor: isPeakMode ? '#ff0000' : '#a020f0' }]} />
+        </View>
+
         {renderEnergyMeter()}
         {currentTrack && (
           <View style={styles.nowPlayingCard}>
@@ -249,6 +259,16 @@ export default function App() {
                 <View key={b} style={styles.badgeItem}>
                     <Text style={styles.badgeIcon}>🏅</Text>
                     <Text style={styles.badgeName}>{b}</Text>
+                </View>
+            ))}
+        </View>
+
+        <Text style={styles.sectionLabel}>TOP DANCERS (LEADERBOARD)</Text>
+        <View style={{marginTop: 10}}>
+            {leaderboard.map((u, i) => (
+                <View key={u.user_id + i} style={styles.leaderboardItem}>
+                    <Text style={styles.navTextActive}>{i+1}. {u.user_id}</Text>
+                    <Text style={styles.matchText}>{u.points} PTS</Text>
                 </View>
             ))}
         </View>
@@ -347,7 +367,10 @@ const styles = StyleSheet.create({
   badgeItem: { backgroundColor: '#111', padding: 15, borderRadius: 10, alignItems: 'center', width: (Dimensions.get('window').width - 60) / 2 },
   badgeIcon: { fontSize: 32, marginBottom: 5 },
   badgeName: { color: '#fff', fontSize: 10, fontWeight: 'bold', textAlign: 'center' },
+  leaderboardItem: { flexDirection: 'row', justifyContent: 'space-between', padding: 10, borderBottomWidth: 1, borderBottomColor: '#111' },
   actionBtn: { backgroundColor: 'rgba(0,255,204,0.1)', padding: 15, borderRadius: 10, marginBottom: 20, borderWidth: 1, borderColor: '#00ffcc' },
   actionBtnText: { color: '#00ffcc', fontWeight: 'bold', textAlign: 'center' },
-  closeSync: { position: 'absolute', bottom: 40, alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.1)', padding: 20, borderRadius: 10 }
+  closeSync: { position: 'absolute', bottom: 40, alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.1)', padding: 20, borderRadius: 10 },
+  visualizerContainer: { height: 100, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
+  vibeOrb: { width: 50, height: 50, borderRadius: 25, shadowColor: '#fff', shadowRadius: 20, shadowOpacity: 0.5, elevation: 10 }
 });

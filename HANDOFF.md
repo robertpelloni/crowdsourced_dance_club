@@ -1,10 +1,10 @@
 # HANDOFF.md
 
 ## Current State
-- **Version:** 0.2.6
-- **Conductor Server:** Stable. Supports isolated highlight rendering and QR-sync metadata.
-- **Audio Engine:** Implements real-time SoundTouch processing and timestamp-based transitions.
-- **Mobile App:** Features integrated QR Sync, Dynamic Haptic Rhythms, and remote highlight generation.
+- **Version:** 0.2.8
+- **Conductor Server:** Stable. Supports **Genre Archetype Evolution** and automated vibe shifting.
+- **Audio Engine:** Implements real-time **Peak Limiting** (Soft Clipper) and HPF sweeps.
+- **Mobile App:** Features **Animated Vibe Visualizer** (Pulse Orb) and full Browse/Request system.
 - **PWA:** Functional prototype for testing and admin control.
 - **Native App:** Fully implemented feature parity with PWA in `mobile/app/App.js`, including WebSocket sync and haptics.
 - **Submodule:** `external/auto_dj_script` is up-to-date with merged feature branches.
