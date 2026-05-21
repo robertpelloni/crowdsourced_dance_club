@@ -28,7 +28,9 @@
 - [x] Create `src/mock_engine.py` for testing.
 - [x] Initialize C++ `engine/` repository.
 - [x] Implement PortAudio callback and libwebsockets client.
-- [ ] Implement real-time time-stretching and crossfading.
+- [x] Integrate SoundTouch for real-time time-stretching.
+- [x] Implement Playback State heartbeat reporting.
+- [ ] Refine SoundTouch buffer management in callback.
 
 ## Bug Fixes
 - None identified.

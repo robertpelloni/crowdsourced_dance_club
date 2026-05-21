@@ -1,9 +1,9 @@
 # HANDOFF.md
 
 ## Current State
-- **Version:** 0.2.0
+- **Version:** 0.2.2
 - **Conductor Server:** Stable. Supports Voting Velocity, Energy Peaks, and Proactive TRACK_SYNC.
-- **Audio Engine:** Initialized in C++. High-priority PortAudio loop and libwebsockets client implemented.
+- **Audio Engine:** Integrated SoundTouch for real-time tempo shifting; implements PLAYBACK_STATE reporting. Supports file loading via libsndfile and dual-buffering.
 - **PWA:** Functional prototype for testing and admin control.
 - **Native App:** Fully implemented feature parity with PWA in `mobile/app/App.js`, including WebSocket sync and haptics.
 - **Submodule:** `external/auto_dj_script` is up-to-date with merged feature branches.

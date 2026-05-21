@@ -33,6 +33,7 @@ This document lists all major libraries used in the project, their versions (whe
 | **PortAudio** | Audio I/O | Cross-platform, low-latency API for real-time audio playback. |
 | **libwebsockets** | Networking | Lightweight, high-performance C library for WebSocket client/server communication. |
 | **nlohmann/json** | Data Handling | Header-only JSON library for C++. Easy to integrate and used for protocol parsing. |
+| **SoundTouch** | DSP/Tempo | Optimized C++ library for real-time tempo and pitch shifting without changing each other. |
 
 ## Tier 1: Mobile App (Initialized)
 

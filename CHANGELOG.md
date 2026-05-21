@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [0.2.2] - 2024-05-23
+### Added
+- Integrated **SoundTouch** library for real-time time-stretching in the C++ engine.
+- Implemented **Master BPM Sync** protocol (`MASTER_CONTROL`).
+- Implemented **Playback State Heartbeat** (500ms) from engine to Conductor.
+- Automated tempo adjustment based on server-side target BPM.
+
 ## [0.2.0] - 2024-05-23
 ### Added
 - **Major Milestone:** Initialized the C++ Real-Time Audio Engine (`cdc_engine`).

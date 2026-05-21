@@ -30,8 +30,10 @@
 - [x] Select C++ audio framework (**PortAudio**) and Networking (**libwebsockets**).
 - [x] Implement initial high-priority playback loop in C++.
 - [x] Implement C++ WebSocket Client for real-time Conductor sync.
-- [ ] Implement real-time time-stretching and crossfading (C++).
-- [ ] Integrate C++ Audio Engine with Conductor Server.
+- [x] Implement real-time file loading and dual-buffering (C++).
+- [x] Implement real-time time-stretching (C++) via SoundTouch.
+- [x] Implement Playback State reporting protocol.
+- [ ] Integrate C++ Audio Engine with Conductor Server state machine.
 
 ## Phase 5: Polish & Deployment
 - [ ] Advanced "Fit" algorithms using machine learning.

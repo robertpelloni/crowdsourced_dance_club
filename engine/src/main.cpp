@@ -30,10 +30,12 @@ static int callback_dj_conductor(struct lws *wsi, enum lws_callback_reasons reas
             try {
                 std::string msg((char *)in, len);
                 json data = json::parse(msg);
-                lwsl_user("Received: %s\n", msg.c_str());
+                // lwsl_user("Received: %s\n", msg.c_str());
 
                 if (data["type"] == "TRACK_SYNC") {
                     engine.handle_track_sync(data["data"]);
+                } else if (data["type"] == "MASTER_CONTROL") {
+                    engine.handle_master_control(data["data"]);
                 }
             } catch (std::exception &e) {
                 lwsl_err("JSON Parse Error: %s\n", e.what());
@@ -67,7 +69,6 @@ int main(int argc, char **argv)
     struct lws_context_creation_info info;
     struct lws_client_connect_info ccinfo;
     struct lws_context *context;
-    const char *p;
     int n = 0;
 
     signal(SIGINT, sigint_handler);
@@ -103,7 +104,10 @@ int main(int argc, char **argv)
     engine.start();
 
     while (n >= 0 && !interrupted) {
-        n = lws_service(context, 0);
+        n = lws_service(context, 50);
+        if (client_wsi) {
+            engine.send_playback_state(client_wsi);
+        }
     }
 
     engine.stop();
