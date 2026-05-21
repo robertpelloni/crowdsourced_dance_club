@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [0.1.8] - 2024-05-23
+### Added
+- Created `LIBRARIES.md` with detailed dependency analysis.
+- Fully implemented React Native mobile app with WebSocket sync and haptics in `mobile/app/App.js`.
+- Mirroring of PWA functionality (Now Playing, Queue, Voting) in native UI.
+- Version bump to 0.1.8 and synchronized all project references.
+
 ## [0.1.7] - 2024-05-23
 ### Added
 - Created `AUDIO_ENGINE_PROTOCOL.md` to define JSON communication for C++ integration.

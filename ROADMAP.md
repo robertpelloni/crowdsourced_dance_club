@@ -15,13 +15,13 @@
 - [x] Implement "Vibe-Aware" Weighted Ranking.
 - [x] Implement Energy Ramping & Genre Compatibility Matrix.
 
-## Phase 3: Official Mobile Client & Hardware Integration (In Progress)
+## Phase 3: Official Mobile Client & Hardware Integration (Completed)
 - [x] Implement "DJ Control Panel" (Admin Mode) in PWA.
 - [x] Implement QR Code check-in API (/sync-qr).
 - [x] Initialize React Native / Expo Mobile App.
 - [x] Design Real-Time Audio Engine Protocol (`AUDIO_ENGINE_PROTOCOL.md`).
-- [ ] Connect mobile client to Conductor Server via WebSockets.
-- [ ] Implement song request and voting UI in Mobile App.
+- [x] Connect mobile client to Conductor Server via WebSockets.
+- [x] Implement song request and voting UI in Mobile App.
 
 ## Phase 4: Real-Time Audio Engine
 - [ ] Research and select C++ audio framework (JUCE/PortAudio).
