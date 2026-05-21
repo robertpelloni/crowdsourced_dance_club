@@ -30,7 +30,8 @@
 - [x] Implement PortAudio callback and libwebsockets client.
 - [x] Integrate SoundTouch for real-time time-stretching.
 - [x] Implement Playback State heartbeat reporting.
-- [ ] Refine SoundTouch buffer management in callback.
+- [x] Implement real-time SoundTouch sample processing.
+- [ ] Refine SoundTouch buffer management (FIFO logic).
 
 ## Bug Fixes
 - None identified.

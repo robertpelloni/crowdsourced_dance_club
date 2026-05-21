@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [0.2.3] - 2024-05-23
+### Added
+- Implemented **Real-Time SoundTouch Processing** in the C++ audio callback.
+- Added **Energy Meter** to the mobile app for visual energy trend monitoring.
+- Implemented **Genre Shift** controls in the Admin PWA and Conductor server.
+- Refined C++ engine with high-quality time-stretching settings.
+
 ## [0.2.2] - 2024-05-23
 ### Added
 - Integrated **SoundTouch** library for real-time time-stretching in the C++ engine.

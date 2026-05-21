@@ -2,13 +2,15 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
-const SERVER_URL = 'ws://localhost:8000/ws/clubgoer'; // Update to venue IP in production
+const SERVER_URL = 'ws://localhost:8000/ws/clubgoer';
 
 export default function App() {
   const [currentTrack, setCurrentTrack] = useState(null);
   const [queue, setQueue] = useState([]);
   const [connected, setConnected] = useState(false);
   const [playbackPos, setPlaybackPos] = useState(0);
+  const [energyTrend, setEnergyTrend] = useState('stable');
+  const [isPeakMode, setIsPeakMode] = useState(false);
   const ws = useRef(null);
 
   useEffect(() => {
@@ -30,15 +32,16 @@ export default function App() {
         setCurrentTrack(data.current_track);
         setQueue(data.queue);
         setPlaybackPos(data.playback_position || 0);
+        setEnergyTrend(data.energy_trend || 'stable');
+        setIsPeakMode(data.is_peak_mode || false);
 
-        // Haptic pulse on major queue updates
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       }
     };
 
     ws.current.onclose = () => {
       setConnected(false);
-      setTimeout(connect, 3000); // Auto-reconnect
+      setTimeout(connect, 3000);
     };
   };
 
@@ -62,18 +65,35 @@ export default function App() {
     );
   };
 
+  const renderEnergyMeter = () => {
+    const energyLevel = isPeakMode ? 100 : (energyTrend === 'rising' ? 70 : (energyTrend === 'falling' ? 30 : 50));
+    const color = isPeakMode ? '#ff0000' : (energyTrend === 'rising' ? '#ffaa00' : (energyTrend === 'falling' ? '#00ccff' : '#ffffff'));
+
+    return (
+      <View style={styles.energyMeterContainer}>
+        <Text style={styles.sectionLabel}>ENERGY METER</Text>
+        <View style={styles.meterBase}>
+          <View style={[styles.meterFill, { width: `${energyLevel}%`, backgroundColor: color }]} />
+        </View>
+        <Text style={[styles.energyStatus, { color: color }]}>
+          {isPeakMode ? '🔥 PEAK MODE ACTIVE' : energyTrend.toUpperCase()}
+        </Text>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
 
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>ALGORYTHM</Text>
         <View style={[styles.statusDot, { backgroundColor: connected ? '#00ff00' : '#ff0000' }]} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Now Playing */}
+        {renderEnergyMeter()}
+
         {currentTrack && (
           <View style={styles.nowPlayingCard}>
             <Text style={styles.sectionLabel}>NOW PLAYING</Text>
@@ -82,23 +102,22 @@ export default function App() {
             {renderProgressBar()}
             <View style={styles.metaRow}>
               <Text style={styles.metaText}>{currentTrack.bpm} BPM</Text>
-              <Text style={styles.metaText}>{currentTrack.key}</Text>
+              <Text style={styles.metaText}>{currentTrack.key} ({currentTrack.genre})</Text>
             </View>
           </View>
         )}
 
-        {/* Upcoming Queue */}
         <Text style={styles.sectionLabel}>UPCOMING VIBE</Text>
         {queue.map((track, index) => (
           <TouchableOpacity
-            key={track.track_id + index}
+            key={track.track.id + index}
             style={styles.queueItem}
-            onPress={() => castVote(track.track_id)}
+            onPress={() => castVote(track.track.id)}
           >
             <View style={styles.queueInfo}>
-              <Text style={styles.queueTitle}>{track.title}</Text>
-              <Text style={styles.queueArtist}>{track.artist}</Text>
-              <Text style={styles.matchText}>{Math.round(track.fit_score * 100)}% MATCH</Text>
+              <Text style={styles.queueTitle}>{track.track.title}</Text>
+              <Text style={styles.queueArtist}>{track.track.artist}</Text>
+              <Text style={styles.matchText}>{track.track.genre} • {track.track.key}</Text>
             </View>
             <View style={styles.voteContainer}>
               <Text style={styles.voteCount}>{track.votes || 0}</Text>
@@ -108,7 +127,6 @@ export default function App() {
         ))}
       </ScrollView>
 
-      {/* Bottom Nav Placeholder */}
       <View style={styles.bottomNav}>
         <Text style={styles.navTextActive}>DANCE</Text>
         <Text style={styles.navText}>REQUEST</Text>
@@ -144,6 +162,26 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
+  },
+  energyMeterContainer: {
+    marginBottom: 30,
+  },
+  meterBase: {
+    height: 8,
+    backgroundColor: '#1a1a1a',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginTop: 5,
+  },
+  meterFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  energyStatus: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginTop: 5,
+    letterSpacing: 1,
   },
   sectionLabel: {
     color: '#666',

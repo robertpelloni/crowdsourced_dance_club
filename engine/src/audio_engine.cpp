@@ -34,7 +34,7 @@ void AudioEngine::start() {
     if (stream) {
         Pa_StartStream(stream);
         running = true;
-        std::cout << "[AUDIO] Engine started" << std::endl;
+        std::cout << "[AUDIO] Engine started (Real-time Stretch Enabled)" << std::endl;
     }
 }
 
@@ -91,6 +91,7 @@ void AudioEngine::handle_track_sync(const json& data) {
         next_buffer.track_id = id;
         next_buffer.native_bpm = bpm;
         update_tempo();
+        st_next.clear();
     }
 }
 
@@ -136,24 +137,29 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
     AudioEngine* self = (AudioEngine*)userData;
     float *out = (float*)outputBuffer;
 
-    // Simplification: In a production engine, we would feed SoundTouch here
-    // and read processed samples from its internal buffer.
-    // For this prototype, we're established the wiring.
+    // Fixed size temporary buffer for SoundTouch output
+    static float stretched_current[4096];
+    int samples_received_curr = 0;
+
+    // 1. Feed SoundTouch current buffer if it needs more data
+    if (self->current_buffer.loaded && self->current_buffer.position < self->current_buffer.frames) {
+        if (self->st_current.numSamples() < framesPerBuffer) {
+            int samples_to_feed = std::min((int)(self->current_buffer.frames - self->current_buffer.position), 512);
+            self->st_current.putSamples(&self->current_buffer.data[self->current_buffer.position * 2], samples_to_feed);
+            self->current_buffer.position += samples_to_feed;
+        }
+    }
+
+    samples_received_curr = self->st_current.receiveSamples(stretched_current, framesPerBuffer);
 
     for (unsigned int i = 0; i < framesPerBuffer; i++) {
-        float left = 0.0f;
-        float right = 0.0f;
-
-        if (self->current_buffer.loaded && self->current_buffer.position < self->current_buffer.frames) {
-            sf_count_t pos = self->current_buffer.position++;
-            left += self->current_buffer.data[pos * self->current_buffer.channels];
-            right += (self->current_buffer.channels > 1) ?
-                      self->current_buffer.data[pos * self->current_buffer.channels + 1] :
-                      self->current_buffer.data[pos * self->current_buffer.channels];
+        if (i < (unsigned int)samples_received_curr) {
+            *out++ = stretched_current[i * 2];
+            *out++ = stretched_current[i * 2 + 1];
+        } else {
+            *out++ = 0.0f;
+            *out++ = 0.0f;
         }
-
-        *out++ = left;
-        *out++ = right;
     }
 
     return paContinue;

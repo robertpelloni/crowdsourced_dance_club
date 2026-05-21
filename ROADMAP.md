@@ -32,6 +32,7 @@
 - [x] Implement C++ WebSocket Client for real-time Conductor sync.
 - [x] Implement real-time file loading and dual-buffering (C++).
 - [x] Implement real-time time-stretching (C++) via SoundTouch.
+- [x] Implement visual Energy Meter in mobile app.
 - [x] Implement Playback State reporting protocol.
 - [ ] Integrate C++ Audio Engine with Conductor Server state machine.
 

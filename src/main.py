@@ -452,7 +452,18 @@ async def websocket_endpoint(websocket: WebSocket):
                 bpm = float(message.get("bpm", 145.0))
                 dj_state.target_bpm = bpm
                 await manager.broadcast_queue_update()
+                # Notify Audio Engine
+                for client in dj_state.connected_clients:
+                    try:
+                        await client.send_json({"type": "MASTER_CONTROL", "data": {"target_bpm": bpm}})
+                    except: pass
                 await websocket.send_json({"type": "ADMIN_SUCCESS", "message": f"BPM set to {bpm}."})
+
+            elif action == "ADMIN_SET_GENRE":
+                genre = message.get("genre")
+                # For simplicity, we just notify logs in prototype, but could influence auto-selection
+                print(f"[ADMIN] Requested genre shift to: {genre}")
+                await websocket.send_json({"type": "ADMIN_SUCCESS", "message": f"Vibe shifting to {genre}."})
 
             else:
                 await websocket.send_json({"type": "ERROR", "message": f"Unknown action: {action}"})

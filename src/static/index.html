@@ -296,6 +296,13 @@
                     <button class="btn-action" onclick="adminSetTrend('falling')">❄️</button>
                 </div>
 
+                <div class="section-title">Vibe Shift</div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-bottom:20px;">
+                    <button class="btn-action" onclick="adminSetGenre('Psytrance')" style="font-size:0.7rem; font-weight:bold;">PSY</button>
+                    <button class="btn-action" onclick="adminSetGenre('Techno')" style="font-size:0.7rem; font-weight:bold;">TECHNO</button>
+                    <button class="btn-action" onclick="adminSetGenre('Ambient')" style="font-size:0.7rem; font-weight:bold;">CHILL</button>
+                </div>
+
                 <div class="section-title">Playback</div>
                 <button class="btn-action" onclick="adminSkip()" style="width:100%; gap:10px; background:rgba(255,77,77,0.1); color:#ff4d4d; height:auto; padding: 15px;">
                     ⏭️ SKIP TO NEXT
@@ -480,6 +487,7 @@
             const bpm = document.getElementById('admin-bpm-input').value;
             ws.send(JSON.stringify({ action: 'ADMIN_SET_BPM', bpm: bpm }));
         }
+        function adminSetGenre(g) { ws.send(JSON.stringify({ action: 'ADMIN_SET_GENRE', genre: g })); }
 
         // Hidden gesture to enable admin mode (Tap "CDC" 5 times)
         let tapCount = 0;
