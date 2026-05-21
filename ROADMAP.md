@@ -38,6 +38,8 @@
 - [x] Implement timestamp-based auto-transitions (C++).
 - [x] Implement user gamification (Vibe Points & Badges).
 - [x] Implement haptic beat synchronization (Mobile).
+- [x] Implement Mobile QR Sync for venue onboarding.
+- [x] Implement Highlight Rendering trigger from mobile.
 - [ ] Integrate C++ Audio Engine with Conductor Server state machine.
 
 ## Phase 5: Polish & Deployment

@@ -34,6 +34,8 @@
 - [x] Implement timestamp-based auto-transitions.
 - [x] Implement haptic beat synchronization.
 - [x] Implement Vibe Badge gamification.
+- [x] Implement Mobile QR Sync scanner.
+- [x] Refine Conductor highlight worker with temporary directories.
 - [ ] Refine SoundTouch buffer management (FIFO logic).
 
 ## Bug Fixes

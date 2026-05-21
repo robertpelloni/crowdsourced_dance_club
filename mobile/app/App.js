@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions, TextInput } from 'react-native';
 import * as Haptics from 'expo-haptics';
-
-const SERVER_URL = 'ws://localhost:8000/ws/clubgoer';
-const API_URL = 'http://localhost:8000';
+import { BarCodeScanner } from 'expo-barcode-scanner';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState('dance'); // 'dance', 'request', 'profile'
+  const [currentView, setCurrentView] = useState('dance'); // 'dance', 'request', 'profile', 'sync'
   const [currentTrack, setCurrentTrack] = useState(null);
   const [queue, setQueue] = useState([]);
   const [catalog, setCatalog] = useState([]);
@@ -18,34 +16,48 @@ export default function App() {
   const [targetBPM, setTargetBPM] = useState(145.0);
   const [vibeStats, setVibeStats] = useState({ points: 0, badges: [] });
 
+  // Dynamic Networking (Syncable)
+  const [serverUrl, setServerUrl] = useState('localhost:8000');
+  const [hasPermission, setHasPermission] = useState(null);
+  const [scanned, setScanned] = useState(false);
+
   const ws = useRef(null);
   const hapticTimer = useRef(null);
 
+  const API_URL = `http://${serverUrl}`;
+  const WS_URL = `ws://${serverUrl}/ws/clubgoer`;
+
   useEffect(() => {
+    (async () => {
+      const { status } = await BarCodeScanner.requestPermissionsAsync();
+      setHasPermission(status === 'granted');
+    })();
     connect();
     fetchCatalog();
     return () => {
         ws.current?.close();
         if (hapticTimer.current) clearInterval(hapticTimer.current);
     };
-  }, []);
+  }, [serverUrl]);
 
   useEffect(() => {
     if (hapticTimer.current) clearInterval(hapticTimer.current);
     if (connected && currentTrack) {
         const beatInterval = (60 / targetBPM) * 1000;
         hapticTimer.current = setInterval(() => {
-            Haptics.selectionAsync();
+            if (isPeakMode) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            else Haptics.selectionAsync();
         }, beatInterval);
     }
-  }, [targetBPM, connected, !!currentTrack]);
+  }, [targetBPM, connected, !!currentTrack, isPeakMode]);
 
   const connect = () => {
-    ws.current = new WebSocket(SERVER_URL);
+    if (ws.current) ws.current.close();
+    ws.current = new WebSocket(WS_URL);
 
     ws.current.onopen = () => {
       setConnected(true);
-      console.log('Connected to Conductor Server');
+      console.log('Connected to Conductor:', WS_URL);
     };
 
     ws.current.onmessage = (e) => {
@@ -75,7 +87,36 @@ export default function App() {
         const response = await fetch(`${API_URL}/catalog`);
         const data = await response.json();
         setCatalog(data);
-    } catch (err) { console.error(err); }
+    } catch (err) { console.error('Catalog Fetch Failed:', err); }
+  };
+
+  const handleBarCodeScanned = ({ type, data }) => {
+    setScanned(true);
+    try {
+        const syncData = JSON.parse(data);
+        if (syncData.conductor_url) {
+            // strip http:// if present
+            const host = syncData.conductor_url.replace('http://', '').replace('https://', '');
+            setServerUrl(host);
+            setCurrentView('dance');
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+    } catch (e) {
+        alert("Invalid QR Code for CDC Venue");
+    }
+    setTimeout(() => setScanned(false), 2000);
+  };
+
+  const generateHighlights = async () => {
+    try {
+        const response = await fetch(`${API_URL}/api/render-highlights`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(["track_001", "track_002"]) // Placeholder list
+        });
+        const data = await response.json();
+        alert(data.message);
+    } catch (err) { alert("Highlight generation failed."); }
   };
 
   const castVote = (trackId) => {
@@ -197,6 +238,10 @@ export default function App() {
             <Text style={styles.energyStatus}>LEVEL {Math.floor(vibeStats.points / 100) + 1}</Text>
         </View>
 
+        <TouchableOpacity style={styles.actionBtn} onPress={generateHighlights}>
+            <Text style={styles.actionBtnText}>🎬 GET SET HIGHLIGHTS</Text>
+        </TouchableOpacity>
+
         <Text style={styles.sectionLabel}>EARNED BADGES</Text>
         <View style={styles.badgeGrid}>
             {vibeStats.badges.length === 0 ? <Text style={styles.emptyText}>No badges yet. Request tracks to earn them!</Text> :
@@ -210,34 +255,56 @@ export default function App() {
     </ScrollView>
   );
 
+  const renderSyncView = () => (
+    <View style={{flex:1, backgroundColor:'#000'}}>
+        {hasPermission === null ? <Text style={{color:'#fff', padding:40}}>Requesting camera permission...</Text> :
+         hasPermission === false ? <Text style={{color:'#fff', padding:40}}>No access to camera</Text> :
+         <BarCodeScanner
+            onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
+            style={StyleSheet.absoluteFillObject}
+         />
+        }
+        <TouchableOpacity style={styles.closeSync} onPress={() => setCurrentView('dance')}>
+            <Text style={{color:'#fff', fontWeight:'bold'}}>CANCEL</Text>
+        </TouchableOpacity>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>ALGORYTHM</Text>
-          <Text style={styles.headerSubtitle}>Points: {vibeStats.points}</Text>
+      {currentView !== 'sync' && (
+        <View style={styles.header}>
+            <View>
+            <Text style={styles.headerTitle}>ALGORYTHM</Text>
+            <Text style={styles.headerSubtitle}>{serverUrl} • {connected ? 'LIVE' : 'OFFLINE'}</Text>
+            </View>
+            <TouchableOpacity onPress={() => setCurrentView('sync')}>
+                <Text style={{fontSize:24}}>📲</Text>
+            </TouchableOpacity>
         </View>
-        <View style={[styles.statusDot, { backgroundColor: connected ? '#00ff00' : '#ff0000' }]} />
-      </View>
+      )}
 
       <View style={{flex:1}}>
         {currentView === 'dance' && renderDanceView()}
         {currentView === 'request' && renderBrowseView()}
         {currentView === 'profile' && renderProfileView()}
+        {currentView === 'sync' && renderSyncView()}
       </View>
 
-      <View style={styles.bottomNav}>
-        <TouchableOpacity onPress={() => setCurrentView('dance')}>
-            <Text style={currentView === 'dance' ? styles.navTextActive : styles.navText}>DANCE</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setCurrentView('request')}>
-            <Text style={currentView === 'request' ? styles.navTextActive : styles.navText}>BROWSE</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => setCurrentView('profile')}>
-            <Text style={currentView === 'profile' ? styles.navTextActive : styles.navText}>PROFILE</Text>
-        </TouchableOpacity>
-      </View>
+      {currentView !== 'sync' && (
+        <View style={styles.bottomNav}>
+            <TouchableOpacity onPress={() => setCurrentView('dance')}>
+                <Text style={currentView === 'dance' ? styles.navTextActive : styles.navText}>DANCE</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setCurrentView('request')}>
+                <Text style={currentView === 'request' ? styles.navTextActive : styles.navText}>BROWSE</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setCurrentView('profile')}>
+                <Text style={currentView === 'profile' ? styles.navTextActive : styles.navText}>PROFILE</Text>
+            </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -279,5 +346,8 @@ const styles = StyleSheet.create({
   badgeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   badgeItem: { backgroundColor: '#111', padding: 15, borderRadius: 10, alignItems: 'center', width: (Dimensions.get('window').width - 60) / 2 },
   badgeIcon: { fontSize: 32, marginBottom: 5 },
-  badgeName: { color: '#fff', fontSize: 10, fontWeight: 'bold', textAlign: 'center' }
+  badgeName: { color: '#fff', fontSize: 10, fontWeight: 'bold', textAlign: 'center' },
+  actionBtn: { backgroundColor: 'rgba(0,255,204,0.1)', padding: 15, borderRadius: 10, marginBottom: 20, borderWidth: 1, borderColor: '#00ffcc' },
+  actionBtnText: { color: '#00ffcc', fontWeight: 'bold', textAlign: 'center' },
+  closeSync: { position: 'absolute', bottom: 40, alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.1)', padding: 20, borderRadius: 10 }
 });

@@ -508,6 +508,16 @@ def run_offline_compiler_worker(track_ids: List[str], output_path: str, bpm: flo
 
     try:
         from autodj.core import compile_master_set
+        import shutil
+
+        # Create a temporary directory for this specific highlight render
+        temp_dir = f"temp_render_{int(time.time())}"
+        os.makedirs(temp_dir, exist_ok=True)
+
+        for tid in track_ids:
+            track = TRACK_CATALOG.get(tid)
+            if track and track.get("filepath") and os.path.exists(track["filepath"]):
+                shutil.copy(track["filepath"], os.path.join(temp_dir, f"{tid}.flac"))
 
         # Create a mock args object for the submodule
         class Args:
@@ -522,17 +532,14 @@ def run_offline_compiler_worker(track_ids: List[str], output_path: str, bpm: flo
                 self.highpass = 1500
                 self.archetype = 'auto'
 
-        # In a real scenario, we'd copy the specific files to a temporary directory
-        # For this implementation, we assume track files are in a standard location
-        input_dir = "tracks/"
-        if not os.path.exists(input_dir):
-            os.makedirs(input_dir)
+        args = Args(temp_dir, output_path, bpm)
 
-        args = Args(input_dir, output_path, bpm)
-
-        print(f"[AUTO-DJ] Starting high-fidelity render to: {output_path}")
+        print(f"[AUTO-DJ] Starting high-fidelity highlight render to: {output_path}")
         compile_master_set(args)
-        print(f"[AUTO-DJ] Render complete: {output_path}")
+
+        # Cleanup
+        shutil.rmtree(temp_dir)
+        print(f"[AUTO-DJ] Render complete and temporary files cleaned: {output_path}")
 
     except Exception as e:
         print(f"[ERROR] Offline compilation failed: {e}")

@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [0.2.6] - 2024-05-23
+### Added
+- Implemented **Mobile QR Sync** using `BarCodeScanner` for dynamic venue connection.
+- Added **GET SET HIGHLIGHTS** functionality to the mobile Profile view.
+- Implemented **Dynamic Haptic Rhythms** with increased intensity during Peak Mode.
+- Refined **Highlight Render Worker** with isolated temporary workspace logic.
+- Updated mobile app with a unified multi-view navigation system.
+
 ## [0.2.5] - 2024-05-23
 ### Added
 - Implemented **Browse & Request** view in the mobile app with full catalog search.
