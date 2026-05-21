@@ -91,6 +91,8 @@ class TrackState:
         self.connected_clients: List[WebSocket] = []
         # History of vote timestamps for velocity calculation
         self.vote_history: List[float] = []
+        # User leaderboard: {user_id: {"points": int, "badges": List[str]}}
+        self.user_stats: Dict[str, Dict] = {}
 
 dj_state = TrackState()
 
@@ -352,11 +354,14 @@ async def get_sync_qr():
     }
 
 @app.websocket("/ws/clubgoer")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, user_id: Optional[str] = "anonymous"):
     """
     Real-time portal for clubgoers to vote and request songs.
     Clients send JSON messages with actions like 'REQUEST_SONG'.
     """
+    if user_id not in dj_state.user_stats:
+        dj_state.user_stats[user_id] = {"points": 0, "badges": []}
+
     await manager.connect(websocket)
     try:
         while True:
@@ -397,8 +402,18 @@ async def websocket_endpoint(websocket: WebSocket):
                         await websocket.send_json({"type": "ERROR", "message": "Track already in queue."})
                         continue
 
+                    # Award Vibe Points to requester
+                    dj_state.user_stats[user_id]["points"] += 10
+                    if dj_state.user_stats[user_id]["points"] >= 50 and "Vibe Guardian" not in dj_state.user_stats[user_id]["badges"]:
+                        dj_state.user_stats[user_id]["badges"].append("Vibe Guardian")
+
                     dj_state.upcoming_queue.append({"track": requested_track, "votes": 1})
-                    await websocket.send_json({"type": "REQUEST_ACCEPTED", "message": reason, "track": requested_track})
+                    await websocket.send_json({
+                        "type": "REQUEST_ACCEPTED",
+                        "message": reason,
+                        "track": requested_track,
+                        "user_stats": dj_state.user_stats[user_id]
+                    })
                     await manager.broadcast_queue_update()
                 else:
                     # Deny request and give the user feedback on why it failed the vibe check
@@ -439,6 +454,13 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 dj_state.start_time = time.time()
                 await manager.broadcast_queue_update()
+
+                # Notify Audio Engine for immediate skip
+                for client in dj_state.connected_clients:
+                    try:
+                        await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "SKIP_NOW"}})
+                    except: pass
+
                 await websocket.send_json({"type": "ADMIN_SUCCESS", "message": "Track skipped."})
 
             elif action == "ADMIN_SET_TREND":

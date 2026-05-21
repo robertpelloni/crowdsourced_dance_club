@@ -77,6 +77,7 @@ private:
     std::atomic<bool> is_transitioning;
     std::atomic<double> transition_progress;
     double transition_duration_frames;
+    std::atomic<double> transition_timestamp; // Epoch seconds
 
     std::atomic<double> target_bpm;
 

@@ -31,6 +31,9 @@
 - [x] Integrate SoundTouch for real-time time-stretching.
 - [x] Implement Playback State heartbeat reporting.
 - [x] Implement real-time SoundTouch sample processing.
+- [x] Implement timestamp-based auto-transitions.
+- [x] Implement haptic beat synchronization.
+- [x] Implement Vibe Badge gamification.
 - [ ] Refine SoundTouch buffer management (FIFO logic).
 
 ## Bug Fixes

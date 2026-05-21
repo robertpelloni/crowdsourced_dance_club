@@ -1,16 +1,16 @@
 # MEMORY.md
 
 ## Observations
-- `MAX_ENERGY_DELTA = 1.0` is the sweet spot for transition smoothness.
-- `BPM_DELTA = 5.0` prevents excessive warp distortion.
-- WebSockets provide sufficient low-latency sync for the PWA UI.
-- Intelligently merging `auto_dj_script` feature branches (v5.5-5.8) added critical parallel warp and limiting capabilities.
+- `MAX_ENERGY_DELTA = 1.0` and `MAX_BPM_DELTA = 5.0` are the stability boundaries for seamless transitions.
+- SoundTouch provides excellent time-stretching quality in C++, but requires careful sample feeding (`putSamples`/`receiveSamples`) to avoid glitches.
+- Haptic synchronization at 145+ BPM creates a high-energy "pulse" that significantly increases mobile user engagement.
+- Timestamp-based transitions (monitoring the system clock in the C++ callback) provide much higher precision than simple duration counters.
 
 ## Preferences
-- Use `time.time()` for absolute synchronization between server and client.
-- Weighted ranking (70% Fit, 30% Votes) keeps the vibe stable while respecting user input.
-- Admin mode hidden behind a 5-tap gesture on the header is effective for UI minimalism.
+- Use **Weighted Ranking** (70% Fit / 30% Votes) to prevent crowd-sourced "trolling" from ruining the vibe.
+- Hidden "Admin View" (5-tap header) is essential for venue management without cluttering the user UI.
+- All version increments must be synchronized across `VERSION.md`, `CHANGELOG.md`, and the PWA/Mobile headers.
 
 ## Known Challenges
-- Python's GIL necessitates a separate C++ process for the actual real-time audio pipeline.
-- SQLite is sufficient for the catalog but might need WAL mode for high-concurrency voting.
+- SoundTouch internal buffer latency must be accounted for in the `playback_position` calculation.
+- WebSocket overhead on mobile devices can drain battery; 500ms heartbeat is a good compromise.

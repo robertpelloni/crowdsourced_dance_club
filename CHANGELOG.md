@@ -1,5 +1,22 @@
 # CHANGELOG
 
+## [0.2.5] - 2024-05-23
+### Added
+- Implemented **Browse & Request** view in the mobile app with full catalog search.
+- Implemented **Profile & Vibe Badges** (Gamification) in the mobile app.
+- Implemented **Immediate Skip** (2s crossfade) in the C++ Audio Engine.
+- Enhanced C++ callback with **Timestamp-based Auto-Transitions**.
+- Added **Haptic Beat Synchronization** to the mobile client.
+- Awarded **Vibe Points** for compatible song requests in the Conductor.
+
+## [0.2.4] - 2024-05-23
+### Added
+- Implemented **Timestamp-based Automatic Transitions** in the C++ engine.
+- Implemented **Haptic Beat Synchronization** in the mobile app.
+- Added **Vibe Badge System** (Gamification) for successful requests.
+- Synchronized haptic feedback with live Conductor BPM.
+- Enhanced mobile header with user status and points tracking.
+
 ## [0.2.3] - 2024-05-23
 ### Added
 - Implemented **Real-Time SoundTouch Processing** in the C++ audio callback.

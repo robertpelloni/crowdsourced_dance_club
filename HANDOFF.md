@@ -1,10 +1,10 @@
 # HANDOFF.md
 
 ## Current State
-- **Version:** 0.2.3
-- **Conductor Server:** Stable. Supports Voting Velocity, Energy Peaks, and Proactive TRACK_SYNC.
-- **Audio Engine:** Implements real-time SoundTouch processing in the audio callback.
-- **Mobile App:** Includes a visual Energy Meter tied to the Conductor vibe state.
+- **Version:** 0.2.5
+- **Conductor Server:** Stable. Supports Voting Velocity, Energy Peaks, Proactive TRACK_SYNC, and Vibe Gamification.
+- **Audio Engine:** Implements real-time SoundTouch processing, timestamp-based transitions, and manual skips.
+- **Mobile App:** Features full Browse/Request/Profile views, haptic beat sync, and Vibe Badge gamification.
 - **PWA:** Functional prototype for testing and admin control.
 - **Native App:** Fully implemented feature parity with PWA in `mobile/app/App.js`, including WebSocket sync and haptics.
 - **Submodule:** `external/auto_dj_script` is up-to-date with merged feature branches.
