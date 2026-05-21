@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## [0.2.0] - 2024-05-23
+### Added
+- **Major Milestone:** Initialized the C++ Real-Time Audio Engine (`cdc_engine`).
+- Implemented high-priority audio callback loop using **PortAudio**.
+- Implemented low-latency WebSocket client using **libwebsockets** and **nlohmann/json**.
+- Integrated Conductor synchronization (`TRACK_SYNC`) into the C++ engine.
+- Created C++ build system (Makefile).
+
 ## [0.1.9] - 2024-05-23
 ### Added
 - Implemented **Voting Velocity** tracking and **Energy Peaks** in the Conductor.

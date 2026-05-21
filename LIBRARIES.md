@@ -26,7 +26,15 @@ This document lists all major libraries used in the project, their versions (whe
 | **PyLoudNorm** | 0.2.0 | Normalization | Implements EBU R128 loudness normalization to ensure consistent volume across the mix. |
 | **TQDM** | 4.67.3 | UX | Provides progress bars for long-running offline render tasks. |
 
-## Tier 1: Mobile App (Planned/Initialized)
+## Tier 3: C++ Real-Time Audio Engine (engine/)
+
+| Library | Role | Reason for Selection |
+| :--- | :--- | :--- |
+| **PortAudio** | Audio I/O | Cross-platform, low-latency API for real-time audio playback. |
+| **libwebsockets** | Networking | Lightweight, high-performance C library for WebSocket client/server communication. |
+| **nlohmann/json** | Data Handling | Header-only JSON library for C++. Easy to integrate and used for protocol parsing. |
+
+## Tier 1: Mobile App (Initialized)
 
 | Library | Role | Reason for Selection |
 | :--- | :--- | :--- |

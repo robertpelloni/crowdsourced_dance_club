@@ -27,9 +27,10 @@
 - [x] Design Real-Time Audio Engine Protocol (`AUDIO_ENGINE_PROTOCOL.md`).
 - [x] Implement proactive `TRACK_SYNC` logic in Conductor.
 - [x] Create Mock Audio Engine for protocol verification (`src/mock_engine.py`).
-- [ ] Research and select C++ audio framework (JUCE/PortAudio).
-- [ ] Implement low-latency playback loop.
-- [ ] Implement real-time time-stretching and crossfading.
+- [x] Select C++ audio framework (**PortAudio**) and Networking (**libwebsockets**).
+- [x] Implement initial high-priority playback loop in C++.
+- [x] Implement C++ WebSocket Client for real-time Conductor sync.
+- [ ] Implement real-time time-stretching and crossfading (C++).
 - [ ] Integrate C++ Audio Engine with Conductor Server.
 
 ## Phase 5: Polish & Deployment
