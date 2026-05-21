@@ -13,6 +13,9 @@
 - [x] Develop web-based client prototype.
 - [x] Implement Playback Simulation & Auto-Transitions.
 - [x] Implement "Vibe-Aware" Weighted Ranking.
+- [x] Implement Energy Ramping logic.
+- [x] Implement Genre Compatibility Matrix.
+- [x] Refactor Web Client to Mobile-First PWA.
 
 ## Phase 2: Mobile Client Prototype
 - [ ] Design and implement basic React Native client.

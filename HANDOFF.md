@@ -1,33 +1,30 @@
 # Handoff Document
 
 ## Current Status
-- Conductor Server (Python/FastAPI) is fully autonomous with a playback simulation loop.
-- "Vibe-Aware" weighted ranking ensures high-quality sets while respecting user votes.
-- Enhanced web client prototype includes track progress bars and match percentage indicators.
-- Version 0.1.4.
+- Conductor Server (Python/FastAPI) now supports Energy Ramping and Genre Compatibility.
+- Mobile-First PWA Prototype is functional with bottom navigation and real-time vibe updates.
+- Track catalog expanded to 11 tracks across multiple genres.
+- Version 0.1.5.
 
 ## Accomplished in this Session
-- Implemented `playback_simulation_loop` for automatic track transitions.
-- Developed `calculate_vibe_score` for multi-factor compatibility assessment.
-- Implemented weighted queue reordering (Votes + Vibe Score).
-- Added progress bar and match score indicators to the web client.
-- Integrated background task management in FastAPI.
+- Refactored the web client into a high-quality Mobile-First PWA Prototype.
+- Implemented `energy_trend` logic (Rising/Falling/Stable) to steer room intensity.
+- Implemented a Genre Compatibility Matrix to prevent atmospheric clashes.
+- Expanded SQLite database with diverse test tracks.
+- Added visual Energy Trend indicators and improved queue visibility.
 
 ## Project Structure
-- `src/main.py`: Conductor Server with autonomous playback logic.
-- `src/static/index.html`: Enhanced web client prototype.
-- `src/init_db.py`: Database initialization.
-- `tracks.db`: SQLite database.
-- `external/auto_dj_script/`: Submodule for audio processing (v5.8.0 merged).
-- `tests/`: Unit and integration tests.
+- `src/main.py`: Conductor Server with expanded "vibe" logic.
+- `src/static/index.html`: Mobile-First PWA Prototype.
+- `src/init_db.py`: Database with genre support and expanded tracks.
+- `external/auto_dj_script/`: Submodule for audio processing.
 
 ## Next Steps for the Next Session
-1. **Official Mobile App:**
-   - Initialize React Native / Expo environment.
-   - Implement the same real-time logic from the web prototype in the mobile app.
-2. **Audio Engine Real-Time POC:**
-   - Investigate using `pyaudio` or `sounddevice` for a basic Python-based real-time player (for development).
-   - Define the OSC or WebSocket protocol for the C++ engine.
-3. **Advanced Fit Rules:**
-   - Add "Energy Ramping" - prioritize tracks that gradually increase/decrease energy if desired.
-   - Implement "Genre Transitions" - specific rules for moving between genres.
+1. **Initialize Phase 3:**
+   - Research and set up React Native / Expo environment for the official mobile app.
+   - Implement QR Code based "Venue Sync" logic.
+2. **Audio Engine Bridge:**
+   - Define a clear WebSocket/OSC protocol for communication with the real-time C++ engine.
+   - Implement a basic audio output worker in Python as a proof-of-concept for Phase 3.
+3. **Admin Dashboard:**
+   - Add a hidden or restricted UI for the "House DJ" to manually set the `energy_trend` or `target_bpm`.

@@ -14,6 +14,14 @@ from pydantic import BaseModel
 
 DB_PATH = "tracks.db"
 
+# Genre Compatibility Matrix (1.0 = perfect, 0.0 = clash)
+GENRE_COMPATIBILITY = {
+    "Psytrance": {"Psytrance": 1.0, "Techno": 0.7, "Progressive": 0.8, "Ambient": 0.2},
+    "Techno": {"Techno": 1.0, "Psytrance": 0.7, "Progressive": 0.6, "Ambient": 0.3},
+    "Progressive": {"Progressive": 1.0, "Psytrance": 0.8, "Techno": 0.6, "Ambient": 0.5},
+    "Ambient": {"Ambient": 1.0, "Progressive": 0.5, "Techno": 0.3, "Psytrance": 0.1},
+}
+
 def get_db_connection():
     """Helper to create a connection to the SQLite database."""
     conn = sqlite3.connect(DB_PATH)
@@ -60,6 +68,8 @@ class TrackState:
         self.duration: float = 180.0
         # Target BPM for the room
         self.target_bpm: float = 145.0
+        # Target energy trend: "rising", "stable", or "falling"
+        self.energy_trend: str = "stable"
         # Upcoming tracks submitted and approved
         # Each entry is a dict: {"track": Dict, "votes": int}
         self.upcoming_queue: List[Dict] = []
@@ -104,6 +114,7 @@ class ConnectionManager:
             "start_time": dj_state.start_time,
             "duration": dj_state.duration,
             "target_bpm": dj_state.target_bpm,
+            "energy_trend": dj_state.energy_trend,
             "queue": dj_state.upcoming_queue
         }
 
@@ -159,7 +170,7 @@ def get_random_compatible_track(current_track: Dict) -> Optional[Dict]:
 def calculate_vibe_score(track: Dict, current_track: Dict) -> float:
     """
     Calculates a compatibility score (0.0 to 1.0) between two tracks.
-    Considers BPM, Energy, and Key.
+    Considers BPM, Energy, Key, Energy Ramping, and Genre Compatibility.
     """
     # BPM Score (max 5.0 delta)
     bpm_delta = abs(track["bpm"] - current_track["bpm"])
@@ -169,11 +180,26 @@ def calculate_vibe_score(track: Dict, current_track: Dict) -> float:
     energy_delta = abs(track["energy"] - current_track["energy"])
     energy_score = max(0, 1 - (energy_delta / 3.0))
 
+    # Energy Ramping Bonus/Penalty
+    ramping_score = 0.5
+    if dj_state.energy_trend == "rising":
+        if track["energy"] > current_track["energy"]: ramping_score = 1.0
+        elif track["energy"] < current_track["energy"]: ramping_score = 0.0
+    elif dj_state.energy_trend == "falling":
+        if track["energy"] < current_track["energy"]: ramping_score = 1.0
+        elif track["energy"] > current_track["energy"]: ramping_score = 0.0
+
     # Key Score
     key_score = 1.0 if is_harmonically_compatible(track["key"], current_track["key"]) else 0.0
 
+    # Genre Score
+    genre1 = current_track.get("genre", "Psytrance")
+    genre2 = track.get("genre", "Psytrance")
+    genre_score = GENRE_COMPATIBILITY.get(genre1, {}).get(genre2, 0.5)
+
     # Weighted Average
-    return (bpm_score * 0.3) + (energy_score * 0.3) + (key_score * 0.4)
+    # 20% BPM, 20% Energy, 10% Ramping, 30% Key, 20% Genre
+    return (bpm_score * 0.20) + (energy_score * 0.20) + (ramping_score * 0.1) + (key_score * 0.3) + (genre_score * 0.2)
 
 def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool, str]:
     """
@@ -198,6 +224,12 @@ def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool
     # Rule 3: Harmonic Check
     if not is_harmonically_compatible(requested_track["key"], current_track["key"]):
         return False, f"Harmonic clash: {requested_track['key']} is not compatible with current track's {current_track['key']}."
+
+    # Rule 4: Genre Check
+    genre1 = current_track.get("genre", "Psytrance")
+    genre2 = requested_track.get("genre", "Psytrance")
+    if GENRE_COMPATIBILITY.get(genre1, {}).get(genre2, 0.5) < 0.3:
+        return False, f"Genre clash: {genre2} is not compatible with current vibe ({genre1})."
 
     return True, "Track fits the sonic profile perfectly."
 

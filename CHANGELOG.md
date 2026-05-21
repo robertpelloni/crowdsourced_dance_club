@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.5] - 2025-05-14
+### Added
+- Refactored Web Client into a Mobile-First PWA Prototype with bottom navigation.
+- Implemented Energy Ramping logic (Rising/Falling/Stable energy trends).
+- Implemented Genre Compatibility Matrix for sophisticated vibe assessment.
+- Expanded track catalog in `init_db.py` to 11 tracks across multiple genres.
+- Added visual Energy Trend indicators to the UI.
+
 ## [0.1.4] - 2025-05-14
 ### Added
 - Implemented `playback_simulation_loop` for automatic track transitions.
