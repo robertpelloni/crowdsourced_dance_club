@@ -1,32 +1,36 @@
-# Handoff Document
+# Session Handoff - 2025-05-22
 
-## Current Status
-- Conductor Server (Python/FastAPI) is fully functional with WebSockets.
-- "Theme & Fit" algorithm (BPM/Energy) is implemented and tested.
-- Track catalog is persisted in SQLite (`tracks.db`).
-- `auto_dj_script` is integrated as a submodule for offline rendering.
-- Version 0.1.1.
+## Overview
+This session focused on a comprehensive repository synchronization and the integration of advanced Conductor logic and the C++ Audio Engine prototype. The project has been bumped to **v0.2.0**.
 
-## Accomplished in this Session
-- Initialized all project documentation and global LLM instructions.
-- Set up the project structure and integrated the `auto_dj_script` submodule.
-- Developed the core Conductor Server logic including real-time WebSocket communication.
-- Implemented the algorithmic vibe check for song requests.
-- Migrated track catalog from mock data to SQLite.
-- Achieved 100% test coverage for core logic and API endpoints.
+## Key Achievements
 
-## Project Structure
-- `src/main.py`: Conductor Server.
-- `src/init_db.py`: Database initialization.
-- `tracks.db`: SQLite database.
-- `external/auto_dj_script/`: Submodule for audio processing.
-- `tests/`: Unit and integration tests.
+### 1. Repository & Submodule Sync
+- Performed a force merge of the remote feature branch (`jules-13762733874602863651-40918fc3`) into `main`.
+- Resolved conflicts in core server logic and documentation.
+- Recursively updated `external/auto_dj_script` to the latest `main`.
 
-## Next Steps for the Next Session
-1. **Refine the Conductor Server:**
-   - Expand the "Fit" algorithm to include Harmonic Key matching (Camelot Wheel).
-   - Implement user voting logic to reorder the `upcoming_queue`.
-2. **Mobile Client Prototype:**
-   - Begin development of a basic web or React Native client to interact with the server.
-3. **Audio Engine Research:**
-   - Start exploring the implementation of the real-time audio engine in C++ or Node.js.
+### 2. Advanced Conductor Logic (v0.2.0)
+- **Harmonic Key Matching:** Implemented Camelot Wheel logic in `src/main.py`.
+- **Weighted Vibe Score:** Transitions are now evaluated based on BPM, Energy, Key, and Genre compatibility.
+- **Energy Peak Detection:** Added a simulation loop that tracks "Voting Velocity" and triggers `DSP_INTENSIFY` events.
+- **Genre Archetype Evolution:** The room's target vibe now evolves based on track history.
+- **Proactive Sync:** The server now broadcasts `TRACK_SYNC` messages 15 seconds before a transition.
+
+### 3. Audio Engine Integration
+- Verified the C++ Audio Engine (`engine/`) which implements real-time time-stretching (SoundTouch) and automated HPF sweeps.
+- Confirmed the WebSocket protocol (`AUDIO_ENGINE_PROTOCOL.md`) for Brain-Body communication.
+
+### 4. Documentation Overhaul
+- Updated all core project files (`README`, `VISION`, `ROADMAP`, `TODO`, `CHANGELOG`, `DEPLOY`, `STRUCTURE`, `MEMORY`, `IDEAS`).
+- Synchronized the version number (0.2.0) across all files.
+
+## Technical Details
+- **Database:** `tracks.db` has been re-initialized with `genre` and `filepath` columns.
+- **Tests:** Python test suite (`pytest`) is passing with 11 tests.
+- **Admin Mode:** The Web UI now has a hidden Admin Dashboard (Tap "CDC" 5x).
+
+## Next Steps for Successor
+- Transition the Web Prototype to a React Native mobile app in the `mobile/` directory.
+- Implement multi-track pre-loading in the C++ Audio Engine to handle back-to-back transitions smoothly.
+- Explore ML-driven vibe analysis for the Conductor.

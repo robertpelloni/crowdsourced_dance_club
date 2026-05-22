@@ -8,20 +8,28 @@
 - [x] Implement `evaluate_track_fit` logic.
 - [x] Set up SQLite database for `TRACK_CATALOG`.
 - [x] Write unit tests for fit logic and API endpoints.
-- [ ] Implement Harmonic Key matching logic.
-- [ ] Implement user voting system for queue reordering.
+- [x] Implement Harmonic Key matching logic.
+- [x] Implement user voting system for queue reordering.
+- [x] Expand `tracks.db` with genre and filepath metadata.
+- [x] Implement simulation loop with voting velocity and energy peaks.
 
-## Phase 2: Mobile Client Prototype
-- [ ] Design and implement basic React Native client.
-- [ ] Connect client to Conductor Server via WebSockets.
-- [ ] Implement song request and voting UI.
+## Phase 2: Mobile & Web Client
+- [x] Build functional Web Prototype in `src/static/index.html`.
+- [x] Implement Vibe Match indicator.
+- [x] Implement Admin Dashboard (Skip, BPM, Trend).
+- [ ] Port web logic to React Native mobile application.
+- [ ] Implement QR code scanning for venue sync.
 
 ## Phase 3: Real-Time Audio Engine
-- [ ] Research and select C++ audio framework (JUCE/PortAudio).
-- [ ] Implement low-latency playback loop.
+- [x] Initialize C++ Audio Engine (`engine/`).
+- [x] Implement real-time SoundTouch time-stretching.
+- [x] Implement automated HPF sweep logic for Energy Peaks.
+- [x] Wire `TRACK_SYNC` and `MASTER_CONTROL` messages.
+- [ ] Add support for FLAC/WAV streaming from Conductor.
 
 ## Bug Fixes
-- None identified.
+- [x] Fix database schema to include `filepath`.
 
 ## Refactoring
-- [x] Move mock data to persistent storage.
+- [x] Move mock data to persistent storage with full metadata.
+- [x] Implement FastAPI lifespan for background task safety.
