@@ -9,13 +9,25 @@ from contextlib import asynccontextmanager
 from typing import List, Dict, Optional, Tuple
 
 import qrcode
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException
+from datetime import datetime, timedelta
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException, Depends, status
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+from passlib.context import CryptContext
 from pydantic import BaseModel
 
 DB_PATH = "tracks.db"
+
+# Security Configuration
+SECRET_KEY = os.getenv("SECRET_KEY", "SUPER_SECRET_CDC_KEY") # Use environment variables in production
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
+
+pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/login")
 
 # AI Conductor Configuration Thresholds
 CONFIG = {
@@ -69,6 +81,27 @@ class Track(BaseModel):
     key: str
     energy: float
 
+class User(BaseModel):
+    username: str
+    points: int = 0
+    badges: List[str] = []
+
+class UserInDB(User):
+    hashed_password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
+
+class EventCreate(BaseModel):
+    title: str
+    description: str
+    start_time: float
+
 class TrackState:
     """
     Maintains the live state of the club's audio system.
@@ -95,13 +128,15 @@ class TrackState:
         # Each entry is a dict: {"track": Dict, "votes": int}
         self.upcoming_queue: List[Dict] = []
         # List of active WebSocket connections
-        self.connected_clients: List[WebSocket] = []
+        self.active_connections: List[WebSocket] = []
         # History of vote timestamps for velocity calculation
         self.vote_history: List[float] = []
         # User leaderboard: {user_id: {"points": int, "badges": List[str]}}
         self.user_stats: Dict[str, Dict] = {}
         # Track historical genres for archetype evolution
         self.genre_history: List[str] = []
+        # Notified events to avoid duplicates
+        self.notified_events: List[str] = []
         # Votes for next transition style: {style: count}
         self.transition_votes: Dict[str, int] = {"classic": 0, "bass_swap": 0, "echo_out": 0, "hpf_sweep": 0}
 
@@ -115,20 +150,20 @@ class ConnectionManager:
     async def connect(self, websocket: WebSocket):
         """Accepts a new connection and sends the initial state."""
         await websocket.accept()
-        dj_state.connected_clients.append(websocket)
+        dj_state.active_connections.append(websocket)
         # Immediately push current state to the new client
         await websocket.send_json(self.get_broadcast_payload())
 
     def disconnect(self, websocket: WebSocket):
         """Removes a disconnected client from the active list."""
-        if websocket in dj_state.connected_clients:
-            dj_state.connected_clients.remove(websocket)
+        if websocket in dj_state.active_connections:
+            dj_state.active_connections.remove(websocket)
 
     async def broadcast_queue_update(self):
         """Sends the current queue state to all connected clients."""
         payload = self.get_broadcast_payload()
         # Create a copy of the list to avoid issues during iteration if a client disconnects
-        for connection in list(dj_state.connected_clients):
+        for connection in list(dj_state.active_connections):
             try:
                 await connection.send_json(payload)
             except Exception:
@@ -158,6 +193,47 @@ class ConnectionManager:
         }
 
 manager = ConnectionManager()
+
+# Auth Utilities
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password):
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+async def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE username = ?", (username,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if row is None:
+        raise credentials_exception
+    return dict(row)
 
 def is_harmonically_compatible(key1: str, key2: str) -> bool:
     """
@@ -286,7 +362,7 @@ async def playback_simulation_loop():
 
         if acceleration > 2 and not dj_state.is_peak_mode:
              # Sudden surge detected
-             for client in dj_state.connected_clients:
+             for client in dj_state.active_connections:
                  try: await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "DSP_INTENSIFY", "duration": 10.0}})
                  except: pass
 
@@ -311,7 +387,7 @@ async def playback_simulation_loop():
                 dj_state.current_bpm = max(dj_state.target_bpm, dj_state.current_bpm - step)
 
             # Broadcast tempo update to all clients
-            for client in dj_state.connected_clients:
+            for client in dj_state.active_connections:
                 try: await client.send_json({"type": "MASTER_CONTROL", "data": {"current_bpm": dj_state.current_bpm}})
                 except: pass
 
@@ -337,7 +413,7 @@ async def playback_simulation_loop():
                     }
                 }
                 # Broadcast to all clients (including the future C++ Engine)
-                for client in dj_state.connected_clients:
+                for client in dj_state.active_connections:
                     try:
                         await client.send_json(sync_payload)
                     except:
@@ -376,6 +452,33 @@ async def playback_simulation_loop():
             await manager.broadcast_queue_update()
             print(f"[SYSTEM] Transitioned to: {dj_state.current_track['title']}")
 
+        # 5. Event Notification Broadcast
+        # Query for events starting within the next 60 seconds that haven't been notified yet
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM events WHERE start_time <= ? AND start_time > ?",
+                       (now + 60, now))
+        upcoming_events = cursor.fetchall()
+        conn.close()
+
+        for event in upcoming_events:
+            if event["id"] not in dj_state.notified_events:
+                event_payload = {
+                    "type": "NEW_EVENT",
+                    "data": {
+                        "id": event["id"],
+                        "title": event["title"],
+                        "description": event["description"],
+                        "start_time": event["start_time"]
+                    }
+                }
+                for client in dj_state.active_connections:
+                    try: await client.send_json(event_payload)
+                    except: pass
+
+                dj_state.notified_events.append(event["id"])
+                print(f"[SYSTEM] Real-time event announcement: {event['title']}")
+
         # Check every 1 second
         await asyncio.sleep(1)
 
@@ -403,6 +506,79 @@ async def get_catalog():
     """Returns the list of available tracks in the curated catalog."""
     return list(TRACK_CATALOG.values())
 
+@app.post("/api/register")
+async def register(user: UserCreate):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE username = ?", (user.username,))
+    if cursor.fetchone():
+        conn.close()
+        raise HTTPException(status_code=400, detail="Username already registered")
+
+    hashed_pw = get_password_hash(user.password)
+    import uuid
+    user_id = "user_" + str(uuid.uuid4())
+    cursor.execute("INSERT INTO users (id, username, hashed_password) VALUES (?, ?, ?)",
+                   (user_id, user.username, hashed_pw))
+    conn.commit()
+    conn.close()
+    return {"message": "User registered successfully"}
+
+@app.post("/api/login", response_model=Token)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE username = ?", (form_data.username,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row or not verify_password(form_data.password, row["hashed_password"]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": row["username"]}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/api/me", response_model=User)
+async def read_users_me(current_user: dict = Depends(get_current_user)):
+    # Convert JSON string badges to list
+    import json
+    badges = json.loads(current_user["badges"])
+    return {
+        "username": current_user["username"],
+        "points": current_user["points"],
+        "badges": badges
+    }
+
+@app.get("/api/events")
+async def get_events():
+    """Returns a list of upcoming club events."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM events WHERE start_time > ?", (time.time(),))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+@app.post("/api/admin/create-event")
+async def create_event(event: EventCreate, current_user: dict = Depends(get_current_user)):
+    """Creates a new event (restricted to logged in users in prototype)."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    import uuid
+    event_id = "event_" + str(uuid.uuid4())
+    cursor.execute("INSERT INTO events (id, title, description, start_time) VALUES (?, ?, ?, ?)",
+                   (event_id, event.title, event.description, event.start_time))
+    conn.commit()
+    conn.close()
+    return {"message": "Event created successfully", "id": event_id}
+
 @app.get("/sync-qr")
 async def get_sync_qr():
     """Generates a real QR code image for venue synchronization."""
@@ -424,11 +600,19 @@ async def get_sync_qr():
     return Response(content=img_byte_arr.getvalue(), media_type="image/png")
 
 @app.websocket("/ws/clubgoer")
-async def websocket_endpoint(websocket: WebSocket, user_id: Optional[str] = "anonymous"):
+async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
     """
     Real-time portal for clubgoers to vote and request songs.
     Clients send JSON messages with actions like 'REQUEST_SONG'.
     """
+    user_id = "anonymous"
+    if token:
+        try:
+            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id = payload.get("sub")
+        except JWTError:
+            user_id = "anonymous"
+
     if user_id not in dj_state.user_stats:
         dj_state.user_stats[user_id] = {"points": 0, "badges": [], "streak": 0}
 
@@ -546,7 +730,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: Optional[str] = "ano
                 await manager.broadcast_queue_update()
 
                 # Notify Audio Engine for immediate skip
-                for client in dj_state.connected_clients:
+                for client in dj_state.active_connections:
                     try:
                         await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "SKIP_NOW"}})
                     except: pass
@@ -565,7 +749,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: Optional[str] = "ano
                 dj_state.target_bpm = bpm
                 await manager.broadcast_queue_update()
                 # Notify Audio Engine
-                for client in dj_state.connected_clients:
+                for client in dj_state.active_connections:
                     try:
                         await client.send_json({"type": "MASTER_CONTROL", "data": {"target_bpm": bpm}})
                     except: pass

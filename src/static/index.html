@@ -227,10 +227,40 @@
         }
 
         #notification.show { transform: translateY(0); }
+
+        /* Event Announcement Overlay */
+        #event-announcement {
+            position: fixed;
+            bottom: 90px;
+            left: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, var(--primary) 0%, #6600cc 100%);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(160,32,240,0.3);
+            display: none;
+            z-index: 1500;
+            animation: pulse-glow 2s infinite alternate;
+        }
+
+        @keyframes pulse-glow {
+            from { box-shadow: 0 0 10px rgba(160,32,240,0.3); }
+            to { box-shadow: 0 0 25px rgba(160,32,240,0.6); }
+        }
+
+        .event-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 5px; }
+        .event-desc { font-size: 0.9rem; opacity: 0.9; }
+        .event-close { position: absolute; top: 10px; right: 15px; font-weight: bold; cursor: pointer; }
     </style>
 </head>
 <body>
     <div id="notification"></div>
+
+    <div id="event-announcement">
+        <div class="event-close" onclick="closeEvent()">✕</div>
+        <div class="event-title" id="event-display-title"></div>
+        <div class="event-desc" id="event-display-desc"></div>
+    </div>
 
     <div class="header">
         <h1>CDC // CONDUCTOR</h1>
@@ -366,6 +396,8 @@
                     showNotify('Request Accepted: ' + data.message, '#00ffcc');
                 } else if (data.type === 'ADMIN_SUCCESS') {
                     showNotify(data.message, '#a020f0');
+                } else if (data.type === 'NEW_EVENT') {
+                    showEventAnnouncement(data.data);
                 }
             };
 
@@ -388,6 +420,16 @@
             notificationEl.style.borderLeft = `4px solid ${color}`;
             notificationEl.classList.add('show');
             setTimeout(() => notificationEl.classList.remove('show'), 3000);
+        }
+
+        function showEventAnnouncement(event) {
+            document.getElementById('event-display-title').innerText = '📣 ' + event.title;
+            document.getElementById('event-display-desc').innerText = event.description;
+            document.getElementById('event-announcement').style.display = 'block';
+        }
+
+        function closeEvent() {
+            document.getElementById('event-announcement').style.display = 'none';
         }
 
         async function fetchCatalog() {

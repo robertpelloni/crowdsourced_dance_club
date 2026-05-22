@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.2] - 2025-05-22
+### Added
+- **Real-Time Event Notifications:** The Conductor now broadcasts `NEW_EVENT` alerts to all clients 60 seconds before a club event starts.
+- **Event Overlay UI:** Added a dynamic, animated announcement overlay to the Web Prototype.
+- **WebSocket Authentication:** The `/ws/clubgoer` endpoint now supports optional JWT token validation for persistent user sessions.
+
 ## [0.3.1] - 2025-05-22
 ### Added
 - **User Authentication:** Implemented JWT-based authentication system with `/api/register` and `/api/login` endpoints.

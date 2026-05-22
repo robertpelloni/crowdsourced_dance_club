@@ -4,7 +4,7 @@ import os
 DB_PATH = "tracks.db"
 
 def init_db():
-    """Initializes the SQLite database with an expanded track catalog."""
+    """Initializes the SQLite database with tracks, users, and events tables."""
     if os.path.exists(DB_PATH):
         os.remove(DB_PATH)
 
@@ -22,6 +22,29 @@ def init_db():
         energy REAL NOT NULL,
         genre TEXT NOT NULL DEFAULT 'Psytrance',
         filepath TEXT
+    )
+    ''')
+
+    # Create users table for authentication and profile management
+    cursor.execute('''
+    CREATE TABLE users (
+        id TEXT PRIMARY KEY,
+        username TEXT UNIQUE NOT NULL,
+        hashed_password TEXT NOT NULL,
+        points INTEGER DEFAULT 0,
+        badges TEXT DEFAULT '[]',
+        streak INTEGER DEFAULT 0
+    )
+    ''')
+
+    # Create events table for upcoming club announcements
+    cursor.execute('''
+    CREATE TABLE events (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT,
+        start_time REAL NOT NULL,
+        venue_id TEXT DEFAULT 'CDC_MAIN'
     )
     ''')
 
@@ -51,9 +74,14 @@ def init_db():
 
     cursor.executemany('INSERT INTO tracks VALUES (?, ?, ?, ?, ?, ?, ?, ?)', tracks)
 
+    # Seed an example event starting in 10 minutes
+    import time
+    example_event = ("event_001", "Neon Solstice", "Peak Psytrance Ritual", time.time() + 600, "CDC_MAIN")
+    cursor.execute("INSERT INTO events VALUES (?, ?, ?, ?, ?)", example_event)
+
     conn.commit()
     conn.close()
-    print(f"Database {DB_PATH} initialized with {len(tracks)} tracks.")
+    print(f"Database {DB_PATH} initialized with {len(tracks)} tracks, users, and events.")
 
 if __name__ == "__main__":
     init_db()
