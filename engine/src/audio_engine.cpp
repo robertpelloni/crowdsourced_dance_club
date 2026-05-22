@@ -92,22 +92,28 @@ void AudioEngine::handle_track_sync(const json& data) {
     std::string id = data["track_id"];
     double bpm = data["bpm"];
     double timestamp = data["transition_timestamp"];
+    std::string archetype = data.value("archetype", "classic");
 
-    std::lock_guard<std::mutex> lock(buffer_mutex);
+    // 1. Perform Disk I/O outside of the mutex lock to avoid blocking the audio thread
+    AudioBuffer temp_buffer;
+    if (load_audio_file(path, temp_buffer)) {
+        temp_buffer.track_id = id;
+        temp_buffer.native_bpm = bpm;
 
-    // Multi-track pre-loading logic
-    // If next_buffer is already loaded, move it to preloaded_buffers
-    if (next_buffer.loaded && next_buffer.track_id != id) {
-        preloaded_buffers.push_back(std::move(next_buffer));
-        std::cout << "[AUDIO] Moved " << id << " to pre-loaded pool." << std::endl;
-    }
+        std::lock_guard<std::mutex> lock(buffer_mutex);
 
-    if (load_audio_file(path, next_buffer)) {
-        next_buffer.track_id = id;
-        next_buffer.native_bpm = bpm;
+        // 2. Safely swap the new buffer into the engine state
+        if (next_buffer.loaded && next_buffer.track_id != id) {
+            preloaded_buffers.push_back(std::move(next_buffer));
+        }
+
+        next_buffer = std::move(temp_buffer);
         transition_timestamp = timestamp;
+        transition_archetype = archetype;
+
         update_tempo();
         st_next.clear();
+        std::cout << "[AUDIO] Prepared next track: " << id << std::endl;
     }
 }
 
@@ -206,14 +212,23 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
         double gain_next = self->is_transitioning ? self->transition_progress.load() : 0.0;
         double gain_curr = 1.0 - gain_next;
 
-        if (i < (unsigned int)samples_received_curr) {
-            left += stretched_curr[i * 2] * gain_curr;
-            right += stretched_curr[i * 2 + 1] * gain_curr;
+        float samples_curr_l = (i < (unsigned int)samples_received_curr) ? stretched_curr[i * 2] : 0.0f;
+        float samples_curr_r = (i < (unsigned int)samples_received_curr) ? stretched_curr[i * 2 + 1] : 0.0f;
+        float samples_next_l = (self->is_transitioning && i < (unsigned int)samples_received_next) ? stretched_next[i * 2] : 0.0f;
+        float samples_next_r = (self->is_transitioning && i < (unsigned int)samples_received_next) ? stretched_next[i * 2 + 1] : 0.0f;
+
+        if (self->is_transitioning && self->transition_archetype == "hpf_sweep") {
+            // Apply automated HPF sweep during transition
+            float cutoff = 20.0f + 2000.0f * (1.0f - std::abs(2.0f * (float)gain_next - 1.0f));
+            self->hpf_l.set_cutoff(cutoff, 44100.0f);
+            self->hpf_r.set_cutoff(cutoff, 44100.0f);
+
+            samples_curr_l = self->hpf_l.process(samples_curr_l);
+            samples_curr_r = self->hpf_r.process(samples_curr_r);
         }
-        if (self->is_transitioning && i < (unsigned int)samples_received_next) {
-            left += stretched_next[i * 2] * gain_next;
-            right += stretched_next[i * 2 + 1] * gain_next;
-        }
+
+        left = (samples_curr_l * gain_curr) + (samples_next_l * gain_next);
+        right = (samples_curr_r * gain_curr) + (samples_next_r * gain_next);
 
         // Apply HPF Sweep
         if (self->is_intensifying) {
@@ -246,15 +261,23 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
 
         if (self->is_transitioning) {
             self->transition_progress = self->transition_progress + (1.0 / self->transition_duration_frames);
-            if (self->transition_progress >= 1.0) {
-                self->is_transitioning = false;
-                self->transition_timestamp = 0;
-                std::lock_guard<std::mutex> lock(self->buffer_mutex);
-                self->current_buffer = std::move(self->next_buffer);
-                self->next_buffer.loaded = false;
-                self->st_current.clear();
-                self->transition_duration_frames = 44100.0 * 15.0;
-            }
+        }
+    }
+
+    // 5. Finalize transition outside of the sample loop to ensure data consistency
+    if (self->is_transitioning && self->transition_progress >= 1.0) {
+        self->is_transitioning = false;
+        self->transition_timestamp = 0;
+
+        // Lock only for the duration of the pointer/buffer swap
+        if (self->buffer_mutex.try_lock()) {
+            self->current_buffer = std::move(self->next_buffer);
+            self->next_buffer.loaded = false;
+            self->buffer_mutex.unlock();
+
+            self->st_current.clear();
+            self->transition_duration_frames = 44100.0 * 15.0;
+            std::cout << "[AUDIO] Transition complete" << std::endl;
         }
     }
 

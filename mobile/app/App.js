@@ -16,6 +16,7 @@ export default function App() {
   const [targetBPM, setTargetBPM] = useState(145.0);
   const [vibeStats, setVibeStats] = useState({ points: 0, badges: [] });
   const [leaderboard, setLeaderboard] = useState([]);
+  const [transitionVotes, setTransitionVotes] = useState({ classic: 0, bass_swap: 0, echo_out: 0, hpf_sweep: 0 });
 
   const [serverUrl, setServerUrl] = useState('localhost:8000');
   const [hasPermission, setHasPermission] = useState(null);
@@ -77,6 +78,7 @@ export default function App() {
         setIsPeakMode(data.is_peak_mode || false);
         setTargetBPM(data.target_bpm || 145.0);
         setLeaderboard(data.leaderboard || []);
+        setTransitionVotes(data.transition_votes || { classic: 0, bass_swap: 0, echo_out: 0, hpf_sweep: 0 });
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } else if (data.type === 'REQUEST_ACCEPTED' || data.type === 'REQUEST_DENIED' || data.type === 'ERROR') {
         if (data.user_stats) setVibeStats(data.user_stats);
@@ -130,6 +132,13 @@ export default function App() {
     if (ws.current?.readyState === WebSocket.OPEN) {
       ws.current.send(JSON.stringify({ action: 'VOTE_TRACK', track_id: trackId }));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const voteTransition = (style) => {
+    if (ws.current?.readyState === WebSocket.OPEN) {
+        ws.current.send(JSON.stringify({ action: 'VOTE_TRANSITION', style: style }));
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
   };
 
@@ -201,6 +210,16 @@ export default function App() {
             </View>
           </TouchableOpacity>
         ))}
+
+        <Text style={styles.sectionLabel}>VOTE NEXT TRANSITION</Text>
+        <View style={styles.transitionVoteGrid}>
+            {Object.keys(transitionVotes).map(style => (
+                <TouchableOpacity key={style} style={styles.transitionBtn} onPress={() => voteTransition(style)}>
+                    <Text style={styles.transitionText}>{style.replace('_', ' ').toUpperCase()}</Text>
+                    <Text style={styles.transitionCount}>{transitionVotes[style]}</Text>
+                </TouchableOpacity>
+            ))}
+        </View>
     </ScrollView>
   );
 
@@ -373,5 +392,9 @@ const styles = StyleSheet.create({
   actionBtnText: { color: '#00ffcc', fontWeight: 'bold', textAlign: 'center' },
   closeSync: { position: 'absolute', bottom: 40, alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.1)', padding: 20, borderRadius: 10 },
   visualizerContainer: { height: 100, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  vibeOrb: { width: 50, height: 50, borderRadius: 25, shadowColor: '#fff', shadowRadius: 20, shadowOpacity: 0.5, elevation: 10 }
+  vibeOrb: { width: 50, height: 50, borderRadius: 25, shadowColor: '#fff', shadowRadius: 20, shadowOpacity: 0.5, elevation: 10 },
+  transitionVoteGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
+  transitionBtn: { backgroundColor: '#1a1a1a', padding: 15, borderRadius: 10, flex: 1, minWidth: '45%', alignItems: 'center', borderWidth: 1, borderColor: '#333' },
+  transitionText: { color: '#888', fontSize: 10, fontWeight: 'bold' },
+  transitionCount: { color: '#a020f0', fontSize: 18, fontWeight: 'bold', marginTop: 5 }
 });

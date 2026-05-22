@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.2.1] - 2025-05-22
+### Added
+- **Dynamic Transition Voting:** Users can now vote on the upcoming transition archetype (Classic, Bass Swap, Echo Out, HPF Sweep) via the mobile app.
+- **Smooth BPM Ramping:** The Conductor Server now gradually ramps the live room tempo towards the target BPM.
+- **Dynamic QR Venue Sync:** The server now generates actual QR codes containing venue connection metadata.
+
+### Changed
+- Enhanced C++ Audio Engine with automated HPF sweep transition support.
+- Updated Mobile UI with transition voting grid and improved haptic feedback.
+
 ## [0.2.0] - 2025-05-22
 ### Added
 - **Mobile App Refinements:**

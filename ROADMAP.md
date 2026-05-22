@@ -13,8 +13,9 @@
 - [x] Develop Web Client Prototype with real-time state sync.
 - [x] Implement song request and voting UI.
 - [x] Implement Admin Override Dashboard.
-- [ ] Transition prototype to React Native for native mobile support.
-- [ ] Implement QR-based venue synchronization.
+- [x] Transition prototype to React Native for native mobile support.
+- [x] Implement QR-based venue synchronization.
+- [x] Implement User-Voted Transitions.
 
 ## Phase 3: Real-Time Audio Engine (Initial Implementation)
 - [x] Implement C++ Audio Engine with PortAudio and SoundTouch.

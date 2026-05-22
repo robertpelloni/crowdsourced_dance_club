@@ -20,6 +20,9 @@
 - [x] Port web logic to React Native mobile application.
 - [x] Implement QR code scanning for venue sync.
 - [x] Synchronize mobile app version to 0.2.0.
+- [x] Implement smooth BPM ramping.
+- [x] Implement dynamic QR generation.
+- [x] Implement transition voting UI.
 
 ## Phase 3: Real-Time Audio Engine
 - [x] Initialize C++ Audio Engine (`engine/`).

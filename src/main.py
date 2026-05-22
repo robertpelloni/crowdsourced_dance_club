@@ -1,4 +1,5 @@
 import asyncio
+import io
 import json
 import os
 import sqlite3
@@ -7,7 +8,9 @@ import time
 from contextlib import asynccontextmanager
 from typing import List, Dict, Optional, Tuple
 
+import qrcode
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException
+from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -78,8 +81,10 @@ class TrackState:
         self.start_time: float = time.time()
         # Duration of current track in seconds (default 180 for simulation)
         self.duration: float = 180.0
-        # Target BPM for the room
+        # Target BPM for the room (the eventual goal)
         self.target_bpm: float = 145.0
+        # Current BPM (the live tempo being ramped)
+        self.current_bpm: float = 145.0
         # Target energy trend: "rising", "stable", or "falling"
         self.energy_trend: str = "stable"
         # Peak mode status
@@ -97,6 +102,8 @@ class TrackState:
         self.user_stats: Dict[str, Dict] = {}
         # Track historical genres for archetype evolution
         self.genre_history: List[str] = []
+        # Votes for next transition style: {style: count}
+        self.transition_votes: Dict[str, int] = {"classic": 0, "bass_swap": 0, "echo_out": 0, "hpf_sweep": 0}
 
 dj_state = TrackState()
 
@@ -142,10 +149,12 @@ class ConnectionManager:
             "start_time": dj_state.start_time,
             "duration": dj_state.duration,
             "target_bpm": dj_state.target_bpm,
+            "current_bpm": dj_state.current_bpm,
             "energy_trend": dj_state.energy_trend,
             "is_peak_mode": dj_state.is_peak_mode,
             "queue": dj_state.upcoming_queue,
-            "leaderboard": leaderboard
+            "leaderboard": leaderboard,
+            "transition_votes": dj_state.transition_votes
         }
 
 manager = ConnectionManager()
@@ -293,10 +302,27 @@ async def playback_simulation_loop():
             print(f"[SYSTEM] Peak energy subsiding. Velocity: {vote_velocity} votes/min.")
             await manager.broadcast_queue_update()
 
-        # 3. Proactive TRACK_SYNC (15s before transition)
+        # 3. Smooth BPM Ramping Logic
+        if abs(dj_state.current_bpm - dj_state.target_bpm) > 0.01:
+            step = 0.05  # Adjust by 0.05 BPM every second
+            if dj_state.current_bpm < dj_state.target_bpm:
+                dj_state.current_bpm = min(dj_state.target_bpm, dj_state.current_bpm + step)
+            else:
+                dj_state.current_bpm = max(dj_state.target_bpm, dj_state.current_bpm - step)
+
+            # Broadcast tempo update to all clients
+            for client in dj_state.connected_clients:
+                try: await client.send_json({"type": "MASTER_CONTROL", "data": {"current_bpm": dj_state.current_bpm}})
+                except: pass
+
+        # 4. Proactive TRACK_SYNC (15s before transition)
         if 14.5 <= remaining <= 15.5:
             if dj_state.upcoming_queue:
                 next_track = dj_state.upcoming_queue[0]["track"]
+
+                # Determine winning transition archetype
+                winner = max(dj_state.transition_votes, key=dj_state.transition_votes.get)
+
                 sync_payload = {
                     "type": "TRACK_SYNC",
                     "data": {
@@ -306,7 +332,8 @@ async def playback_simulation_loop():
                         "key": next_track["key"],
                         "energy": next_track["energy"],
                         "transition_timestamp": dj_state.start_time + dj_state.duration,
-                        "crossfade_duration": 15.0
+                        "crossfade_duration": 15.0,
+                        "archetype": winner
                     }
                 }
                 # Broadcast to all clients (including the future C++ Engine)
@@ -342,6 +369,8 @@ async def playback_simulation_loop():
                 # else keep playing current (loop)
 
             dj_state.start_time = now
+            # Reset transition votes for next track
+            dj_state.transition_votes = {"classic": 0, "bass_swap": 0, "echo_out": 0, "hpf_sweep": 0}
             # In real life duration varies, but for simulation we use 180s
             dj_state.duration = 180.0
             await manager.broadcast_queue_update()
@@ -376,14 +405,23 @@ async def get_catalog():
 
 @app.get("/sync-qr")
 async def get_sync_qr():
-    """Returns metadata for venue synchronization (QR data placeholder)."""
-    return {
+    """Generates a real QR code image for venue synchronization."""
+    sync_data = {
         "venue_name": "CDC Virtual Arena",
         "conductor_url": "http://localhost:8000",
         "websocket_url": "ws://localhost:8000/ws/clubgoer",
-        "session_id": "session_" + str(int(time.time())),
-        "qr_placeholder": "https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=CDC_SYNC"
+        "session_id": "session_001"
     }
+
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(json.dumps(sync_data))
+    qr.make(fit=True)
+
+    img = qr.make_image(fill_color="black", back_color="white")
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format='PNG')
+
+    return Response(content=img_byte_arr.getvalue(), media_type="image/png")
 
 @app.websocket("/ws/clubgoer")
 async def websocket_endpoint(websocket: WebSocket, user_id: Optional[str] = "anonymous"):
@@ -450,6 +488,14 @@ async def websocket_endpoint(websocket: WebSocket, user_id: Optional[str] = "ano
                 else:
                     # Deny request and give the user feedback on why it failed the vibe check
                     await websocket.send_json({"type": "REQUEST_DENIED", "message": reason})
+
+            elif action == "VOTE_TRANSITION":
+                style = message.get("style")
+                if style in dj_state.transition_votes:
+                    dj_state.transition_votes[style] += 1
+                    await manager.broadcast_queue_update()
+                else:
+                    await websocket.send_json({"type": "ERROR", "message": "Invalid transition style."})
 
             elif action == "VOTE_TRACK":
                 track_id = message.get("track_id")
