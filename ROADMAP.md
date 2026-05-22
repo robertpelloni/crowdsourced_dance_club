@@ -14,6 +14,7 @@
 - Persistent user profiles and JWT authentication.
 - Real-time event notifications and announcements.
 - Verified 3-tier architecture with UAT approval.
+- Integrated Experience Refinement (Feedback) system.
 
 ## Milestone 4: Scaling & Expansion (Upcoming)
 - **Neural Conductor:** ML-driven vibe analysis and predictive queuing.

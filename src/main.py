@@ -102,6 +102,11 @@ class EventCreate(BaseModel):
     description: str
     start_time: float
 
+class FeedbackSubmit(BaseModel):
+    vibe_rating: int
+    technical_rating: int
+    comment: Optional[str] = None
+
 class TrackState:
     """
     Maintains the live state of the club's audio system.
@@ -578,6 +583,22 @@ async def create_event(event: EventCreate, current_user: dict = Depends(get_curr
     conn.commit()
     conn.close()
     return {"message": "Event created successfully", "id": event_id}
+
+@app.post("/api/feedback")
+async def submit_feedback(feedback: FeedbackSubmit, current_user: dict = Depends(get_current_user)):
+    """Allows authenticated users to submit experience feedback during testing."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    import uuid
+    feedback_id = "fb_" + str(uuid.uuid4())
+    cursor.execute('''
+        INSERT INTO feedback (id, user_id, vibe_rating, technical_rating, comment, timestamp)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (feedback_id, current_user["id"], feedback.vibe_rating,
+          feedback.technical_rating, feedback.comment, time.time()))
+    conn.commit()
+    conn.close()
+    return {"message": "Feedback submitted successfully. Thank you for helping refine the vibe!", "id": feedback_id}
 
 @app.get("/sync-qr")
 async def get_sync_qr():

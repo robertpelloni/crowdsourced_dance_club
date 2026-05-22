@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.1] - 2025-05-22
+### Added
+- **Experience Refinement System:** Implemented a persistent feedback collection mechanism for user testing.
+- **Feedback UI:** Added a "Refine" tab to the Web Prototype with star ratings and qualitative comments.
+- **User Testing Guide:** Authored `TESTING_GUIDE.md` to coordinate community refinement efforts.
+
 ## [0.4.0] - 2025-05-22
 ### Added
 - **Production Candidate Release:** Formally transitioned the project from prototype to production candidate.

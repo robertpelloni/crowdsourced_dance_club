@@ -48,6 +48,19 @@ def init_db():
     )
     ''')
 
+    # Create feedback table for user testing and experience refinement
+    cursor.execute('''
+    CREATE TABLE feedback (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        vibe_rating INTEGER,
+        technical_rating INTEGER,
+        comment TEXT,
+        timestamp REAL NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id)
+    )
+    ''')
+
     # Expanded catalog with diverse genres and energy levels
     tracks = [
         # Psytrance (Peak)
