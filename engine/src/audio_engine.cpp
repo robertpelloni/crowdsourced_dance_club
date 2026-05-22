@@ -11,7 +11,6 @@ AudioEngine::AudioEngine() : stream(nullptr), running(false),
                              transition_timestamp(0.0),
                              is_intensifying(false), intensify_progress(0.0),
                              intensify_duration_frames(44100.0 * 10.0),
-                             excitement_level(0.5),
                              target_bpm(145.0), last_state_time_ms(0) {
 
     st_current.setSampleRate(44100);
@@ -122,13 +121,6 @@ void AudioEngine::handle_master_control(const json& data) {
     if (data.contains("target_bpm")) {
         target_bpm = data["target_bpm"];
         update_tempo();
-    }
-    if (data.contains("current_bpm")) {
-        target_bpm = data["current_bpm"]; // Sync with Conductor's live ramp
-        update_tempo();
-    }
-    if (data.contains("excitement")) {
-        excitement_level = data["excitement"];
     }
     if (data.contains("action") && data["action"] == "SKIP_NOW") {
         if (next_buffer.loaded) {
@@ -241,28 +233,19 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
         // Apply HPF Sweep
         if (self->is_intensifying) {
             float phase = self->intensify_progress;
-            float exc = (float)self->excitement_level.load();
-
-            // Sweep range based on excitement (max 3000Hz)
-            float max_cutoff = 1000.0f + 2000.0f * exc;
-            float cutoff = 20.0f + (max_cutoff - 20.0f) * (1.0f - std::abs(2.0f * phase - 1.0f));
-
+            // Sweep from 20Hz up to 2000Hz and back down
+            float cutoff = 20.0f + 1980.0f * (1.0f - std::abs(2.0f * phase - 1.0f));
             self->hpf_l.set_cutoff(cutoff, 44100.0f);
             self->hpf_r.set_cutoff(cutoff, 44100.0f);
 
             left = self->hpf_l.process(left);
             right = self->hpf_r.process(right);
 
-            // Dynamically scale compression based on excitement
-            // Excitement 0.0 -> Threshold 0.5, Ratio 4.0
-            // Excitement 1.0 -> Threshold 0.2, Ratio 12.0
-            float target_threshold = 0.5f - (0.3f * exc);
-            float target_ratio = 4.0f + (8.0f * exc);
-
-            self->comp_l.threshold = target_threshold;
-            self->comp_l.ratio = target_ratio;
-            self->comp_r.threshold = target_threshold;
-            self->comp_r.ratio = target_ratio;
+            // Increase compression during energy peaks
+            self->comp_l.threshold = 0.3f;
+            self->comp_l.ratio = 8.0f;
+            self->comp_r.threshold = 0.3f;
+            self->comp_r.ratio = 8.0f;
 
             self->intensify_progress = self->intensify_progress + (1.0 / self->intensify_duration_frames);
             if (self->intensify_progress >= 1.0) {

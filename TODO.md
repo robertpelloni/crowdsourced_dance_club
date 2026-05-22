@@ -3,13 +3,49 @@
 ## Immediate Tasks
 - [x] Create initial documentation (`AGENTS.md`, `VISION.md`, etc.).
 - [x] Add `auto_dj_script` as a submodule.
-- [x] Set up Python environment and `requirements.txt`.
 - [x] Implement `src/main.py` with FastAPI and WebSockets.
 - [x] Implement `evaluate_track_fit` logic.
-- [x] Set up SQLite database for `TRACK_CATALOG`.
 - [x] Write unit tests for fit logic and API endpoints.
 - [x] Implement Harmonic Key matching logic.
 - [x] Implement user voting system for queue reordering.
+<<<<<<< HEAD
+- [x] Develop Mobile-First PWA Prototype.
+- [x] Implement Playback Simulation & Auto-Transitions.
+- [x] Implement "Vibe-Aware" Weighted Ranking.
+- [x] Implement Energy Ramping logic.
+- [x] Implement Genre Compatibility Matrix.
+- [x] Implement "DJ Control Panel" (Admin Mode).
+- [x] Implement `/sync-qr` endpoint.
+- [x] Design Real-Time Audio Engine Protocol.
+- [x] Initialize Mobile App scaffold.
+
+## Phase 3: Mobile Client (Native) (Completed)
+- [x] Implement WebSocket client in React Native.
+- [x] Mirror PWA functionality in Native UI.
+- [x] Implement Haptic Feedback on transitions.
+
+## Phase 4: Real-Time Audio Engine
+- [x] Implement proactive `TRACK_SYNC` broadcasting.
+- [x] Create `src/mock_engine.py` for testing.
+- [x] Initialize C++ `engine/` repository.
+- [x] Implement PortAudio callback and libwebsockets client.
+- [x] Integrate SoundTouch for real-time time-stretching.
+- [x] Implement Playback State heartbeat reporting.
+- [x] Implement real-time SoundTouch sample processing.
+- [x] Implement timestamp-based auto-transitions.
+- [x] Implement haptic beat synchronization.
+- [x] Implement Vibe Badge gamification.
+- [x] Implement Mobile QR Sync scanner.
+- [x] Refine Conductor highlight worker with temporary directories.
+- [x] Implement Energy Derivative voting acceleration.
+- [x] Implement real-time HPF sweeps in C++.
+- [x] Implement audio soft-clipper in C++.
+- [x] Implement animated Vibe Visualizer in mobile app.
+- [ ] Refine SoundTouch buffer management (FIFO logic).
+
+## Bug Fixes
+- None identified.
+=======
 - [x] Expand `tracks.db` with genre and filepath metadata.
 - [x] Implement simulation loop with voting velocity and energy peaks.
 
@@ -23,8 +59,8 @@
 - [x] Implement smooth BPM ramping.
 - [x] Implement dynamic QR generation.
 - [x] Implement transition voting UI.
+- [x] Implement Venue Excitement level tracking.
 - [x] Implement "Vibe Streak" gamification.
-- [x] Implement excitement level tracking.
 - [x] Refine "Pulse Orb" into "Vibe Heatmap".
 
 ## Phase 3: Real-Time Audio Engine
@@ -43,3 +79,4 @@
 ## Refactoring
 - [x] Move mock data to persistent storage with full metadata.
 - [x] Implement FastAPI lifespan for background task safety.
+>>>>>>> main
