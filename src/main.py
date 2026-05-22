@@ -430,7 +430,7 @@ async def websocket_endpoint(websocket: WebSocket, user_id: Optional[str] = "ano
     Clients send JSON messages with actions like 'REQUEST_SONG'.
     """
     if user_id not in dj_state.user_stats:
-        dj_state.user_stats[user_id] = {"points": 0, "badges": []}
+        dj_state.user_stats[user_id] = {"points": 0, "badges": [], "streak": 0}
 
     await manager.connect(websocket)
     try:
@@ -472,8 +472,20 @@ async def websocket_endpoint(websocket: WebSocket, user_id: Optional[str] = "ano
                         await websocket.send_json({"type": "ERROR", "message": "Track already in queue."})
                         continue
 
+                    # Vibe Streak Gamification
+                    vibe_score = calculate_vibe_score(requested_track, dj_state.current_track)
+                    points_to_award = 10
+                    if vibe_score >= 0.8:
+                        dj_state.user_stats[user_id]["streak"] = dj_state.user_stats[user_id].get("streak", 0) + 1
+                        if dj_state.user_stats[user_id]["streak"] >= 3:
+                            points_to_award += 20  # Streak bonus
+                            if "Vibe Master" not in dj_state.user_stats[user_id]["badges"]:
+                                dj_state.user_stats[user_id]["badges"].append("Vibe Master")
+                    else:
+                        dj_state.user_stats[user_id]["streak"] = 0
+
                     # Award Vibe Points to requester
-                    dj_state.user_stats[user_id]["points"] += 10
+                    dj_state.user_stats[user_id]["points"] += points_to_award
                     if dj_state.user_stats[user_id]["points"] >= 50 and "Vibe Guardian" not in dj_state.user_stats[user_id]["badges"]:
                         dj_state.user_stats[user_id]["badges"].append("Vibe Guardian")
 

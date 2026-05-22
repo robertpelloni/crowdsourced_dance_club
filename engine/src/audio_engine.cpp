@@ -241,13 +241,29 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
             left = self->hpf_l.process(left);
             right = self->hpf_r.process(right);
 
+            // Increase compression during energy peaks
+            self->comp_l.threshold = 0.3f;
+            self->comp_l.ratio = 8.0f;
+            self->comp_r.threshold = 0.3f;
+            self->comp_r.ratio = 8.0f;
+
             self->intensify_progress = self->intensify_progress + (1.0 / self->intensify_duration_frames);
             if (self->intensify_progress >= 1.0) {
                 self->is_intensifying = false;
                 self->hpf_l.set_cutoff(20.0f, 44100.0f);
                 self->hpf_r.set_cutoff(20.0f, 44100.0f);
+
+                // Restore standard compression
+                self->comp_l.threshold = 0.5f;
+                self->comp_l.ratio = 4.0f;
+                self->comp_r.threshold = 0.5f;
+                self->comp_r.ratio = 4.0f;
             }
         }
+
+        // Apply Dynamic Range Compression
+        left = self->comp_l.process(left);
+        right = self->comp_r.process(right);
 
         // 4. Peak Limiting (Simple Soft Clipper)
         auto soft_clip = [](float x) {

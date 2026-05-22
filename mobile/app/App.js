@@ -176,10 +176,30 @@ export default function App() {
     );
   };
 
-  const renderDanceView = () => (
+  const renderDanceView = () => {
+    const orbColor = pulseAnim.interpolate({
+        inputRange: [1, 1.5],
+        outputRange: [
+            isPeakMode ? '#ff0000' : (energyTrend === 'rising' ? '#ffaa00' : (energyTrend === 'falling' ? '#00ccff' : '#a020f0')),
+            '#ffffff'
+        ]
+    });
+
+    return (
     <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.visualizerContainer}>
-            <Animated.View style={[styles.vibeOrb, { transform: [{ scale: pulseAnim }], backgroundColor: isPeakMode ? '#ff0000' : '#a020f0' }]} />
+            <Animated.View style={[styles.vibeOrb, {
+                transform: [{ scale: pulseAnim }],
+                backgroundColor: orbColor,
+                shadowColor: orbColor,
+                opacity: currentTrack ? 1 : 0.2
+            }]} />
+            <Animated.View style={[styles.vibeOrb, {
+                position: 'absolute',
+                transform: [{ scale: pulseAnim.interpolate({inputRange:[1, 1.5], outputRange:[1, 2.5]}) }],
+                backgroundColor: orbColor,
+                opacity: 0.1
+            }]} />
         </View>
 
         {renderEnergyMeter()}

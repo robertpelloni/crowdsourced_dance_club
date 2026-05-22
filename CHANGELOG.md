@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.2] - 2025-05-22
+### Added
+- **Dynamic Mastering:** Implemented real-time Dynamic Range Compressor in the C++ engine with energy-aware "pumping" behavior.
+- **Vibe Streak Gamification:** Added server-side tracking of consecutive high-match requests, awarding bonus points and "Vibe Master" badges.
+- **Vibe Heatmap:** Refined the mobile "Pulse Orb" into a multi-layered heatmap with dynamic color interpolation based on track energy.
+
 ## [0.2.1] - 2025-05-22
 ### Added
 - **Dynamic Transition Voting:** Users can now vote on the upcoming transition archetype (Classic, Bass Swap, Echo Out, HPF Sweep) via the mobile app.

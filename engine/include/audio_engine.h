@@ -34,6 +34,28 @@ struct HighPassFilter {
     }
 };
 
+struct Compressor {
+    float threshold;
+    float ratio;
+    float attack;
+    float release;
+    float envelope;
+
+    Compressor() : threshold(0.5f), ratio(4.0f), attack(0.01f), release(0.1f), envelope(0.0f) {}
+
+    float process(float in) {
+        float abs_in = std::abs(in);
+        float target = (abs_in > envelope) ? attack : release;
+        envelope = envelope + target * (abs_in - envelope);
+
+        if (envelope > threshold) {
+            float desired_gain = threshold + (envelope - threshold) / ratio;
+            return in * (desired_gain / envelope);
+        }
+        return in;
+    }
+};
+
 struct AudioBuffer {
     std::vector<float> data;
     sf_count_t frames;
@@ -113,6 +135,9 @@ private:
 
     HighPassFilter hpf_l;
     HighPassFilter hpf_r;
+
+    Compressor comp_l;
+    Compressor comp_r;
 
     std::atomic<double> target_bpm;
 

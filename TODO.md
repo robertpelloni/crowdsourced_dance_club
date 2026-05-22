@@ -23,11 +23,14 @@
 - [x] Implement smooth BPM ramping.
 - [x] Implement dynamic QR generation.
 - [x] Implement transition voting UI.
+- [x] Implement "Vibe Streak" gamification.
+- [x] Refine "Pulse Orb" into "Vibe Heatmap".
 
 ## Phase 3: Real-Time Audio Engine
 - [x] Initialize C++ Audio Engine (`engine/`).
 - [x] Implement real-time SoundTouch time-stretching.
 - [x] Implement automated HPF sweep logic for Energy Peaks.
+- [x] Implement real-time Dynamic Range Compressor.
 - [x] Wire `TRACK_SYNC` and `MASTER_CONTROL` messages.
 - [x] Implement multi-track pre-loading.
 - [ ] Add support for FLAC/WAV streaming from Conductor.
