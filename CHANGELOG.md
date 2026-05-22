@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.3] - 2025-05-22
+### Added
+- **Venue Excitement Tracking:** The Conductor now calculates a global `excitement_level` based on voting velocity and active user streaks.
+- **Dynamic DSP Scaling:** The C++ engine now scales compressor aggressiveness and HPF sweep ranges based on the room's excitement level.
+- **Structural Mapping:** Updated `STRUCTURE.md` with a detailed project layout and submodule descriptions.
+
 ## [0.2.2] - 2025-05-22
 ### Added
 - **Dynamic Mastering:** Implemented real-time Dynamic Range Compressor in the C++ engine with energy-aware "pumping" behavior.

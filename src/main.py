@@ -89,6 +89,8 @@ class TrackState:
         self.energy_trend: str = "stable"
         # Peak mode status
         self.is_peak_mode: bool = False
+        # Global venue excitement level (0.0 to 1.0)
+        self.excitement_level: float = 0.5
         # Last calculated velocity for derivative
         self.last_velocity: float = 0.0
         # Upcoming tracks submitted and approved
@@ -152,6 +154,7 @@ class ConnectionManager:
             "current_bpm": dj_state.current_bpm,
             "energy_trend": dj_state.energy_trend,
             "is_peak_mode": dj_state.is_peak_mode,
+            "excitement_level": dj_state.excitement_level,
             "queue": dj_state.upcoming_queue,
             "leaderboard": leaderboard,
             "transition_votes": dj_state.transition_votes
@@ -280,14 +283,25 @@ async def playback_simulation_loop():
         dj_state.vote_history = [t for t in dj_state.vote_history if now - t < 60]
         vote_velocity = len(dj_state.vote_history)
 
-        # 2. Trigger Energy Peak and DSP Intensify based on Derivative
+        # 2. Calculate Excitement Level
+        # Base on velocity (max 10 votes/min) + streaks
+        active_streaks = sum(1 for s in dj_state.user_stats.values() if s.get("streak", 0) > 0)
+        velocity_factor = min(1.0, vote_velocity / 10.0)
+        streak_factor = min(1.0, active_streaks / 5.0)
+
+        # Weighted excitement: 70% velocity, 30% active participant streaks
+        target_excitement = (velocity_factor * 0.7) + (streak_factor * 0.3)
+        # Smooth excitement transition
+        dj_state.excitement_level = (dj_state.excitement_level * 0.9) + (target_excitement * 0.1)
+
+        # 3. Trigger Energy Peak and DSP Intensify based on Derivative
         acceleration = vote_velocity - dj_state.last_velocity
         dj_state.last_velocity = vote_velocity
 
         if acceleration > 2 and not dj_state.is_peak_mode:
              # Sudden surge detected
              for client in dj_state.connected_clients:
-                 try: await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "DSP_INTENSIFY", "duration": 10.0}})
+                 try: await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "DSP_INTENSIFY", "duration": 10.0, "excitement": dj_state.excitement_level}})
                  except: pass
 
         if vote_velocity >= 5 and not dj_state.is_peak_mode:

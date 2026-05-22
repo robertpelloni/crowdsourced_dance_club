@@ -136,6 +136,8 @@ private:
     HighPassFilter hpf_l;
     HighPassFilter hpf_r;
 
+    std::atomic<double> excitement_level;
+
     Compressor comp_l;
     Compressor comp_r;
 

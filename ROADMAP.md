@@ -16,6 +16,7 @@
 - [x] Transition prototype to React Native for native mobile support.
 - [x] Implement QR-based venue synchronization.
 - [x] Implement User-Voted Transitions.
+- [x] Implement Venue Excitement tracking.
 
 ## Phase 3: Real-Time Audio Engine (Initial Implementation)
 - [x] Implement C++ Audio Engine with PortAudio and SoundTouch.
