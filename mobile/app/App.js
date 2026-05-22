@@ -46,16 +46,17 @@ export default function App() {
     if (connected && currentTrack) {
         const beatInterval = (60 / targetBPM) * 1000;
         hapticTimer.current = setInterval(() => {
-            if (isPeakMode) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            if (isPeakMode) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
             else Haptics.selectionAsync();
 
+            const intensity = isPeakMode ? 1.5 : (energyTrend === 'rising' ? 1.3 : 1.15);
             Animated.sequence([
-                Animated.timing(pulseAnim, { toValue: 1.2, duration: 100, useNativeDriver: true }),
+                Animated.timing(pulseAnim, { toValue: intensity, duration: 100, useNativeDriver: true }),
                 Animated.timing(pulseAnim, { toValue: 1, duration: 100, useNativeDriver: true })
             ]).start();
         }, beatInterval);
     }
-  }, [targetBPM, connected, !!currentTrack, isPeakMode]);
+  }, [targetBPM, connected, !!currentTrack, isPeakMode, energyTrend]);
 
   const connect = () => {
     if (ws.current) ws.current.close();

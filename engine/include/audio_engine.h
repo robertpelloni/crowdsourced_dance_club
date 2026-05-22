@@ -46,6 +46,10 @@ struct AudioBuffer {
 
     AudioBuffer() : frames(0), channels(0), samplerate(0), position(0), native_bpm(145.0), loaded(false) {}
 
+    AudioBuffer(AudioBuffer&& other) noexcept {
+        *this = std::move(other);
+    }
+
     AudioBuffer& operator=(AudioBuffer&& other) noexcept {
         if (this != &other) {
             data = std::move(other.data);
@@ -91,6 +95,7 @@ private:
 
     AudioBuffer current_buffer;
     AudioBuffer next_buffer;
+    std::vector<AudioBuffer> preloaded_buffers;
     std::mutex buffer_mutex;
 
     soundtouch::SoundTouch st_current;

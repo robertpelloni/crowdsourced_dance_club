@@ -94,6 +94,14 @@ void AudioEngine::handle_track_sync(const json& data) {
     double timestamp = data["transition_timestamp"];
 
     std::lock_guard<std::mutex> lock(buffer_mutex);
+
+    // Multi-track pre-loading logic
+    // If next_buffer is already loaded, move it to preloaded_buffers
+    if (next_buffer.loaded && next_buffer.track_id != id) {
+        preloaded_buffers.push_back(std::move(next_buffer));
+        std::cout << "[AUDIO] Moved " << id << " to pre-loaded pool." << std::endl;
+    }
+
     if (load_audio_file(path, next_buffer)) {
         next_buffer.track_id = id;
         next_buffer.native_bpm = bpm;

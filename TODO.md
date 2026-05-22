@@ -17,14 +17,16 @@
 - [x] Build functional Web Prototype in `src/static/index.html`.
 - [x] Implement Vibe Match indicator.
 - [x] Implement Admin Dashboard (Skip, BPM, Trend).
-- [ ] Port web logic to React Native mobile application.
-- [ ] Implement QR code scanning for venue sync.
+- [x] Port web logic to React Native mobile application.
+- [x] Implement QR code scanning for venue sync.
+- [x] Synchronize mobile app version to 0.2.0.
 
 ## Phase 3: Real-Time Audio Engine
 - [x] Initialize C++ Audio Engine (`engine/`).
 - [x] Implement real-time SoundTouch time-stretching.
 - [x] Implement automated HPF sweep logic for Energy Peaks.
 - [x] Wire `TRACK_SYNC` and `MASTER_CONTROL` messages.
+- [x] Implement multi-track pre-loading.
 - [ ] Add support for FLAC/WAV streaming from Conductor.
 
 ## Bug Fixes

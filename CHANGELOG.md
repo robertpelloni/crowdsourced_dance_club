@@ -2,6 +2,11 @@
 
 ## [0.2.0] - 2025-05-22
 ### Added
+- **Mobile App Refinements:**
+    - Synchronized version to 0.2.0.
+    - Added dynamic "Pulse Orb" intensity based on energy trends.
+- **Audio Engine Enhancements:**
+    - Implemented multi-track pre-loading logic.
 - **Advanced Conductor Logic:**
     - Harmonic Key matching (Camelot Wheel logic).
     - Vibe-aware ranking system for queue prioritization.
