@@ -63,7 +63,7 @@
 - [x] Implement "Vibe Streak" gamification.
 - [x] Refine "Pulse Orb" into "Vibe Heatmap".
 
-## Phase 3: Real-Time Audio Engine
+## Phase 3: Real-Time Audio Engine (Complete)
 - [x] Initialize C++ Audio Engine (`engine/`).
 - [x] Implement real-time SoundTouch time-stretching.
 - [x] Implement automated HPF sweep logic for Energy Peaks.
@@ -71,7 +71,12 @@
 - [x] Implement dynamic DSP scaling (Excitement-aware).
 - [x] Wire `TRACK_SYNC` and `MASTER_CONTROL` messages.
 - [x] Implement multi-track pre-loading.
-- [ ] Add support for FLAC/WAV streaming from Conductor.
+
+## Phase 4: Polish & Scaling
+- [ ] **Research:** ML-driven vibe analysis models.
+- [ ] **Feature:** FLAC/WAV binary streaming via WebSockets.
+- [ ] **UI:** Real-time Waveform visualization.
+- [ ] **Infrastructure:** Edge-deployment configuration for Audio Engine.
 
 ## Bug Fixes
 - [x] Fix database schema to include `filepath`.

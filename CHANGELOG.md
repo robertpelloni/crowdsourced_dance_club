@@ -3,6 +3,11 @@
 <<<<<<< HEAD
 ## [0.2.8] - 2024-05-23
 =======
+## [0.3.0] - 2025-05-22
+### Added
+- **Phase Transition:** Formally concluded the prototype phase and transitioned to Phase 4 (Polish & Scaling).
+- **Project Audit:** Conducted a comprehensive post-completion review and updated `MEMORY.md`.
+
 ## [0.2.4] - 2025-05-22
 ### Added
 - **Venue Excitement Tracking:** The Conductor now calculates a global `excitement_level` based on voting velocity and active user streaks.

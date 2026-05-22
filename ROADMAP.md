@@ -74,8 +74,9 @@
 - [x] Implement Genre Archetype evolution.
 - [ ] Integrate C++ Audio Engine with Conductor Server state machine.
 
-## Phase 5: Polish & Deployment
-- [ ] Advanced "Fit" algorithms using machine learning.
-- [ ] Comprehensive UI/UX polish for mobile apps.
-- [ ] Scalable cloud deployment for Conductor Server.
-- [ ] On-site hardware setup instructions.
+## Phase 4: Polish, Scaling & Venue Deployment
+- [ ] **Machine Learning Conductor:** Implement a neural network to predict the optimal next track based on crowd history and time-of-night.
+- [ ] **Streaming Audio Pipeline:** Replace local file paths with real-time FLAC/WAV streaming from Conductor to Engine.
+- [ ] **Mobile AR Visualizer:** Develop an AR "Vibe Orb" that visualizes the room's energy heatmap through the phone camera.
+- [ ] **Multi-Node Audio:** Support distributed audio output across multiple synced hardware engines for large-scale venues.
+- [ ] **Cloud-Edge Hybrid Deployment:** Deploy the Conductor in the cloud with low-latency edge-resident Audio Engines.
