@@ -16,10 +16,11 @@ export default function App() {
   const [targetBPM, setTargetBPM] = useState(145.0);
   const [vibeStats, setVibeStats] = useState({ points: 0, badges: [] });
   const [leaderboard, setLeaderboard] = useState([]);
-<<<<<<< HEAD
-=======
   const [transitionVotes, setTransitionVotes] = useState({ classic: 0, bass_swap: 0, echo_out: 0, hpf_sweep: 0 });
->>>>>>> main
+
+  const [authToken, setAuthToken] = useState(null);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
   const [serverUrl, setServerUrl] = useState('localhost:8000');
   const [hasPermission, setHasPermission] = useState(null);
@@ -30,7 +31,7 @@ export default function App() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   const API_URL = `http://${serverUrl}`;
-  const WS_URL = `ws://${serverUrl}/ws/clubgoer`;
+  const WS_URL = `ws://${serverUrl}/ws/clubgoer${authToken ? `?token=${authToken}` : ''}`;
 
   useEffect(() => {
     (async () => {
@@ -50,31 +51,44 @@ export default function App() {
     if (connected && currentTrack) {
         const beatInterval = (60 / targetBPM) * 1000;
         hapticTimer.current = setInterval(() => {
-<<<<<<< HEAD
-            if (isPeakMode) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            else Haptics.selectionAsync();
-
-            Animated.sequence([
-                Animated.timing(pulseAnim, { toValue: 1.2, duration: 100, useNativeDriver: true }),
-=======
             if (isPeakMode) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
             else Haptics.selectionAsync();
 
             const intensity = isPeakMode ? 1.5 : (energyTrend === 'rising' ? 1.3 : 1.15);
             Animated.sequence([
                 Animated.timing(pulseAnim, { toValue: intensity, duration: 100, useNativeDriver: true }),
->>>>>>> main
                 Animated.timing(pulseAnim, { toValue: 1, duration: 100, useNativeDriver: true })
             ]).start();
         }, beatInterval);
     }
-<<<<<<< HEAD
-  }, [targetBPM, connected, !!currentTrack, isPeakMode]);
-=======
   }, [targetBPM, connected, !!currentTrack, isPeakMode, energyTrend]);
->>>>>>> main
+
+  const handleAuth = async (type) => {
+    const formData = new FormData();
+    formData.append('username', username);
+    formData.append('password', password);
+
+    try {
+        const response = await fetch(`${API_URL}/api/${type}`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        if (response.ok) {
+            if (type === 'login') {
+                setAuthToken(data.access_token);
+                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            } else {
+                alert("Registered! Please login.");
+            }
+        } else {
+            alert(data.detail);
+        }
+    } catch (err) { console.error(err); }
+  };
 
   const connect = () => {
+    if (!authToken) return;
     if (ws.current) ws.current.close();
     ws.current = new WebSocket(WS_URL);
 
@@ -93,10 +107,7 @@ export default function App() {
         setIsPeakMode(data.is_peak_mode || false);
         setTargetBPM(data.target_bpm || 145.0);
         setLeaderboard(data.leaderboard || []);
-<<<<<<< HEAD
-=======
         setTransitionVotes(data.transition_votes || { classic: 0, bass_swap: 0, echo_out: 0, hpf_sweep: 0 });
->>>>>>> main
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } else if (data.type === 'REQUEST_ACCEPTED' || data.type === 'REQUEST_DENIED' || data.type === 'ERROR') {
         if (data.user_stats) setVibeStats(data.user_stats);
@@ -153,8 +164,6 @@ export default function App() {
     }
   };
 
-<<<<<<< HEAD
-=======
   const voteTransition = (style) => {
     if (ws.current?.readyState === WebSocket.OPEN) {
         ws.current.send(JSON.stringify({ action: 'VOTE_TRANSITION', style: style }));
@@ -162,7 +171,6 @@ export default function App() {
     }
   };
 
->>>>>>> main
   const requestSong = (trackId) => {
     if (ws.current?.readyState === WebSocket.OPEN) {
         ws.current.send(JSON.stringify({ action: 'REQUEST_SONG', track_id: trackId }));
@@ -197,12 +205,6 @@ export default function App() {
     );
   };
 
-<<<<<<< HEAD
-  const renderDanceView = () => (
-    <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.visualizerContainer}>
-            <Animated.View style={[styles.vibeOrb, { transform: [{ scale: pulseAnim }], backgroundColor: isPeakMode ? '#ff0000' : '#a020f0' }]} />
-=======
   const renderDanceView = () => {
     const orbColor = pulseAnim.interpolate({
         inputRange: [1, 1.5],
@@ -227,7 +229,6 @@ export default function App() {
                 backgroundColor: orbColor,
                 opacity: 0.1
             }]} />
->>>>>>> main
         </View>
 
         {renderEnergyMeter()}
@@ -258,8 +259,6 @@ export default function App() {
             </View>
           </TouchableOpacity>
         ))}
-<<<<<<< HEAD
-=======
 
         <Text style={styles.sectionLabel}>VOTE NEXT TRANSITION</Text>
         <View style={styles.transitionVoteGrid}>
@@ -270,7 +269,6 @@ export default function App() {
                 </TouchableOpacity>
             ))}
         </View>
->>>>>>> main
     </ScrollView>
   );
 
@@ -361,6 +359,37 @@ export default function App() {
     </View>
   );
 
+  if (!authToken && currentView !== 'sync') {
+    return (
+        <SafeAreaView style={[styles.container, {justifyContent:'center', padding:30}]}>
+            <View style={styles.nowPlayingCard}>
+                <Text style={styles.headerTitle}>JOIN THE CLUB</Text>
+                <TextInput
+                    style={[styles.searchInput, {marginTop:20}]}
+                    placeholder="Username"
+                    placeholderTextColor="#666"
+                    value={username}
+                    onChangeText={setUsername}
+                />
+                <TextInput
+                    style={[styles.searchInput, {marginTop:10}]}
+                    placeholder="Password"
+                    placeholderTextColor="#666"
+                    secureTextEntry
+                    value={password}
+                    onChangeText={setPassword}
+                />
+                <TouchableOpacity style={[styles.actionBtn, {marginTop:20}]} onPress={() => handleAuth('login')}>
+                    <Text style={styles.actionBtnText}>LOGIN</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.actionBtn, {borderColor:'#666'}]} onPress={() => handleAuth('register')}>
+                    <Text style={[styles.actionBtnText, {color:'#666'}]}>REGISTER</Text>
+                </TouchableOpacity>
+            </View>
+        </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -443,13 +472,9 @@ const styles = StyleSheet.create({
   actionBtnText: { color: '#00ffcc', fontWeight: 'bold', textAlign: 'center' },
   closeSync: { position: 'absolute', bottom: 40, alignSelf: 'center', backgroundColor: 'rgba(255,255,255,0.1)', padding: 20, borderRadius: 10 },
   visualizerContainer: { height: 100, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-<<<<<<< HEAD
-  vibeOrb: { width: 50, height: 50, borderRadius: 25, shadowColor: '#fff', shadowRadius: 20, shadowOpacity: 0.5, elevation: 10 }
-=======
   vibeOrb: { width: 50, height: 50, borderRadius: 25, shadowColor: '#fff', shadowRadius: 20, shadowOpacity: 0.5, elevation: 10 },
   transitionVoteGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 10 },
   transitionBtn: { backgroundColor: '#1a1a1a', padding: 15, borderRadius: 10, flex: 1, minWidth: '45%', alignItems: 'center', borderWidth: 1, borderColor: '#333' },
   transitionText: { color: '#888', fontSize: 10, fontWeight: 'bold' },
   transitionCount: { color: '#a020f0', fontSize: 18, fontWeight: 'bold', marginTop: 5 }
->>>>>>> main
 });

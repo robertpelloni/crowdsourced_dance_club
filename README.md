@@ -1,14 +1,7 @@
-<<<<<<< HEAD
-# 🌌 Crowdsourced Dance Club (v0.2.8)
-
-[![Version](https://img.shields.io/badge/version-0.2.8-blueviolet)](./VERSION.md)
-[![Status](https://img.shields.io/badge/status-active-success)](./ROADMAP.md)
-=======
 # Crowdsourced Dance Club (CDC)
 
 ## Overview
 CDC is an algorithmic, crowdsourced DJ platform where the audience steers the musical direction in real-time. It combines a Python-based AI Conductor, a high-performance C++ Audio Engine, and a real-time mobile/web voting interface.
->>>>>>> main
 
 ## Architecture
 CDC follows a 3-tier architecture:
@@ -25,39 +18,7 @@ CDC follows a 3-tier architecture:
 
 ## Getting Started
 
-<<<<<<< HEAD
-## 🧠 Algorithmic Vibe Check
-
-Every request is evaluated against the currently playing track:
-- **BPM Sync:** Maximum $\pm 5.0$ BPM delta to prevent extreme audio warping.
-- **Energy Flow:** Maximum $\pm 3.0$ energy variance to maintain the dancefloor vibe.
-- **Harmonic Key:** Camelot Wheel step matching for transparent transitions.
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Python 3.9+
-- SQLite3
-
-### Installation
-1.  **Clone with submodules:**
-    ```bash
-    git clone --recursive https://github.com/robertpelloni/crowdsourced_dance_club.git
-    cd crowdsourced_dance_club
-    ```
-2.  **Install dependencies:**
-    ```bash
-    pip install -r requirements.txt
-    ```
-3.  **Initialize the database:**
-    ```bash
-    python src/init_db.py
-    ```
-
-### Running the Conductor Server
-=======
 ### Conductor Server
->>>>>>> main
 ```bash
 pip install -r requirements.txt
 python src/init_db.py
