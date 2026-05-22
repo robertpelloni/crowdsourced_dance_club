@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0] - 2025-05-22
+### Added
+- **Production Candidate Release:** Formally transitioned the project from prototype to production candidate.
+- **UAT Verified:** Successfully completed full end-to-end User Acceptance Testing across all three tiers.
+- **Improved Data Integrity:** Switched to UUID-based unique identifiers for all database entities.
+- **Optimized Communication:** Refactored the Conductor's broadcast logic for improved WebSocket synchronization performance.
+
 ## [0.3.2] - 2025-05-22
 ### Added
 - **Real-Time Event Notifications:** The Conductor now broadcasts `NEW_EVENT` alerts to all clients 60 seconds before a club event starts.

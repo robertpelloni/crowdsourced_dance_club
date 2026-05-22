@@ -5,11 +5,11 @@ import time
 
 async def mock_audio_engine():
     uri = "ws://localhost:8000/ws/clubgoer"
-    print(f"[*] Connecting to Conductor at {uri}...")
+    print(f"[*] Connecting to Conductor at {uri}...", flush=True)
 
     try:
         async with websockets.connect(uri) as websocket:
-            print("[+] Connected! Monitoring for TRACK_SYNC events.")
+            print("[+] Connected! Monitoring for TRACK_SYNC events.", flush=True)
 
             while True:
                 message = await websocket.recv()
@@ -17,16 +17,16 @@ async def mock_audio_engine():
 
                 if data.get("type") == "TRACK_SYNC":
                     sync_data = data["data"]
-                    print(f"\n[ENGINE] >>> RECEIVED TRACK_SYNC <<<")
-                    print(f"[ENGINE] Track: {sync_data['track_id']}")
-                    print(f"[ENGINE] BPM: {sync_data['bpm']}")
-                    print(f"[ENGINE] Key: {sync_data['key']}")
-                    print(f"[ENGINE] Crossfade Start: {sync_data['transition_timestamp']}")
+                    print(f"\n[ENGINE] >>> RECEIVED TRACK_SYNC <<<", flush=True)
+                    print(f"[ENGINE] Track: {sync_data['track_id']}", flush=True)
+                    print(f"[ENGINE] BPM: {sync_data['bpm']}", flush=True)
+                    print(f"[ENGINE] Key: {sync_data['key']}", flush=True)
+                    print(f"[ENGINE] Crossfade Start: {sync_data['transition_timestamp']}", flush=True)
 
                     # Simulate buffering
-                    print("[ENGINE] Buffering and warping track...")
+                    print("[ENGINE] Buffering and warping track...", flush=True)
                     await asyncio.sleep(2)
-                    print("[ENGINE] Buffer ready for transition.")
+                    print("[ENGINE] Buffer ready for transition.", flush=True)
 
                 elif data.get("type") == "QUEUE_SYNC":
                     # Periodic heartbeat from Conductor

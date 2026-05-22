@@ -1,14 +1,21 @@
 # TODO List
 
-## Phase 4: Polish, Scaling & Auth (Current)
+## Phase 5: Production & Post-Production (Active)
+- [x] Conduct User Acceptance Testing (UAT).
+- [x] Finalize `UAT_REPORT.md`.
+- [x] Increment version to 0.4.0 (Production Candidate).
+- [ ] Implement multi-venue load balancing.
+- [ ] Integration: Spotify/Apple Music catalog import.
+- [ ] Feature: Mobile AR "Vibe Heatmap" visualization.
+
+## Phase 4: Polish, Scaling & Auth (Complete)
 - [x] Implement JWT-based user authentication.
 - [x] Implement persistent user profiles in SQLite.
 - [x] Refactor existing gamification (points, badges) to use DB.
 - [x] Integrated Auth UI in Web and Mobile prototypes.
-- [ ] Research: ML-driven vibe analysis models.
-- [ ] Feature: FLAC/WAV binary streaming via WebSockets.
-- [ ] UI: Real-time Waveform visualization.
-- [ ] Infrastructure: Edge-deployment configuration for Audio Engine.
+- [x] Real-time event notifications and announcements.
+- [x] Unique UUIDs for users and events to prevent database collisions.
+- [x] Switch to `pbkdf2_sha256` for cross-platform password hashing compatibility.
 
 ## Phase 3: Real-Time Audio Engine (Complete)
 - [x] Initialize C++ Audio Engine (`engine/`).
