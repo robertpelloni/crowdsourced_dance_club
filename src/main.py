@@ -99,6 +99,7 @@ class User(BaseModel):
     username: str
     points: int = 0
     badges: List[str] = []
+    role: str = "user"
     referral_code: Optional[str] = None
 
 class UserInDB(User):
@@ -129,6 +130,10 @@ class TrackState:
     This is a singleton-like object in the current implementation.
     """
     def __init__(self):
+        # Crowd Energy and Engagement (v1.1.0)
+        self.crowd_energy: float = 0.0
+        self.recent_activities: List[Dict] = []
+
         # Current track being played
         self.current_track: Dict = TRACK_CATALOG["track_001"]
         # Start time of the current track (epoch seconds)
@@ -201,6 +206,7 @@ class ConnectionManager:
 
         return {
             "type": "QUEUE_SYNC",
+            "crowd_energy": dj_state.crowd_energy,
             "current_track": dj_state.current_track,
             "start_time": dj_state.start_time,
             "duration": dj_state.duration,
@@ -597,6 +603,7 @@ async def read_users_me(current_user: dict = Depends(get_current_user)):
         "username": current_user["username"],
         "points": current_user["points"],
         "badges": badges,
+        "role": current_user.get("role", "user"),
         "referral_code": current_user.get("referral_code")
     }
 
@@ -654,6 +661,15 @@ async def create_event(event: EventCreate, current_user: dict = Depends(get_curr
     conn.commit()
     conn.close()
     return {"message": "Event created successfully", "id": event_id}
+
+@app.get("/api/live/crowd-stats")
+async def get_live_crowd_stats(current_user: dict = Depends(get_current_user)):
+    """Provides real-time crowd energy and activity count."""
+    return {
+        "crowd_energy": dj_state.crowd_energy,
+        "active_users_count": len(set(a.get("user_id", "anon") for a in dj_state.recent_activities)),
+        "recent_activity_count": len(dj_state.recent_activities)
+    }
 
 @app.get("/api/leaderboard")
 async def get_leaderboard():
@@ -718,6 +734,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
     """
     user_id = "anonymous" # This will be the user's database ID or "anonymous"
     display_name = "anonymous" # This will be the username for logging
+    user_role = "user"
 
     if token:
         try:
@@ -726,12 +743,13 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
             if username:
                 conn = get_db_connection()
                 cursor = conn.cursor()
-                cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
+                cursor.execute("SELECT id, role FROM users WHERE username = ?", (username,))
                 row = cursor.fetchone()
                 conn.close()
                 if row:
                     user_id = row["id"]
                     display_name = username
+                    user_role = row["role"]
         except JWTError:
             pass
 
@@ -919,7 +937,20 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 else:
                     await websocket.send_json({"type": "ERROR", "message": "Track not found in queue."})
 
+            elif action == "USER_ACTIVITY":
+                intensity = float(message.get("intensity", 0.1))
+                dj_state.recent_activities.append({"timestamp": time.time(), "intensity": intensity})
+                # Auto-calculate energy
+                now = time.time()
+                dj_state.recent_activities = [a for a in dj_state.recent_activities if now - a["timestamp"] < 30]
+                total = sum(a["intensity"] for a in dj_state.recent_activities)
+                dj_state.crowd_energy = min(1.0, total / 10.0) # Scale factor
+                await manager.broadcast_queue_update()
+
             elif action == "ADMIN_SKIP":
+                if user_role != "admin":
+                    await websocket.send_json({"type": "ERROR", "message": "Admin privileges required."})
+                    continue
                 if dj_state.upcoming_queue:
                     next_item = dj_state.upcoming_queue.pop(0)
                     dj_state.current_track = next_item["track"]
@@ -940,6 +971,9 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 await websocket.send_json({"type": "ADMIN_SUCCESS", "message": "Track skipped."})
 
             elif action == "ADMIN_SET_TREND":
+                if user_role != "admin":
+                    await websocket.send_json({"type": "ERROR", "message": "Admin privileges required."})
+                    continue
                 trend = message.get("trend")
                 if trend in ["rising", "stable", "falling"]:
                     dj_state.energy_trend = trend
@@ -947,6 +981,9 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                     await websocket.send_json({"type": "ADMIN_SUCCESS", "message": f"Trend set to {trend}."})
 
             elif action == "ADMIN_SET_BPM":
+                if user_role != "admin":
+                    await websocket.send_json({"type": "ERROR", "message": "Admin privileges required."})
+                    continue
                 bpm = float(message.get("bpm", 145.0))
                 dj_state.target_bpm = bpm
                 await manager.broadcast_queue_update()
@@ -958,6 +995,9 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 await websocket.send_json({"type": "ADMIN_SUCCESS", "message": f"BPM set to {bpm}."})
 
             elif action == "ADMIN_SET_GENRE":
+                if user_role != "admin":
+                    await websocket.send_json({"type": "ERROR", "message": "Admin privileges required."})
+                    continue
                 genre = message.get("genre")
                 # For simplicity, we just notify logs in prototype, but could influence auto-selection
                 print(f"[ADMIN] Requested genre shift to: {genre}")

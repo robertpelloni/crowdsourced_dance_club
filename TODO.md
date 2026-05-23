@@ -11,6 +11,8 @@
 - [x] Port Referral features to Mobile Application.
 - [x] Execute staging deployment and validation flow.
 - [x] Unified repository reconciliation and intelligent branch merge.
+- [x] Implement RBAC for admin security.
+- [x] Integrate real-time crowd data and activity metrics.
 - [ ] Maintenance: Monitor feedback and performance.
 - [ ] Implement multi-venue load balancing.
 - [ ] Integration: Spotify/Apple Music catalog import.

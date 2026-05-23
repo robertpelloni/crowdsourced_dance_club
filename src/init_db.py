@@ -34,6 +34,7 @@ def init_db():
         points INTEGER DEFAULT 0,
         badges TEXT DEFAULT '[]',
         streak INTEGER DEFAULT 0,
+        role TEXT DEFAULT 'user',
         referral_code TEXT UNIQUE,
         referred_by_id TEXT,
         FOREIGN KEY (referred_by_id) REFERENCES users (id)

@@ -402,6 +402,11 @@
                 <div class="progress-container">
                     <div id="playback-progress" class="progress-bar"></div>
                 </div>
+
+                <div class="item-meta" style="margin-top: 15px; font-weight: 800; font-size: 0.6rem; color: var(--secondary);">CROWD ENERGY</div>
+                <div class="progress-container" style="height: 4px; margin-top: 5px;">
+                    <div id="crowd-energy-bar" class="progress-bar" style="background: var(--secondary); width: 0%;"></div>
+                </div>
             </div>
 
             <div class="section-title">Next Up</div>
@@ -764,6 +769,11 @@
 
         function updateUI(data) {
             const cp = data.current_track;
+
+            // Crowd Energy Update
+            if (data.crowd_energy !== undefined) {
+                document.getElementById('crowd-energy-bar').style.width = (data.crowd_energy * 100) + '%';
+            }
 
             // Leaderboard Update
             if (data.leaderboard) {
