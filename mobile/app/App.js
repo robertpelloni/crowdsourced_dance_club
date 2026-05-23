@@ -130,9 +130,13 @@ export default function App() {
       }
     };
 
-    ws.current.onclose = () => {
+    ws.current.onclose = (e) => {
       setConnected(false);
-      setTimeout(connect, 3000);
+      console.log('WebSocket closed. Reconnecting...', e.reason);
+      // Exponential backoff or simple fixed retry
+      setTimeout(() => {
+        if (authToken) connect();
+      }, 3000);
     };
   };
 

@@ -767,6 +767,12 @@
             }
         }
 
+        function escapeHTML(str) {
+            const p = document.createElement('p');
+            p.textContent = str;
+            return p.innerHTML;
+        }
+
         function updateUI(data) {
             const cp = data.current_track;
 
@@ -781,9 +787,9 @@
                     <div class="leaderboard-item">
                         <div class="rank">#${index + 1}</div>
                         <div class="user-info">
-                            <div class="item-title">${u.username}</div>
+                            <div class="item-title">${escapeHTML(u.username)}</div>
                             <div id="leaderboard-badges-${u.user_id}" style="display:flex; gap:5px; margin-top:5px;">
-                                ${u.badges.slice(0, 2).map(b => `<span class="match-badge" style="font-size:0.6rem; padding:2px 5px;">${b}</span>`).join('')}
+                                ${u.badges.slice(0, 2).map(b => `<span class="match-badge" style="font-size:0.6rem; padding:2px 5px;">${escapeHTML(b)}</span>`).join('')}
                             </div>
                         </div>
                         <div class="points-badge">${u.points}</div>
@@ -900,7 +906,9 @@
                 });
                 const data = await resp.json();
                 if (resp.ok) {
-                    showNotify('Registered! Now please login.', '#00ffcc');
+                    let msg = 'Registered! Now please login.';
+                    if (r) msg = '🎉 Referral Applied! 50 bonus points waiting. Please login.';
+                    showNotify(msg, '#00ffcc');
                     showAuthMode('login');
                 } else {
                     showNotify(data.detail || 'Registration failed', '#ff4d4d');

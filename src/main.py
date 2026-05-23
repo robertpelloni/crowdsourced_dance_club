@@ -35,11 +35,11 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/login")
 CONFIG = {
     "MAX_BPM_DELTA": 5.0,      # Max BPM difference allowed for fit
     "MAX_ENERGY_DELTA": 1.0,   # Max Energy difference allowed for fit (Tightened from 1.5)
-    "VIBE_WEIGHT_BPM": 0.20,
-    "VIBE_WEIGHT_ENERGY": 0.20,
+    "VIBE_WEIGHT_BPM": 0.15,
+    "VIBE_WEIGHT_ENERGY": 0.15,
     "VIBE_WEIGHT_RAMPING": 0.10,
-    "VIBE_WEIGHT_KEY": 0.30,
-    "VIBE_WEIGHT_GENRE": 0.20,
+    "VIBE_WEIGHT_KEY": 0.35,
+    "VIBE_WEIGHT_GENRE": 0.25,
     "VOTE_WEIGHT": 0.30,       # How much votes matter vs algorithmic fit
 }
 
@@ -339,9 +339,12 @@ def calculate_vibe_score(track: Dict, current_track: Dict) -> float:
     genre2 = track.get("genre", "Psytrance")
     genre_score = GENRE_COMPATIBILITY.get(genre1, {}).get(genre2, 0.5)
 
-    # Weighted Average
-    # 20% BPM, 20% Energy, 10% Ramping, 30% Key, 20% Genre
-    return (bpm_score * 0.20) + (energy_score * 0.20) + (ramping_score * 0.1) + (key_score * 0.3) + (genre_score * 0.2)
+    # Weighted Average (v1.2.0: Higher emphasis on Key and Genre for vibe continuity)
+    return (bpm_score * CONFIG["VIBE_WEIGHT_BPM"]) + \
+           (energy_score * CONFIG["VIBE_WEIGHT_ENERGY"]) + \
+           (ramping_score * CONFIG["VIBE_WEIGHT_RAMPING"]) + \
+           (key_score * CONFIG["VIBE_WEIGHT_KEY"]) + \
+           (genre_score * CONFIG["VIBE_WEIGHT_GENRE"])
 
 def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool, str]:
     """
@@ -389,7 +392,7 @@ async def playback_simulation_loop():
 
         if acceleration > 2 and not dj_state.is_peak_mode:
              # Sudden surge detected
-             for client in dj_state.active_connections:
+             for client in list(dj_state.active_connections):
                  try: await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "DSP_INTENSIFY", "duration": 10.0}})
                  except: pass
 
@@ -414,7 +417,7 @@ async def playback_simulation_loop():
                 dj_state.current_bpm = max(dj_state.target_bpm, dj_state.current_bpm - step)
 
             # Broadcast tempo update to all clients
-            for client in dj_state.active_connections:
+            for client in list(dj_state.active_connections):
                 try: await client.send_json({"type": "MASTER_CONTROL", "data": {"current_bpm": dj_state.current_bpm}})
                 except: pass
 
@@ -440,7 +443,7 @@ async def playback_simulation_loop():
                     }
                 }
                 # Broadcast to all clients (including the future C++ Engine)
-                for client in dj_state.active_connections:
+                for client in list(dj_state.active_connections):
                     try:
                         await client.send_json(sync_payload)
                     except:
@@ -499,7 +502,7 @@ async def playback_simulation_loop():
                         "start_time": event["start_time"]
                     }
                 }
-                for client in dj_state.active_connections:
+                for client in list(dj_state.active_connections):
                     try: await client.send_json(event_payload)
                     except: pass
 
@@ -963,7 +966,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 await manager.broadcast_queue_update()
 
                 # Notify Audio Engine for immediate skip
-                for client in dj_state.active_connections:
+                for client in list(dj_state.active_connections):
                     try:
                         await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "SKIP_NOW"}})
                     except: pass
@@ -988,7 +991,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 dj_state.target_bpm = bpm
                 await manager.broadcast_queue_update()
                 # Notify Audio Engine
-                for client in dj_state.active_connections:
+                for client in list(dj_state.active_connections):
                     try:
                         await client.send_json({"type": "MASTER_CONTROL", "data": {"target_bpm": bpm}})
                     except: pass

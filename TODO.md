@@ -13,6 +13,8 @@
 - [x] Unified repository reconciliation and intelligent branch merge.
 - [x] Implement RBAC for admin security.
 - [x] Integrate real-time crowd data and activity metrics.
+- [x] Refine vibe algorithm based on staging feedback.
+- [x] Harden mobile session persistence.
 - [ ] Maintenance: Monitor feedback and performance.
 - [ ] Implement multi-venue load balancing.
 - [ ] Integration: Spotify/Apple Music catalog import.
