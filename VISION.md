@@ -1,24 +1,27 @@
 # Project Vision: Crowdsourced Dance Club
 
 ## Ultimate Goal
-To build a collaborative, algorithmic club-night engine where users dynamically steer the musical direction via a mobile application.
+To build a collaborative, algorithmic club-night engine where users dynamically steer the musical direction via a mobile application. CDC is not just a player; it's a "Cybernetic DJ" that understands energy, harmony, and crowd sentiment.
 
-## 3-Tier System Architecture
+## Core Pillars
 
-### 1. Mobile Client App (React Native or Flutter)
-- **Workflow:** Users at the venue see the current track (artwork, BPM, key) and a voting queue.
-- **Action:** Browse curated catalog, submit requests, or vote on upcoming songs.
-- **Networking:** Persistent WebSocket connection for real-time updates.
+### 1. Collaborative Curation
+Users aren't just listeners; they are part of the feedback loop. Through voting and requests, the crowd influences the sequence, energy, and even the BPM of the night.
 
-### 2. Python AI Conductor (The Gatekeeper Server)
-- **Role:** Brain of the operation.
-- **Function:** Hosts API endpoints, manages votes, runs "Theme & Fit" evaluation logic.
-- **Fit Algorithm:** Evaluates requests against the current track based on Harmonic Distance (Camelot Wheel ±1) and Energy Variance (±5% energy).
+### 2. Algorithmic Integrity (The "Cybernetic DJ")
+The AI Conductor acts as the gatekeeper, ensuring every transition is musically sound. It uses:
+- **Harmonic Mixing:** Camelot Wheel logic to ensure keys are compatible.
+- **Energy Management:** Tracking energy trends to prevent abrupt vibe-kills.
+- **Vibe Scoring:** A weighted system that balances algorithmic fit with democratic choice.
 
-### 3. Low-Latency Audio Engine (The Heavy Lifter)
-- **Role:** Real-time audio playback.
-- **Implementation:** C++ (JUCE, SuperCollider) or specialized Node.js/C++ pipeline.
-- **Function:** High-priority steady audio buffer, instant linear interpolation time-stretching, automated frequency filters for crossfading.
+### 3. Real-Time Physical Feedback
+The system is designed for venue deployment.
+- **Low Latency:** C++ engine ensures rock-solid audio performance.
+- **Visual Sync:** Real-time dashboards and mobile updates keep the crowd in sync with the "pulse" of the room.
+- **Automated Show Control:** Energy peaks trigger DSP sweeps and control signals for lighting or haptics.
 
-## Offline Compilation Integration
-Uses `auto_dj_script` as a submodule for high-quality offline rendering of planned sets.
+## 3-Tier Architecture
+
+- **The Brain (Python):** High-level orchestration, database, and API.
+- **The Body (C++):** Real-time signal processing and audio I/O.
+- **The Interface (JS/React Native):** The bridge between the audience and the machine.

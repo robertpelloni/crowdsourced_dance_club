@@ -5,3 +5,7 @@ __pycache__/
 *.db
 *.log
 .DS_Store
+
+# C++ Build Artifacts
+engine/obj/
+engine/cdc_engine
