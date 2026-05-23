@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.2] - 2026-05-23
+### Added
+- **Staging Deployment Pipeline:** Operationalized `deploy_staging.sh` for automated environment setup, dependency management, and binary builds.
+- **Automated Validation Suite:** Implemented `tests/verify_staging.py` using Playwright to simulate end-to-end multi-user interactions in the staging environment.
+- **Staging Reports:** Introduced `STAGING_REPORT.md` to document validation results and integrate qualitative user feedback into the development cycle.
+
 ## [0.5.1] - 2026-05-23
 ### Added
 - **Mobile Referral Support:** Ported the user referral program to the React Native mobile application. Users can now enter referral codes during mobile registration and view their own codes in the profile.
@@ -19,4 +25,4 @@
 - **API Enhancements:** Updated the `/api/register` and `/api/me` endpoints to support referral data.
 
 ## [0.4.3] - 2026-05-23
-... [rest of the file]
+... [rest of file]
