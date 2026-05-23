@@ -19,8 +19,10 @@ export default function App() {
   const [transitionVotes, setTransitionVotes] = useState({ classic: 0, bass_swap: 0, echo_out: 0, hpf_sweep: 0 });
 
   const [authToken, setAuthToken] = useState(null);
+  const [myUser, setMyUser] = useState(null);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [regReferral, setRegReferral] = useState('');
 
   const [serverUrl, setServerUrl] = useState('localhost:8000');
   const [hasPermission, setHasPermission] = useState(null);
@@ -40,11 +42,12 @@ export default function App() {
     })();
     connect();
     fetchCatalog();
+    if (authToken) fetchMe();
     return () => {
         ws.current?.close();
         if (hapticTimer.current) clearInterval(hapticTimer.current);
     };
-  }, [serverUrl]);
+  }, [serverUrl, authToken]);
 
   useEffect(() => {
     if (hapticTimer.current) clearInterval(hapticTimer.current);
@@ -64,15 +67,27 @@ export default function App() {
   }, [targetBPM, connected, !!currentTrack, isPeakMode, energyTrend]);
 
   const handleAuth = async (type) => {
-    const formData = new FormData();
-    formData.append('username', username);
-    formData.append('password', password);
-
     try {
-        const response = await fetch(`${API_URL}/api/${type}`, {
-            method: 'POST',
-            body: formData
-        });
+        let response;
+        if (type === 'login') {
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('password', password);
+            response = await fetch(`${API_URL}/api/login`, {
+                method: 'POST',
+                body: formData
+            });
+        } else {
+            response = await fetch(`${API_URL}/api/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    username: username,
+                    password: password,
+                    referral_code: regReferral || null
+                })
+            });
+        }
         const data = await response.json();
         if (response.ok) {
             if (type === 'login') {
@@ -127,6 +142,23 @@ export default function App() {
         const data = await response.json();
         setCatalog(data);
     } catch (err) { console.error('Catalog Fetch Failed:', err); }
+  };
+
+  const fetchMe = async () => {
+    try {
+        const response = await fetch(`${API_URL}/api/me`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await response.json();
+        if (response.ok) {
+            setMyUser(data);
+            setVibeStats({
+                points: data.points,
+                badges: data.badges,
+                referral_code: data.referral_code
+            });
+        }
+    } catch (err) { console.error('Me Fetch Failed:', err); }
   };
 
   const handleBarCodeScanned = ({ type, data }) => {
@@ -270,7 +302,8 @@ export default function App() {
             ))}
         </View>
     </ScrollView>
-  );
+    );
+  };
 
   const renderBrowseView = () => {
     const filteredCatalog = catalog.filter(t =>
@@ -315,6 +348,12 @@ export default function App() {
                 <View style={[styles.meterFill, { width: `${(vibeStats.points % 100)}%`, backgroundColor: '#a020f0' }]} />
             </View>
             <Text style={styles.energyStatus}>LEVEL {Math.floor(vibeStats.points / 100) + 1}</Text>
+
+            <View style={{marginTop: 20, padding: 15, backgroundColor: 'rgba(0,255,204,0.05)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,255,204,0.1)'}}>
+                <Text style={[styles.sectionLabel, {color: '#00ffcc', marginBottom: 5}]}>YOUR REFERRAL CODE</Text>
+                <Text style={[styles.trackTitle, {fontSize: 24, letterSpacing: 2}]}>{vibeStats.referral_code || '--------'}</Text>
+                <Text style={[styles.metaText, {fontSize: 10}]}>Share this! You both get 50 bonus points.</Text>
+            </View>
         </View>
 
         <TouchableOpacity style={styles.actionBtn} onPress={generateHighlights}>
@@ -335,8 +374,8 @@ export default function App() {
         <Text style={styles.sectionLabel}>TOP DANCERS (LEADERBOARD)</Text>
         <View style={{marginTop: 10}}>
             {leaderboard.map((u, i) => (
-                <View key={u.user_id + i} style={styles.leaderboardItem}>
-                    <Text style={styles.navTextActive}>{i+1}. {u.user_id}</Text>
+                <View key={(u.user_id || u.username) + i} style={styles.leaderboardItem}>
+                    <Text style={styles.navTextActive}>{i+1}. {u.username || u.user_id}</Text>
                     <Text style={styles.matchText}>{u.points} PTS</Text>
                 </View>
             ))}
@@ -378,6 +417,13 @@ export default function App() {
                     secureTextEntry
                     value={password}
                     onChangeText={setPassword}
+                />
+                <TextInput
+                    style={[styles.searchInput, {marginTop:10}]}
+                    placeholder="Referral Code (Optional)"
+                    placeholderTextColor="#666"
+                    value={regReferral}
+                    onChangeText={setRegReferral}
                 />
                 <TouchableOpacity style={[styles.actionBtn, {marginTop:20}]} onPress={() => handleAuth('login')}>
                     <Text style={styles.actionBtnText}>LOGIN</Text>

@@ -67,7 +67,7 @@ def test_create_event_auth():
 def test_event_notification_broadcast():
     # Clear notified events
     dj_state.notified_events = []
-    dj_state.connected_clients = []
+    dj_state.active_connections = []
 
     # Seed an event starting in 30 seconds
     conn = get_db_connection()
