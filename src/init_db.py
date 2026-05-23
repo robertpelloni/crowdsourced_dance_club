@@ -61,6 +61,32 @@ def init_db():
     )
     ''')
 
+    # Create user_requests table for persistent request history
+    cursor.execute('''
+    CREATE TABLE user_requests (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        track_id TEXT,
+        timestamp REAL NOT NULL,
+        vibe_score REAL,
+        status TEXT,
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        FOREIGN KEY (track_id) REFERENCES tracks (id)
+    )
+    ''')
+
+    # Create user_votes table for persistent voting history
+    cursor.execute('''
+    CREATE TABLE user_votes (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        track_id TEXT,
+        timestamp REAL NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        FOREIGN KEY (track_id) REFERENCES tracks (id)
+    )
+    ''')
+
     # Expanded catalog with diverse genres and energy levels
     tracks = [
         # Psytrance (Peak)

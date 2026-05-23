@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.2] - 2025-05-22
+### Added
+- **Activity History Tracking:** Every song request and vote is now persistently stored in the database.
+- **Enhanced User Profile:** Added a "Profile" view to the Web Prototype showing Vibe Points, Badges, and "Recent Contributions".
+- **Authenticated History API:** Implemented endpoints for retrieving personal contribution history.
+
 ## [0.4.1] - 2025-05-22
 ### Added
 - **Experience Refinement System:** Implemented a persistent feedback collection mechanism for user testing.

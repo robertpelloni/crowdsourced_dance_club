@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from typing import List, Dict, Optional, Tuple
 
 import qrcode
+import uuid
 from datetime import datetime, timedelta
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException, Depends, status
 from fastapi.responses import Response
@@ -561,6 +562,38 @@ async def read_users_me(current_user: dict = Depends(get_current_user)):
         "badges": badges
     }
 
+@app.get("/api/me/history/requests")
+async def get_my_requests(current_user: dict = Depends(get_current_user)):
+    """Retrieves the authenticated user's song request history."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT r.*, t.title, t.artist
+        FROM user_requests r
+        JOIN tracks t ON r.track_id = t.id
+        WHERE r.user_id = ?
+        ORDER BY r.timestamp DESC
+    ''', (current_user["id"],))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+@app.get("/api/me/history/votes")
+async def get_my_votes(current_user: dict = Depends(get_current_user)):
+    """Retrieves the authenticated user's voting history."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT v.*, t.title, t.artist
+        FROM user_votes v
+        JOIN tracks t ON v.track_id = t.id
+        WHERE v.user_id = ?
+        ORDER BY v.timestamp DESC
+    ''', (current_user["id"],))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
 @app.get("/api/events")
 async def get_events():
     """Returns a list of upcoming club events."""
@@ -626,13 +659,24 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
     Real-time portal for clubgoers to vote and request songs.
     Clients send JSON messages with actions like 'REQUEST_SONG'.
     """
-    user_id = "anonymous"
+    user_id = "anonymous" # This will be the user's database ID or "anonymous"
+    display_name = "anonymous" # This will be the username for logging
+
     if token:
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-            user_id = payload.get("sub")
+            username = payload.get("sub")
+            if username:
+                conn = get_db_connection()
+                cursor = conn.cursor()
+                cursor.execute("SELECT id FROM users WHERE username = ?", (username,))
+                row = cursor.fetchone()
+                conn.close()
+                if row:
+                    user_id = row["id"]
+                    display_name = username
         except JWTError:
-            user_id = "anonymous"
+            pass
 
     if user_id not in dj_state.user_stats:
         dj_state.user_stats[user_id] = {"points": 0, "badges": [], "streak": 0}
@@ -694,7 +738,40 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                     if dj_state.user_stats[user_id]["points"] >= 50 and "Vibe Guardian" not in dj_state.user_stats[user_id]["badges"]:
                         dj_state.user_stats[user_id]["badges"].append("Vibe Guardian")
 
+                    # Persist stats to DB
+                    if user_id != "anonymous":
+                        try:
+                            conn = get_db_connection()
+                            cursor = conn.cursor()
+                            cursor.execute('''
+                                UPDATE users
+                                SET points = ?, badges = ?, streak = ?
+                                WHERE id = ?
+                            ''', (dj_state.user_stats[user_id]["points"],
+                                  json.dumps(dj_state.user_stats[user_id]["badges"]),
+                                  dj_state.user_stats[user_id]["streak"],
+                                  user_id))
+                            conn.commit()
+                            conn.close()
+                        except Exception as e:
+                            print(f"[ERROR] Failed to persist user stats: {e}")
+
                     dj_state.upcoming_queue.append({"track": requested_track, "votes": 1})
+
+                    # Persist request in DB
+                    try:
+                        conn = get_db_connection()
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            INSERT INTO user_requests (id, user_id, track_id, timestamp, vibe_score, status)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        ''', ("req_" + str(uuid.uuid4()), user_id if user_id != "anonymous" else None,
+                              track_id, time.time(), vibe_score, "ACCEPTED"))
+                        conn.commit()
+                        conn.close()
+                    except Exception as e:
+                        print(f"[ERROR] Failed to persist request: {e}")
+
                     await websocket.send_json({
                         "type": "REQUEST_ACCEPTED",
                         "message": reason,
@@ -704,6 +781,20 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                     await manager.broadcast_queue_update()
                 else:
                     # Deny request and give the user feedback on why it failed the vibe check
+                    # Persist denied request
+                    try:
+                        conn = get_db_connection()
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            INSERT INTO user_requests (id, user_id, track_id, timestamp, vibe_score, status)
+                            VALUES (?, ?, ?, ?, ?, ?)
+                        ''', ("req_" + str(uuid.uuid4()), user_id if user_id != "anonymous" else None,
+                              track_id, time.time(), calculate_vibe_score(requested_track, dj_state.current_track), "DENIED"))
+                        conn.commit()
+                        conn.close()
+                    except Exception as e:
+                        print(f"[ERROR] Failed to persist denied request: {e}")
+
                     await websocket.send_json({"type": "REQUEST_DENIED", "message": reason})
 
             elif action == "VOTE_TRANSITION":
@@ -725,6 +816,20 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                         break
 
                 if found:
+                    # Persist vote in DB
+                    try:
+                        conn = get_db_connection()
+                        cursor = conn.cursor()
+                        cursor.execute('''
+                            INSERT INTO user_votes (id, user_id, track_id, timestamp)
+                            VALUES (?, ?, ?, ?)
+                        ''', ("vote_" + str(uuid.uuid4()), user_id if user_id != "anonymous" else None,
+                              track_id, time.time()))
+                        conn.commit()
+                        conn.close()
+                    except Exception as e:
+                        print(f"[ERROR] Failed to persist vote: {e}")
+
                     # Reorder queue based on weighted score of votes and vibe compatibility
                     for item in dj_state.upcoming_queue:
                         vibe = calculate_vibe_score(item["track"], dj_state.current_track)
