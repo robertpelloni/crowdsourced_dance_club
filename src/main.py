@@ -99,6 +99,7 @@ class User(BaseModel):
     username: str
     points: int = 0
     badges: List[str] = []
+    referral_code: Optional[str] = None
 
 class UserInDB(User):
     hashed_password: str
@@ -110,6 +111,7 @@ class Token(BaseModel):
 class UserCreate(BaseModel):
     username: str
     password: str
+    referral_code: Optional[str] = None
 
 class EventCreate(BaseModel):
     title: str
@@ -534,14 +536,36 @@ async def register(user: UserCreate):
         conn.close()
         raise HTTPException(status_code=400, detail="Username already registered")
 
+    # Referral Logic
+    referrer_id = None
+    if user.referral_code:
+        cursor.execute("SELECT id FROM users WHERE referral_code = ?", (user.referral_code,))
+        row = cursor.fetchone()
+        if row:
+            referrer_id = row["id"]
+
     hashed_pw = get_password_hash(user.password)
     import uuid
     user_id = "user_" + str(uuid.uuid4())
-    cursor.execute("INSERT INTO users (id, username, hashed_password) VALUES (?, ?, ?)",
-                   (user_id, user.username, hashed_pw))
+
+    # Generate unique referral code for the new user
+    import random
+    import string
+    new_referral_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+
+    initial_points = 50 if referrer_id else 0
+
+    cursor.execute('''
+        INSERT INTO users (id, username, hashed_password, referral_code, referred_by_id, points)
+        VALUES (?, ?, ?, ?, ?, ?)
+    ''', (user_id, user.username, hashed_pw, new_referral_code, referrer_id, initial_points))
+
+    if referrer_id:
+        cursor.execute("UPDATE users SET points = points + 50 WHERE id = ?", (referrer_id,))
+
     conn.commit()
     conn.close()
-    return {"message": "User registered successfully"}
+    return {"message": "User registered successfully", "referral_code": new_referral_code}
 
 @app.post("/api/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
@@ -572,7 +596,8 @@ async def read_users_me(current_user: dict = Depends(get_current_user)):
     return {
         "username": current_user["username"],
         "points": current_user["points"],
-        "badges": badges
+        "badges": badges,
+        "referral_code": current_user.get("referral_code")
     }
 
 @app.get("/api/me/history/requests")

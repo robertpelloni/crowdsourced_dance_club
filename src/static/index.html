@@ -328,10 +328,50 @@
             align-items: center;
             padding: 20px;
         }
+
+        .auth-card {
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+        }
+
+        .auth-input {
+            width: 100%;
+            background: #252525;
+            border: 1px solid #444;
+            color: white;
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
     </style>
 </head>
 <body>
     <div id="notification"></div>
+
+    <div id="auth-overlay">
+        <div class="auth-card" id="auth-login">
+            <div class="section-title">Login to Conductor</div>
+            <input type="text" id="login-username" class="auth-input" placeholder="Username">
+            <input type="password" id="login-password" class="auth-input" placeholder="Password">
+            <button class="btn-action" onclick="doLogin()" style="width:100%; background:var(--primary); color:white; font-weight:bold; height:auto; padding: 15px; margin-bottom: 10px;">LOGIN</button>
+            <div style="text-align:center; font-size:0.8rem; color:var(--text-dim); cursor:pointer;" onclick="showAuthMode('register')">Need an account? Register</div>
+        </div>
+
+        <div class="auth-card" id="auth-register" style="display:none;">
+            <div class="section-title">Create Account</div>
+            <input type="text" id="reg-username" class="auth-input" placeholder="Username">
+            <input type="password" id="reg-password" class="auth-input" placeholder="Password">
+            <input type="text" id="reg-referral" class="auth-input" placeholder="Referral Code (Optional)">
+            <button class="btn-action" onclick="doRegister()" style="width:100%; background:var(--secondary); color:black; font-weight:bold; height:auto; padding: 15px; margin-bottom: 10px;">REGISTER</button>
+            <div style="text-align:center; font-size:0.8rem; color:var(--text-dim); cursor:pointer;" onclick="showAuthMode('login')">Already have an account? Login</div>
+        </div>
+    </div>
 
     <div id="event-announcement">
         <div class="event-close" onclick="closeEvent()">✕</div>
@@ -430,13 +470,23 @@
 
         <!-- View: Profile -->
         <div id="view-profile" class="view">
-            <div class="section-title">My Vibe Profile</div>
+            <div class="section-title" style="display:flex; justify-content:space-between;">
+                <span>My Vibe Profile</span>
+                <span onclick="logout()" style="color:var(--accent-warm); cursor:pointer; font-size:0.7rem;">LOGOUT</span>
+            </div>
             <div class="card" id="profile-stats">
                 <div class="track-title" id="profile-username">Loading...</div>
                 <div class="track-stats">
                     <span id="profile-points">0 POINTS</span>
                     <span id="profile-streak">STREAK: 0</span>
                 </div>
+
+                <div id="referral-section" style="margin-top:20px; padding:15px; background:rgba(0,255,204,0.05); border-radius:12px; border:1px solid rgba(0,255,204,0.1);">
+                    <div class="item-meta" style="color:var(--secondary); font-weight:800; font-size:0.6rem; text-transform:uppercase;">Your Referral Code</div>
+                    <div id="profile-referral-code" style="font-size:1.2rem; font-weight:900; letter-spacing:2px; margin:5px 0;">--------</div>
+                    <div class="item-meta" style="font-size:0.6rem;">Share this code! You both get 50 bonus points.</div>
+                </div>
+
                 <div class="section-title" style="margin-top:20px; font-size:0.7rem;">Earned Badges</div>
                 <div id="profile-badges" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
                     <!-- Badges injected here -->
@@ -650,6 +700,7 @@
 
                 document.getElementById('profile-username').innerText = user.username;
                 document.getElementById('profile-points').innerText = `${user.points} POINTS`;
+                document.getElementById('profile-referral-code').innerText = user.referral_code || 'N/A';
                 document.getElementById('profile-badges').innerHTML = user.badges.map(b =>
                     `<span class="match-badge" style="background:rgba(160,32,240,0.2); color:var(--primary);">${b}</span>`
                 ).join('') || '<span class="item-meta">No badges yet.</span>';
@@ -799,6 +850,63 @@
                 showNotify('ADMIN MODE ENABLED', '#a020f0');
             }
         };
+
+        function showAuthMode(mode) {
+            document.getElementById('auth-login').style.display = mode === 'login' ? 'block' : 'none';
+            document.getElementById('auth-register').style.display = mode === 'register' ? 'block' : 'none';
+        }
+
+        async function doLogin() {
+            const u = document.getElementById('login-username').value;
+            const p = document.getElementById('login-password').value;
+            const formData = new FormData();
+            formData.append('username', u);
+            formData.append('password', p);
+
+            try {
+                const resp = await fetch('/api/login', { method: 'POST', body: formData });
+                const data = await resp.json();
+                if (resp.ok) {
+                    localStorage.setItem('cdc_token', data.access_token);
+                    document.getElementById('auth-overlay').style.display = 'none';
+                    showNotify('Logged in successfully', '#00ffcc');
+                    connect();
+                } else {
+                    showNotify(data.detail || 'Login failed', '#ff4d4d');
+                }
+            } catch (err) { showNotify('Connection failed', '#ff4d4d'); }
+        }
+
+        async function doRegister() {
+            const u = document.getElementById('reg-username').value;
+            const p = document.getElementById('reg-password').value;
+            const r = document.getElementById('reg-referral').value;
+
+            try {
+                const resp = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p, referral_code: r || null })
+                });
+                const data = await resp.json();
+                if (resp.ok) {
+                    showNotify('Registered! Now please login.', '#00ffcc');
+                    showAuthMode('login');
+                } else {
+                    showNotify(data.detail || 'Registration failed', '#ff4d4d');
+                }
+            } catch (err) { showNotify('Connection failed', '#ff4d4d'); }
+        }
+
+        function logout() {
+            localStorage.removeItem('cdc_token');
+            location.reload();
+        }
+
+        // Check auth on load
+        if (!localStorage.getItem('cdc_token')) {
+            document.getElementById('auth-overlay').style.display = 'flex';
+        }
 
         connect();
     </script>

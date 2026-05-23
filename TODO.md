@@ -7,6 +7,7 @@
 - [x] Implement Global Vibe Leaderboard in Web UI.
 - [x] Dynamic IP detection for QR synchronization.
 - [x] Hardware sample rate detection in C++ Engine.
+- [x] Implement User Referral Program with point rewards.
 - [ ] Implement multi-venue load balancing.
 - [ ] Integration: Spotify/Apple Music catalog import.
 - [ ] Feature: Mobile AR "Vibe Heatmap" visualization.

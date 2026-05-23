@@ -33,7 +33,10 @@ def init_db():
         hashed_password TEXT NOT NULL,
         points INTEGER DEFAULT 0,
         badges TEXT DEFAULT '[]',
-        streak INTEGER DEFAULT 0
+        streak INTEGER DEFAULT 0,
+        referral_code TEXT UNIQUE,
+        referred_by_id TEXT,
+        FOREIGN KEY (referred_by_id) REFERENCES users (id)
     )
     ''')
 

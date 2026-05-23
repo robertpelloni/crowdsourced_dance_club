@@ -17,6 +17,7 @@
 - Integrated Experience Refinement (Feedback) system.
 - Persistent Activity Tracking and Profile History & Global Leaderboards.
 - Automated Hardware Synchronization (Sample Rate & IP Detection).
+- Integrated Viral Growth Mechanics (User Referral Program).
 
 ## Milestone 4: Scaling & Expansion (Upcoming)
 - **Neural Conductor:** ML-driven vibe analysis and predictive queuing.
