@@ -9,6 +9,7 @@ from contextlib import asynccontextmanager
 from typing import List, Dict, Optional, Tuple
 
 import qrcode
+import socket
 import uuid
 from datetime import datetime, timedelta
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException, Depends, status
@@ -49,6 +50,18 @@ GENRE_COMPATIBILITY = {
     "Progressive": {"Progressive": 1.0, "Psytrance": 0.8, "Techno": 0.6, "Ambient": 0.5},
     "Ambient": {"Ambient": 1.0, "Progressive": 0.5, "Techno": 0.3, "Psytrance": 0.1},
 }
+
+def get_local_ip():
+    """Returns the local network IP address of the server."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # Doesn't need to be reachable
+        s.connect(('8.8.8.8', 1))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return 'localhost'
 
 def get_db_connection():
     """Helper to create a connection to the SQLite database."""
@@ -137,7 +150,7 @@ class TrackState:
         self.active_connections: List[WebSocket] = []
         # History of vote timestamps for velocity calculation
         self.vote_history: List[float] = []
-        # User leaderboard: {user_id: {"points": int, "badges": List[str]}}
+        # User leaderboard: {user_id: {"points": int, "badges": List[str], "username": str}}
         self.user_stats: Dict[str, Dict] = {}
         # Track historical genres for archetype evolution
         self.genre_history: List[str] = []
@@ -179,10 +192,10 @@ class ConnectionManager:
     def get_broadcast_payload(self) -> Dict:
         """Constructs the standard payload for state synchronization."""
         leaderboard = sorted(
-            [{"user_id": uid, "points": stats["points"], "badges": stats["badges"]}
-             for uid, stats in dj_state.user_stats.items()],
+            [{"user_id": uid, "points": stats["points"], "badges": stats["badges"], "username": stats.get("username", "Anonymous")}
+             for uid, stats in dj_state.user_stats.items() if uid != "anonymous"],
             key=lambda x: x["points"], reverse=True
-        )[:5]
+        )[:10]
 
         return {
             "type": "QUEUE_SYNC",
@@ -617,6 +630,24 @@ async def create_event(event: EventCreate, current_user: dict = Depends(get_curr
     conn.close()
     return {"message": "Event created successfully", "id": event_id}
 
+@app.get("/api/leaderboard")
+async def get_leaderboard():
+    """Returns the top 20 users on the leaderboard."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT username, points, badges FROM users ORDER BY points DESC LIMIT 20")
+    rows = cursor.fetchall()
+    conn.close()
+
+    result = []
+    for row in rows:
+        result.append({
+            "username": row["username"],
+            "points": row["points"],
+            "badges": json.loads(row["badges"])
+        })
+    return result
+
 @app.post("/api/feedback")
 async def submit_feedback(feedback: FeedbackSubmit, current_user: dict = Depends(get_current_user)):
     """Allows authenticated users to submit experience feedback during testing."""
@@ -636,10 +667,11 @@ async def submit_feedback(feedback: FeedbackSubmit, current_user: dict = Depends
 @app.get("/sync-qr")
 async def get_sync_qr():
     """Generates a real QR code image for venue synchronization."""
+    ip = get_local_ip()
     sync_data = {
         "venue_name": "CDC Virtual Arena",
-        "conductor_url": "http://localhost:8000",
-        "websocket_url": "ws://localhost:8000/ws/clubgoer",
+        "conductor_url": f"http://{ip}:8000",
+        "websocket_url": f"ws://{ip}:8000/ws/clubgoer",
         "session_id": "session_001"
     }
 
@@ -679,7 +711,26 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
             pass
 
     if user_id not in dj_state.user_stats:
-        dj_state.user_stats[user_id] = {"points": 0, "badges": [], "streak": 0}
+        # Initialize from DB if possible
+        if user_id != "anonymous":
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT points, badges, streak FROM users WHERE id = ?", (user_id,))
+            row = cursor.fetchone()
+            conn.close()
+            if row:
+                dj_state.user_stats[user_id] = {
+                    "points": row["points"],
+                    "badges": json.loads(row["badges"]),
+                    "streak": row["streak"],
+                    "username": display_name
+                }
+            else:
+                dj_state.user_stats[user_id] = {"points": 0, "badges": [], "streak": 0, "username": display_name}
+        else:
+            dj_state.user_stats[user_id] = {"points": 0, "badges": [], "streak": 0, "username": display_name}
+    else:
+        dj_state.user_stats[user_id]["username"] = display_name
 
     await manager.connect(websocket)
     try:

@@ -4,6 +4,9 @@
 - [x] Conduct User Acceptance Testing (UAT).
 - [x] Finalize `UAT_REPORT.md`.
 - [x] Increment version to 0.4.0 (Production Candidate).
+- [x] Implement Global Vibe Leaderboard in Web UI.
+- [x] Dynamic IP detection for QR synchronization.
+- [x] Hardware sample rate detection in C++ Engine.
 - [ ] Implement multi-venue load balancing.
 - [ ] Integration: Spotify/Apple Music catalog import.
 - [ ] Feature: Mobile AR "Vibe Heatmap" visualization.

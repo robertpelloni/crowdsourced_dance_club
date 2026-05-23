@@ -15,7 +15,8 @@
 - Real-time event notifications and announcements.
 - Verified 3-tier architecture with UAT approval.
 - Integrated Experience Refinement (Feedback) system.
-- Persistent Activity Tracking and Profile History.
+- Persistent Activity Tracking and Profile History & Global Leaderboards.
+- Automated Hardware Synchronization (Sample Rate & IP Detection).
 
 ## Milestone 4: Scaling & Expansion (Upcoming)
 - **Neural Conductor:** ML-driven vibe analysis and predictive queuing.

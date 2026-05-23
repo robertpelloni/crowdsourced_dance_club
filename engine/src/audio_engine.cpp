@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <chrono>
 
-AudioEngine::AudioEngine() : stream(nullptr), running(false),
+AudioEngine::AudioEngine() : stream(nullptr), sample_rate(44100.0), running(false),
                              is_transitioning(false), transition_progress(0.0),
                              transition_duration_frames(44100.0 * 15.0),
                              transition_timestamp(0.0),
@@ -13,14 +13,14 @@ AudioEngine::AudioEngine() : stream(nullptr), running(false),
                              intensify_duration_frames(44100.0 * 10.0),
                              target_bpm(145.0), last_state_time_ms(0) {
 
-    st_current.setSampleRate(44100);
+    st_current.setSampleRate(sample_rate);
     st_current.setChannels(2);
 
-    st_next.setSampleRate(44100);
+    st_next.setSampleRate(sample_rate);
     st_next.setChannels(2);
 
-    hpf_l.set_cutoff(20.0f, 44100.0f);
-    hpf_r.set_cutoff(20.0f, 44100.0f);
+    hpf_l.set_cutoff(20.0f, sample_rate);
+    hpf_r.set_cutoff(20.0f, sample_rate);
 }
 
 AudioEngine::~AudioEngine() {
@@ -31,7 +31,26 @@ bool AudioEngine::initialize() {
     PaError err = Pa_Initialize();
     if (err != paNoError) return false;
 
-    err = Pa_OpenDefaultStream(&stream, 0, 2, paFloat32, 44100, 256, audio_callback, this);
+    PaDeviceIndex defaultOutput = Pa_GetDefaultOutputDevice();
+    if (defaultOutput == paNoDevice) {
+        std::cerr << "[AUDIO] No default output device." << std::endl;
+        return false;
+    }
+
+    const PaDeviceInfo* deviceInfo = Pa_GetDeviceInfo(defaultOutput);
+    if (deviceInfo) {
+        sample_rate = deviceInfo->defaultSampleRate;
+        std::cout << "[AUDIO] Detected hardware sample rate: " << sample_rate << " Hz" << std::endl;
+    }
+
+    // Re-configure components with the actual sample rate
+    st_current.setSampleRate(sample_rate);
+    st_next.setSampleRate(sample_rate);
+    hpf_l.set_cutoff(20.0f, sample_rate);
+    hpf_r.set_cutoff(20.0f, sample_rate);
+    transition_duration_frames = sample_rate * 15.0;
+
+    err = Pa_OpenDefaultStream(&stream, 0, 2, paFloat32, sample_rate, 256, audio_callback, this);
     if (err != paNoError) return false;
     return true;
 }
@@ -126,7 +145,7 @@ void AudioEngine::handle_master_control(const json& data) {
         if (next_buffer.loaded) {
             is_transitioning = true;
             transition_progress = 0.0;
-            transition_duration_frames = 44100.0 * 2.0;
+            transition_duration_frames = sample_rate * 2.0;
             std::cout << "[AUDIO] >>> MANUAL SKIP INITIATED <<<" << std::endl;
         }
     }
@@ -134,7 +153,7 @@ void AudioEngine::handle_master_control(const json& data) {
         is_intensifying = true;
         intensify_progress = 0.0;
         double duration = data.value("duration", 10.0);
-        intensify_duration_frames = 44100.0 * duration;
+        intensify_duration_frames = sample_rate * duration;
         std::cout << "[AUDIO] >>> DSP INTENSIFY: HPF SWEEP START <<<" << std::endl;
     }
 }
@@ -153,7 +172,7 @@ void AudioEngine::send_playback_state(void* wsi_ptr) {
         {"type", "PLAYBACK_STATE"},
         {"data", {
             {"current_track_id", current_buffer.track_id},
-            {"playback_position_seconds", (double)current_buffer.position / 44100.0},
+            {"playback_position_seconds", (double)current_buffer.position / sample_rate},
             {"current_bpm", (double)target_bpm},
             {"is_transitioning", (bool)is_transitioning}
         }}
@@ -220,8 +239,8 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
         if (self->is_transitioning && self->transition_archetype == "hpf_sweep") {
             // Apply automated HPF sweep during transition
             float cutoff = 20.0f + 2000.0f * (1.0f - std::abs(2.0f * (float)gain_next - 1.0f));
-            self->hpf_l.set_cutoff(cutoff, 44100.0f);
-            self->hpf_r.set_cutoff(cutoff, 44100.0f);
+            self->hpf_l.set_cutoff(cutoff, self->sample_rate);
+            self->hpf_r.set_cutoff(cutoff, self->sample_rate);
 
             samples_curr_l = self->hpf_l.process(samples_curr_l);
             samples_curr_r = self->hpf_r.process(samples_curr_r);
@@ -235,8 +254,8 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
             float phase = self->intensify_progress;
             // Sweep from 20Hz up to 2000Hz and back down
             float cutoff = 20.0f + 1980.0f * (1.0f - std::abs(2.0f * phase - 1.0f));
-            self->hpf_l.set_cutoff(cutoff, 44100.0f);
-            self->hpf_r.set_cutoff(cutoff, 44100.0f);
+            self->hpf_l.set_cutoff(cutoff, self->sample_rate);
+            self->hpf_r.set_cutoff(cutoff, self->sample_rate);
 
             left = self->hpf_l.process(left);
             right = self->hpf_r.process(right);
@@ -250,8 +269,8 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
             self->intensify_progress = self->intensify_progress + (1.0 / self->intensify_duration_frames);
             if (self->intensify_progress >= 1.0) {
                 self->is_intensifying = false;
-                self->hpf_l.set_cutoff(20.0f, 44100.0f);
-                self->hpf_r.set_cutoff(20.0f, 44100.0f);
+                self->hpf_l.set_cutoff(20.0f, self->sample_rate);
+                self->hpf_r.set_cutoff(20.0f, self->sample_rate);
 
                 // Restore standard compression
                 self->comp_l.threshold = 0.5f;
@@ -292,7 +311,7 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
             self->buffer_mutex.unlock();
 
             self->st_current.clear();
-            self->transition_duration_frames = 44100.0 * 15.0;
+            self->transition_duration_frames = self->sample_rate * 15.0;
             std::cout << "[AUDIO] Transition complete" << std::endl;
         }
     }

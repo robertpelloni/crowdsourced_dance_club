@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.3] - 2026-05-23
+### Added
+- **Global Vibe Leaderboard:** Implemented a real-time leaderboard view in the Web Prototype and a corresponding `/api/leaderboard` endpoint to track top audience contributors across sessions.
+- **Dynamic IP Detection:** The Conductor now automatically detects its local network IP address, ensuring that generated QR codes for venue synchronization remain valid on any local network without manual configuration.
+- **Hardware Sample Rate Detection:** Refactored the C++ Audio Engine to dynamically query and utilize the host's hardware sample rate via PortAudio, preventing pitch/speed distortion on non-standard audio interfaces.
+
+### Changed
+- **WebSocket Enhancements:** Broadcasters now include real-time leaderboard updates in the `QUEUE_SYNC` payload.
+- **C++ Engine Modernization:** All internal DSP calculations (HPF, Crossfading) now scale precisely with the detected hardware sample rate.
+
 ## [0.4.2] - 2025-05-22
 ### Added
 - **Activity History Tracking:** Every song request and vote is now persistently stored in the database.

@@ -174,6 +174,35 @@
 
         .btn-request { color: var(--secondary); background-color: rgba(0,255,204,0.1); }
 
+        /* Leaderboard Styles */
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 15px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            margin-bottom: 10px;
+        }
+
+        .rank {
+            font-size: 1.2rem;
+            font-weight: 800;
+            color: var(--secondary);
+            width: 30px;
+        }
+
+        .user-info { flex-grow: 1; }
+
+        .points-badge {
+            background: rgba(160,32,240,0.1);
+            color: var(--primary);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
         /* Bottom Nav */
         .bottom-nav {
             position: fixed;
@@ -357,6 +386,14 @@
             </div>
         </div>
 
+        <!-- View: Leaderboard -->
+        <div id="view-leaderboard" class="view">
+            <div class="section-title">Global Vibe Leaders</div>
+            <div id="leaderboard-list">
+                <!-- Leaderboard injected here -->
+            </div>
+        </div>
+
         <!-- View: Feedback -->
         <div id="view-feedback" class="view">
             <div class="section-title">Experience Refinement</div>
@@ -457,6 +494,10 @@
             <span class="nav-icon">🔍</span>
             <span>Browse</span>
         </a>
+        <a href="#" class="nav-item" onclick="switchView('leaderboard')">
+            <span class="nav-icon">🏆</span>
+            <span>Rank</span>
+        </a>
         <a href="#" class="nav-item" onclick="switchView('feedback')">
             <span class="nav-icon">💬</span>
             <span>Refine</span>
@@ -478,6 +519,7 @@
         const quickQueueEl = document.getElementById('quick-queue');
         const fullQueueEl = document.getElementById('full-queue');
         const catalogListEl = document.getElementById('catalog-list');
+        const leaderboardListEl = document.getElementById('leaderboard-list');
         const notificationEl = document.getElementById('notification');
 
         let ws;
@@ -671,6 +713,22 @@
 
         function updateUI(data) {
             const cp = data.current_track;
+
+            // Leaderboard Update
+            if (data.leaderboard) {
+                leaderboardListEl.innerHTML = data.leaderboard.map((u, index) => `
+                    <div class="leaderboard-item">
+                        <div class="rank">#${index + 1}</div>
+                        <div class="user-info">
+                            <div class="item-title">${u.username}</div>
+                            <div id="leaderboard-badges-${u.user_id}" style="display:flex; gap:5px; margin-top:5px;">
+                                ${u.badges.slice(0, 2).map(b => `<span class="match-badge" style="font-size:0.6rem; padding:2px 5px;">${b}</span>`).join('')}
+                            </div>
+                        </div>
+                        <div class="points-badge">${u.points}</div>
+                    </div>
+                `).join('');
+            }
             nowPlayingContent.innerHTML = `
                 <div class="track-title">${cp.title}</div>
                 <div class="track-artist">${cp.artist}</div>

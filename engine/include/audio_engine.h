@@ -113,6 +113,7 @@ private:
     void update_tempo();
 
     PaStream *stream;
+    double sample_rate;
     std::atomic<bool> running;
 
     AudioBuffer current_buffer;
