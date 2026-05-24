@@ -25,3 +25,6 @@ The system is designed for venue deployment.
 - **The Brain (Python):** High-level orchestration, database, and API.
 - **The Body (C++):** Real-time signal processing and audio I/O.
 - **The Interface (JS/React Native):** The bridge between the audience and the machine.
+
+## Feedback-Driven Evolution
+A core tenet of CDC is continuous refinement. User feedback collected via the "Refine" interface provides a direct qualitative and quantitative dataset for adjusting algorithmic weights, transition archetypes, and system stability. This loop ensures the AI Conductor evolves alongside the preferences of the real-world community it serves.

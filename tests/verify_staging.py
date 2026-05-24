@@ -23,7 +23,7 @@ def verify_staging_flow(page: Page):
         page.get_by_placeholder("Password").first.fill("password123")
         page.get_by_role("button", name="LOGIN").click()
 
-        page.get_by_role("link", name="👤 Profile").click()
+        page.get_by_role("navigation").get_by_text("Profile").click()
         ref_code = page.locator("#profile-referral-code").inner_text()
         print(f"User A Referral Code: {ref_code}")
 
@@ -44,15 +44,15 @@ def verify_staging_flow(page: Page):
         page.get_by_role("button", name="LOGIN").click()
 
         # 3. User B: Request a Song
-        page.get_by_role("link", name="🔍 Browse").click()
+        page.get_by_role("navigation").get_by_text("Browse").click()
         page.get_by_role("button", name="＋").first.click()
 
         # 4. User B: Vote for a Song
-        page.get_by_role("link", name="📋 Queue").click()
+        page.get_by_role("navigation").get_by_text("Queue").click()
         page.get_by_role("button", name="▲").first.click()
 
         # 5. User B: Submit Feedback
-        page.get_by_role("link", name="💬 Refine").click()
+        page.get_by_role("navigation").get_by_text("Refine").click()
         # Rate Vibe (4 stars)
         page.locator("#rating-vibe .star-rating").nth(3).click()
         # Rate Tech (5 stars)

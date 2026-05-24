@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.5.1] - 2026-05-23
+### Added
+- **Integrated Feedback Loop:** Added "Refine" UI to the mobile application and a corresponding "Feedback Audit" panel to the Admin UI.
+- **Admin Analytics:** Exposed all user-submitted vibe and technical ratings to administrators for data-driven system tuning.
+- **Vision Update:** Codified the Feedback-Driven Evolution strategy in the project vision.
+
 ## [1.5.0] - 2026-05-23
 ### Added
 - **Neural Conductor Foundation:** Introduced rule-based heuristic prediction for transition archetypes based on historical vibe performance.

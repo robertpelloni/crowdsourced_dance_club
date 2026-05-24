@@ -377,3 +377,12 @@ async def submit_feedback(feedback: FeedbackSubmit, current_user: dict = Depends
                    (fb_id, current_user["id"], feedback.vibe_rating, feedback.technical_rating, feedback.comment, time.time()))
     conn.commit(); conn.close()
     return {"message": "Feedback submitted", "id": fb_id}
+
+@app.get("/api/admin/feedback")
+async def get_all_feedback(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute('''SELECT f.*, u.username FROM feedback f JOIN users u ON f.user_id = u.id ORDER BY f.timestamp DESC''')
+    rows = cursor.fetchall(); conn.close()
+    return [dict(row) for row in rows]

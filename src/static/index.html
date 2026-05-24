@@ -525,6 +525,8 @@
                 <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-bottom:20px;">
                     <button class="btn-action" onclick="adminSetGenre('Psytrance')" style="font-size:0.7rem; font-weight:bold;">PSY</button>
                     <button class="btn-action" onclick="adminSetGenre('Techno')" style="font-size:0.7rem; font-weight:bold;">TECHNO</button>
+                <div class="section-title">Feedback Audit</div>
+                <div id="admin-feedback-list" class="list-container"></div>
                     <button class="btn-action" onclick="adminSetGenre('Ambient')" style="font-size:0.7rem; font-weight:bold;">CHILL</button>
                 </div>
 
@@ -626,6 +628,7 @@
             }
 
             if (viewName === 'profile') fetchProfile();
+            if (viewName === 'admin') fetchAdminFeedback();
         }
 
         function showNotify(msg, color) {
@@ -730,6 +733,24 @@
 
             } catch (err) { console.error(err); }
         }
+        async function fetchAdminFeedback() {
+            try {
+                const response = await fetch("/api/admin/feedback", {
+                    headers: { "Authorization": `Bearer ${localStorage.getItem("cdc_token")}` }
+                });
+                const feedback = await response.json();
+                document.getElementById("admin-feedback-list").innerHTML = feedback.map(f => `
+                    <div class="list-item">
+                        <div class="item-info">
+                            <div class="item-title">${escapeHTML(f.username)}</div>
+                            <div class="item-meta">Vibe: ${f.vibe_rating}/5 • Tech: ${f.technical_rating}/5</div>
+                            <div class="item-meta" style="color:white; margin-top:5px;">${escapeHTML(f.comment || "")}</div>
+                        </div>
+                    </div>
+                `).join("") || `<div class="item-meta" style="text-align:center; padding:20px;">No feedback yet.</div>`;
+            } catch (err) { console.error(err); }
+        }
+
 
         async function fetchCatalog() {
             try {

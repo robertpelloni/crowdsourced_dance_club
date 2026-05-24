@@ -21,6 +21,9 @@ export default function App() {
   const [requestHistory, setRequestHistory] = useState([]);
   const [voteHistory, setVoteHistory] = useState([]);
 
+  const [vibeRating, setVibeRating] = useState(5);
+  const [techRating, setTechRating] = useState(5);
+  const [feedbackComment, setFeedbackComment] = useState("");
   const [authToken, setAuthToken] = useState(null);
   const [myUser, setMyUser] = useState(null);
   const [username, setUsername] = useState('');
@@ -237,6 +240,29 @@ export default function App() {
         }
     } catch (err) { console.error("Vibe Update Failed:", err); }
   };
+  const submitFeedback = async () => {
+    try {
+        const response = await fetch(`${API_URL}/api/feedback`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${authToken}`
+            },
+            body: JSON.stringify({
+                vibe_rating: vibeRating,
+                technical_rating: techRating,
+                comment: feedbackComment
+            })
+        });
+        if (response.ok) {
+            alert("Feedback submitted!");
+            setFeedbackComment("");
+            setCurrentView("dance");
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+    } catch (err) { console.error("Feedback Submission Failed:", err); }
+  };
+
 
 
 
@@ -389,6 +415,47 @@ export default function App() {
         </View>
     );
   };
+  const renderRefineView = () => (
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.nowPlayingCard}>
+            <Text style={styles.headerTitle}>REFINE THE VIBE</Text>
+            <Text style={[styles.metaText, {marginTop:5, marginBottom:20}]}>Your feedback directly influences the AI Conductor.</Text>
+
+            <Text style={styles.sectionLabel}>VIBE ACCURACY (1-5)</Text>
+            <View id="rating-vibe" style={{flexDirection:"row", gap:10, marginBottom:20}}>
+                {[1,2,3,4,5].map(v => (
+                    <TouchableOpacity key={v} style={[styles.transitionBtn, vibeRating === v && {borderColor: "#a020f0"}]} onPress={() => setVibeRating(v)}>
+                        <Text style={[styles.transitionText, vibeRating === v && {color: "#a020f0"}]}>{v}</Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+
+            <Text style={styles.sectionLabel}>TECHNICAL SMOOTHNESS (1-5)</Text>
+            <View id="rating-tech" style={{flexDirection:"row", gap:10, marginBottom:20}}>
+                {[1,2,3,4,5].map(v => (
+                    <TouchableOpacity key={v} style={[styles.transitionBtn, techRating === v && {borderColor: "#a020f0"}]} onPress={() => setTechRating(v)}>
+                        <Text style={[styles.transitionText, techRating === v && {color: "#a020f0"}]}>{v}</Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+
+            <Text style={styles.sectionLabel}>COMMENTS</Text>
+            <TextInput
+                style={[styles.searchInput, {height: 100, textAlignVertical: "top"}]}
+                placeholder="Tell us about transitions, track selection, or bugs..."
+                placeholderTextColor="#666"
+                multiline
+                value={feedbackComment}
+                onChangeText={setFeedbackComment}
+            />
+
+            <TouchableOpacity style={[styles.actionBtn, {marginTop: 20}]} onPress={submitFeedback}>
+                <Text style={styles.actionBtnText}>SUBMIT FEEDBACK</Text>
+            </TouchableOpacity>
+        </View>
+    </ScrollView>
+  );
+
 
   const renderProfileView = () => (
     <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -405,7 +472,7 @@ export default function App() {
 
             <View style={{marginTop: 20, padding: 15, backgroundColor: 'rgba(0,255,204,0.05)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,255,204,0.1)'}}>
                 <Text style={[styles.sectionLabel, {color: '#00ffcc', marginBottom: 5}]}>YOUR REFERRAL CODE</Text>
-                <Text style={[styles.trackTitle, {fontSize: 24, letterSpacing: 2}]}>{vibeStats.referral_code || '--------'}</Text>
+                <Text style={[styles.trackTitle, {fontSize: 24, letterSpacing: 2}]}><Text id="profile-referral-code">{vibeStats.referral_code || '--------'}</Text></Text>
                 <Text style={[styles.metaText, {fontSize: 10}]}>Share this! You both get 50 bonus points.</Text>
             </View>
         </View>
@@ -538,6 +605,7 @@ export default function App() {
         {currentView === 'dance' && renderDanceView()}
         {currentView === 'request' && renderBrowseView()}
         {currentView === 'profile' && renderProfileView()}
+        {currentView === "refine" && renderRefineView()}
         {currentView === 'sync' && renderSyncView()}
       </View>
 
@@ -551,6 +619,9 @@ export default function App() {
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setCurrentView('profile')}>
                 <Text style={currentView === 'profile' ? styles.navTextActive : styles.navText}>PROFILE</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setCurrentView("refine")}>
+                <Text style={currentView === "refine" ? styles.navTextActive : styles.navText}>REFINE</Text>
             </TouchableOpacity>
         </View>
       )}
