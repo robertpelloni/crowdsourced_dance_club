@@ -22,9 +22,11 @@ from src.db.vibe_logs import log_vibe_performance
 from src.api.schemas import Track, User, Token, UserCreate, EventCreate, FeedbackSubmit
 from src.api.utils import get_local_ip, verify_password, get_password_hash, create_access_token, get_current_user, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from src.core.conductor import TrackState, calculate_vibe_score, evaluate_track_fit, CONFIG, GENRE_COMPATIBILITY
+from src.core.recommender import NeuralConductor
 
 TRACK_CATALOG = load_track_catalog()
 dj_state = TrackState(TRACK_CATALOG)
+neural_conductor = NeuralConductor(TRACK_CATALOG)
 
 class ConnectionManager:
     async def connect(self, websocket: WebSocket):
@@ -97,10 +99,24 @@ async def playback_simulation_loop():
                 try: await client.send_json({"type": "MASTER_CONTROL", "data": {"current_bpm": dj_state.current_bpm}})
                 except: pass
 
+        # Real-time Lighting Control Broadcast (v1.5.0)
+        # RGB based on energy: Peak = Red/White, Stable = Purple, Low = Blue
+        r, g, b = (160, 32, 240) # Default Purple
+        if dj_state.is_peak_mode: r, g, b = (255, 0, 0)
+        elif dj_state.energy_trend == "falling": r, g, b = (0, 102, 255)
+
+        for client in list(dj_state.active_connections):
+            try: await client.send_json({"type": "LIGHTING_CONTROL", "data": {"r": r, "g": g, "b": b, "intensity": dj_state.crowd_energy}})
+            except: pass
+
         if 14.5 <= remaining <= 15.5:
             if dj_state.upcoming_queue:
                 next_track = dj_state.upcoming_queue[0]["track"]
-                winner = max(dj_state.transition_votes, key=dj_state.transition_votes.get)
+
+                # Dynamic Transition Heuristic (v1.5.0)
+                predicted_archetype = neural_conductor.get_best_transition_archetype(dj_state.current_track["id"], next_track["id"])
+                winner = max(dj_state.transition_votes, key=dj_state.transition_votes.get) if any(dj_state.transition_votes.values()) else predicted_archetype
+
                 sync_payload = {"type": "TRACK_SYNC", "data": {"track_id": next_track["id"], "filepath": next_track.get("filepath", f"tracks/{next_track['id']}.flac"), "bpm": next_track["bpm"], "key": next_track["key"], "energy": next_track["energy"], "transition_timestamp": dj_state.start_time + dj_state.duration, "crossfade_duration": 15.0, "archetype": winner}}
                 for client in list(dj_state.active_connections):
                     try: await client.send_json(sync_payload)
@@ -214,16 +230,18 @@ async def get_sync_qr():
 
 @app.websocket("/ws/clubgoer")
 async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
-    user_id = "anonymous"; display_name = "anonymous"; user_role = "user"
+    user_id = "anonymous"; display_name = "anonymous"; user_role = "user"; user_vibe_pref = None
     if token:
         try:
             payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
             username = payload.get("sub")
             if username:
                 conn = get_db_connection(); cursor = conn.cursor()
-                cursor.execute("SELECT id, role FROM users WHERE username = ?", (username,))
+                cursor.execute("SELECT id, role, vibe_preference FROM users WHERE username = ?", (username,))
                 row = cursor.fetchone(); conn.close()
-                if row: user_id = row["id"]; display_name = username; user_role = row["role"]
+                if row:
+                    user_id = row["id"]; display_name = username; user_role = row["role"]
+                    user_vibe_pref = row["vibe_preference"]
         except: pass
 
     if user_id not in dj_state.user_stats:
@@ -244,14 +262,14 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
 
             if action == "GET_VIBE_SCORE":
                 track = TRACK_CATALOG.get(message.get("track_id"))
-                if track: await websocket.send_json({"type": "VIBE_SCORE", "track_id": track["id"], "score": calculate_vibe_score(track, dj_state.current_track, dj_state.energy_trend)})
+                if track: await websocket.send_json({"type": "VIBE_SCORE", "track_id": track["id"], "score": calculate_vibe_score(track, dj_state.current_track, dj_state.energy_trend, user_vibe_pref)})
 
             elif action == "REQUEST_SONG":
                 track_id = message.get("track_id")
                 track = TRACK_CATALOG.get(track_id)
                 if not track: continue
                 fits, reason = evaluate_track_fit(track, dj_state.current_track)
-                vibe_score = calculate_vibe_score(track, dj_state.current_track, dj_state.energy_trend)
+                vibe_score = calculate_vibe_score(track, dj_state.current_track, dj_state.energy_trend, user_vibe_pref)
 
                 if fits:
                     dj_state.user_stats[user_id]["points"] += 10

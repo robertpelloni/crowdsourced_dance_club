@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions, TextInput, Animated } from 'react-native';
+import { AppState } from "react-native";
 import * as Haptics from 'expo-haptics';
 import { BarCodeScanner } from 'expo-barcode-scanner';
 
@@ -25,6 +26,7 @@ export default function App() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [regReferral, setRegReferral] = useState('');
+  const [appState, setAppState] = useState(AppState.currentState);
 
   const [serverUrl, setServerUrl] = useState('localhost:8000');
   const [hasPermission, setHasPermission] = useState(null);
@@ -53,6 +55,17 @@ export default function App() {
         if (hapticTimer.current) clearInterval(hapticTimer.current);
     };
   }, [serverUrl, authToken]);
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", nextAppState => {
+      if (appState.match(/inactive|background/) && nextAppState === "active") {
+        console.log("App has come to the foreground! Reconnecting WebSocket...");
+        connect();
+      }
+      setAppState(nextAppState);
+    });
+    return () => subscription.remove();
+  }, [appState]);
+
 
   useEffect(() => {
     if (hapticTimer.current) clearInterval(hapticTimer.current);
@@ -131,7 +144,7 @@ export default function App() {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       } else if (data.type === 'REQUEST_ACCEPTED' || data.type === 'REQUEST_DENIED' || data.type === 'ERROR') {
         if (data.user_stats) setVibeStats(data.user_stats);
-        alert(data.message);
+        console.log("WebSocket Notice:", data.message);
       }
     };
 
@@ -205,7 +218,7 @@ export default function App() {
             body: JSON.stringify(["track_001", "track_002"])
         });
         const data = await response.json();
-        alert(data.message);
+        console.log("WebSocket Notice:", data.message);
     } catch (err) { alert("Highlight generation failed."); }
   };
   const updateVibePreference = async (pref) => {

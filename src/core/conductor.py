@@ -59,7 +59,7 @@ def is_harmonically_compatible(key1: str, key2: str) -> bool:
     except: return False
     return False
 
-def calculate_vibe_score(track: Dict, current_track: Dict, energy_trend: str) -> float:
+def calculate_vibe_score(track: Dict, current_track: Dict, energy_trend: str, user_pref: Optional[str] = None) -> float:
     bpm_delta = abs(track["bpm"] - current_track["bpm"])
     bpm_score = max(0, 1 - (bpm_delta / CONFIG["MAX_BPM_DELTA"]))
     energy_delta = abs(track["energy"] - current_track["energy"])
@@ -75,7 +75,15 @@ def calculate_vibe_score(track: Dict, current_track: Dict, energy_trend: str) ->
     genre1 = current_track.get("genre", "Psytrance")
     genre2 = track.get("genre", "Psytrance")
     genre_score = GENRE_COMPATIBILITY.get(genre1, {}).get(genre2, 0.5)
-    return (bpm_score * CONFIG["VIBE_WEIGHT_BPM"]) + (energy_score * CONFIG["VIBE_WEIGHT_ENERGY"]) +            (ramping_score * CONFIG["VIBE_WEIGHT_RAMPING"]) + (key_score * CONFIG["VIBE_WEIGHT_KEY"]) +            (genre_score * CONFIG["VIBE_WEIGHT_GENRE"])
+
+    # User Personalization Bonus (v1.5.0)
+    pref_bonus = 0.0
+    if user_pref and user_pref == genre2:
+        pref_bonus = 0.1 # 10% boost for matching user's favorite genre
+
+    return min(1.0, (bpm_score * CONFIG["VIBE_WEIGHT_BPM"]) + (energy_score * CONFIG["VIBE_WEIGHT_ENERGY"]) + \
+            (ramping_score * CONFIG["VIBE_WEIGHT_RAMPING"]) + (key_score * CONFIG["VIBE_WEIGHT_KEY"]) + \
+            (genre_score * CONFIG["VIBE_WEIGHT_GENRE"]) + pref_bonus)
 
 def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool, str]:
     bpm_delta = abs(requested_track["bpm"] - current_track["bpm"])

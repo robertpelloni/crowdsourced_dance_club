@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0] - 2026-05-23
+### Added
+- **Neural Conductor Foundation:** Introduced rule-based heuristic prediction for transition archetypes based on historical vibe performance.
+- **Real-time Lighting Protocol:** Implemented `LIGHTING_CONTROL` WebSocket broadcast for dynamic RGB synchronization based on room energy.
+- **Enhanced Mobile Resilience:** Added automatic WebSocket reconnection using `AppState` to handle foreground/background transitions on mobile.
+- **Personalized Vibe Algorithm:** Integrated user genre preferences into the Conductor's vibe scoring algorithm (+10% matching bonus).
+
 ## [1.4.0] - 2026-05-23
 ### Added
 - **Advanced User Profiles:** Users can now set and update their musical "vibe preference" (Psytrance, Techno, etc.) in their profile.
