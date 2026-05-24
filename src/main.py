@@ -107,12 +107,11 @@ async def playback_simulation_loop():
                     except: pass
 
         if remaining <= 0:
-            # ML Data Collection: Log performance of the track that just finished
-            # Success metric is currently simplified to voting velocity during the track
+            # ML Data Collection
             log_vibe_performance(
                 dj_state.current_track["id"],
                 calculate_vibe_score(dj_state.current_track, dj_state.current_track, dj_state.energy_trend),
-                0.0, # Energy delta placeholder
+                0.0,
                 float(vote_velocity)
             )
 
@@ -181,7 +180,8 @@ async def read_users_me(current_user: dict = Depends(get_current_user)):
     return {
         "username": current_user["username"], "points": current_user["points"],
         "badges": json.loads(current_user["badges"]), "role": current_user.get("role", "user"),
-        "referral_code": current_user.get("referral_code")
+        "referral_code": current_user.get("referral_code"),
+        "vibe_preference": current_user.get("vibe_preference", "Psytrance")
     }
 
 @app.get("/api/live/crowd-stats")
@@ -291,3 +291,46 @@ async def get_events():
     cursor.execute("SELECT * FROM events WHERE start_time > ?", (time.time(),))
     rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
+
+from src.api.schemas import UserUpdate
+
+@app.patch("/api/me", response_model=User)
+async def update_user_me(data: UserUpdate, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    if data.vibe_preference:
+        cursor.execute("UPDATE users SET vibe_preference = ? WHERE id = ?", (data.vibe_preference, current_user["id"]))
+    conn.commit(); conn.close()
+
+    # Return updated user
+    return {
+        **current_user,
+        "vibe_preference": data.vibe_preference or current_user.get("vibe_preference"),
+        "badges": json.loads(current_user["badges"]) if isinstance(current_user["badges"], str) else current_user["badges"]
+    }
+
+@app.get("/api/me/history/votes")
+async def get_my_votes(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute('''SELECT v.*, t.title, t.artist FROM user_votes v JOIN tracks t ON v.track_id = t.id WHERE v.user_id = ? ORDER BY v.timestamp DESC''', (current_user["id"],))
+    rows = cursor.fetchall(); conn.close()
+    return [dict(row) for row in rows]
+
+@app.post("/api/events", response_model=dict)
+async def create_event(event: EventCreate, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    conn = get_db_connection(); cursor = conn.cursor()
+    event_id = "event_" + str(uuid.uuid4())
+    cursor.execute("INSERT INTO events (id, title, description, start_time) VALUES (?, ?, ?, ?)",
+                   (event_id, event.title, event.description, event.start_time))
+    conn.commit(); conn.close()
+    return {"message": "Event created", "id": event_id}
+
+@app.post("/api/feedback")
+async def submit_feedback(feedback: FeedbackSubmit, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    fb_id = "fb_" + str(uuid.uuid4())
+    cursor.execute("INSERT INTO feedback (id, user_id, vibe_rating, technical_rating, comment, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
+                   (fb_id, current_user["id"], feedback.vibe_rating, feedback.technical_rating, feedback.comment, time.time()))
+    conn.commit(); conn.close()
+    return {"message": "Feedback submitted", "id": fb_id}

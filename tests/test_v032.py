@@ -40,7 +40,7 @@ def test_auth_flow():
 
 def test_create_event_auth():
     # Unauthenticated
-    response = client.post("/api/admin/create-event", json={
+    response = client.post("/api/events", json={
         "title": "Secret Set",
         "description": "Invite only",
         "start_time": time.time() + 5000
@@ -50,10 +50,17 @@ def test_create_event_auth():
     # Authenticated
     username = f"admin_{int(time.time())}"
     client.post("/api/register", json={"username": username, "password": "adminpassword"})
+
+    # Manual promotion for test environment
+    import sqlite3
+    conn = sqlite3.connect("tracks.db")
+    conn.execute("UPDATE users SET role = 'admin' WHERE username = ?", (username,))
+    conn.commit(); conn.close()
+
     login_resp = client.post("/api/login", data={"username": username, "password": "adminpassword"})
     token = login_resp.json()["access_token"]
 
-    response = client.post("/api/admin/create-event",
+    response = client.post("/api/events",
         json={
             "title": "Mainstage Ritual",
             "description": "Psytrance Peak",

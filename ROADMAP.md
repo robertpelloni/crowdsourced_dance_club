@@ -31,3 +31,4 @@
 - Algorithmic Polish and Session Hardening (v1.2.0).
 - Integration Verification and Deployment Packaging (v1.2.1).
 - Modular Refactoring and ML Data Strategy (v1.3.0).
+- Advanced User Profiles and Vibe Management (v1.4.0).

@@ -14,8 +14,6 @@
 - [x] Implement RBAC for admin security.
 - [x] Integrate real-time crowd data and activity metrics.
 - [x] Refine vibe algorithm based on staging feedback.
-- [x] Refactor Python Conductor into modular src/ structure.
-- [x] Implement ML feature logging for Neural Conductor.
 - [x] Harden mobile session persistence.
 - [ ] Maintenance: Monitor feedback and performance.
 - [ ] Implement multi-venue load balancing.

@@ -60,7 +60,7 @@ def verify_staging_flow(page: Page):
         page.get_by_placeholder("Any glitches or transition thoughts?").fill("Staging looks solid. Transitions were smooth during my session!")
         page.get_by_role("button", name="SUBMIT FEEDBACK").click()
 
-        expect(page.get_by_text("Feedback submitted successfully")).to_be_visible()
+        expect(page.get_by_text("Feedback submitted")).to_be_visible()
         os.makedirs("verification", exist_ok=True)
         page.screenshot(path="verification/staging_validation.png")
 

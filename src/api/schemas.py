@@ -15,6 +15,7 @@ class User(BaseModel):
     badges: List[str] = []
     role: str = "user"
     referral_code: Optional[str] = None
+    vibe_preference: Optional[str] = "Psytrance"
 
 class UserInDB(User):
     hashed_password: str
@@ -27,6 +28,9 @@ class UserCreate(BaseModel):
     username: str
     password: str
     referral_code: Optional[str] = None
+
+class UserUpdate(BaseModel):
+    vibe_preference: Optional[str] = None
 
 class EventCreate(BaseModel):
     title: str

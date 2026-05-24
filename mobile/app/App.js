@@ -17,6 +17,8 @@ export default function App() {
   const [vibeStats, setVibeStats] = useState({ points: 0, badges: [] });
   const [leaderboard, setLeaderboard] = useState([]);
   const [transitionVotes, setTransitionVotes] = useState({ classic: 0, bass_swap: 0, echo_out: 0, hpf_sweep: 0 });
+  const [requestHistory, setRequestHistory] = useState([]);
+  const [voteHistory, setVoteHistory] = useState([]);
 
   const [authToken, setAuthToken] = useState(null);
   const [myUser, setMyUser] = useState(null);
@@ -42,7 +44,10 @@ export default function App() {
     })();
     connect();
     fetchCatalog();
-    if (authToken) fetchMe();
+    if (authToken) {
+        fetchMe();
+        fetchHistory();
+    }
     return () => {
         ws.current?.close();
         if (hapticTimer.current) clearInterval(hapticTimer.current);
@@ -159,10 +164,21 @@ export default function App() {
             setVibeStats({
                 points: data.points,
                 badges: data.badges,
-                referral_code: data.referral_code
+                referral_code: data.referral_code,
+                vibe_preference: data.vibe_preference
             });
         }
     } catch (err) { console.error('Me Fetch Failed:', err); }
+  };
+
+  const fetchHistory = async () => {
+    if (!authToken) return;
+    try {
+        const reqs = await fetch(`${API_URL}/api/me/history/requests`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+        setRequestHistory(await reqs.json());
+        const votes = await fetch(`${API_URL}/api/me/history/votes`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+        setVoteHistory(await votes.json());
+    } catch (err) { console.error('History Fetch Failed:', err); }
   };
 
   const handleBarCodeScanned = ({ type, data }) => {
@@ -192,6 +208,24 @@ export default function App() {
         alert(data.message);
     } catch (err) { alert("Highlight generation failed."); }
   };
+  const updateVibePreference = async (pref) => {
+    try {
+        const response = await fetch(`${API_URL}/api/me`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ vibe_preference: pref })
+        });
+        if (response.ok) {
+            setVibeStats(prev => ({ ...prev, vibe_preference: pref }));
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        }
+    } catch (err) { console.error("Vibe Update Failed:", err); }
+  };
+
+
 
   const castVote = (trackId) => {
     if (ws.current?.readyState === WebSocket.OPEN) {
@@ -347,7 +381,10 @@ export default function App() {
     <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.nowPlayingCard}>
             <Text style={styles.sectionLabel}>DANCER STATUS</Text>
-            <Text style={styles.trackTitle}>Vibe Points: {vibeStats.points}</Text>
+            <View style={{flexDirection:'row', justifyContent:'space-between'}}>
+                <Text style={styles.trackTitle}>Vibe Points: {vibeStats.points}</Text>
+                <Text style={[styles.matchText, {color:'#a020f0'}]}>{vibeStats.vibe_preference}</Text>
+            </View>
             <View style={styles.meterBase}>
                 <View style={[styles.meterFill, { width: `${(vibeStats.points % 100)}%`, backgroundColor: '#a020f0' }]} />
             </View>
@@ -364,6 +401,19 @@ export default function App() {
             <Text style={styles.actionBtnText}>🎬 GET SET HIGHLIGHTS</Text>
         </TouchableOpacity>
 
+        <Text style={styles.sectionLabel}>SET VIBE PREFERENCE</Text>
+        <View style={styles.transitionVoteGrid}>
+            {["Psytrance", "Techno", "Progressive", "Ambient"].map(genre => (
+                <TouchableOpacity
+                    key={genre}
+                    style={[styles.transitionBtn, vibeStats.vibe_preference === genre && {borderColor: "#a020f0"}]}
+                    onPress={() => updateVibePreference(genre)}
+                >
+                    <Text style={[styles.transitionText, vibeStats.vibe_preference === genre && {color: "#a020f0"}]}>{genre.toUpperCase()}</Text>
+                </TouchableOpacity>
+            ))}
+        </View>
+
         <Text style={styles.sectionLabel}>EARNED BADGES</Text>
         <View style={styles.badgeGrid}>
             {vibeStats.badges.length === 0 ? <Text style={styles.emptyText}>No badges yet. Request tracks to earn them!</Text> :
@@ -371,6 +421,22 @@ export default function App() {
                 <View key={b} style={styles.badgeItem}>
                     <Text style={styles.badgeIcon}>🏅</Text>
                     <Text style={styles.badgeName}>{b}</Text>
+                </View>
+            ))}
+        </View>
+
+        <Text style={styles.sectionLabel}>RECENT CONTRIBUTIONS</Text>
+        <View style={{marginBottom: 20}}>
+            {requestHistory.slice(0, 3).map((r, i) => (
+                <View key={r.id + i} style={styles.leaderboardItem}>
+                    <Text style={styles.navTextActive}>Request: {r.title}</Text>
+                    <Text style={[styles.matchText, {color: r.status === 'ACCEPTED' ? '#00ffcc' : '#ff3366'}]}>{r.status}</Text>
+                </View>
+            ))}
+            {voteHistory.slice(0, 3).map((v, i) => (
+                <View key={v.id + i} style={styles.leaderboardItem}>
+                    <Text style={styles.navTextActive}>Voted: {v.title}</Text>
+                    <Text style={styles.matchText}>+1 VOTE</Text>
                 </View>
             ))}
         </View>

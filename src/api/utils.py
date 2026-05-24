@@ -7,7 +7,11 @@ from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer
 from src.db.database import get_db_connection
 
-SECRET_KEY = os.getenv("SECRET_KEY", "SUPER_SECRET_CDC_KEY")
+SECRET_KEY = os.getenv("SECRET_KEY")
+if not SECRET_KEY:
+    # Fallback for development only. Production must set this environment variable.
+    SECRET_KEY = "dev_secret_key_change_me_in_production"
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
