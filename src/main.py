@@ -247,25 +247,50 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 if track: await websocket.send_json({"type": "VIBE_SCORE", "track_id": track["id"], "score": calculate_vibe_score(track, dj_state.current_track, dj_state.energy_trend)})
 
             elif action == "REQUEST_SONG":
-                track = TRACK_CATALOG.get(message.get("track_id"))
+                track_id = message.get("track_id")
+                track = TRACK_CATALOG.get(track_id)
                 if not track: continue
                 fits, reason = evaluate_track_fit(track, dj_state.current_track)
+                vibe_score = calculate_vibe_score(track, dj_state.current_track, dj_state.energy_trend)
+
                 if fits:
-                    vibe_score = calculate_vibe_score(track, dj_state.current_track, dj_state.energy_trend)
                     dj_state.user_stats[user_id]["points"] += 10
                     dj_state.upcoming_queue.append({"track": track, "votes": 1})
+
+                    if user_id != "anonymous":
+                        conn = get_db_connection(); cursor = conn.cursor()
+                        cursor.execute("UPDATE users SET points = points + 10 WHERE id = ?", (user_id,))
+                        cursor.execute("INSERT INTO user_requests (id, user_id, track_id, timestamp, vibe_score, status) VALUES (?, ?, ?, ?, ?, ?)",
+                                       ("req_" + str(uuid.uuid4()), user_id, track_id, time.time(), vibe_score, "ACCEPTED"))
+                        conn.commit(); conn.close()
+
                     await websocket.send_json({"type": "REQUEST_ACCEPTED", "message": reason, "track": track, "user_stats": dj_state.user_stats[user_id]})
                     await manager.broadcast_queue_update()
+                else:
+                    if user_id != "anonymous":
+                        conn = get_db_connection(); cursor = conn.cursor()
+                        cursor.execute("INSERT INTO user_requests (id, user_id, track_id, timestamp, vibe_score, status) VALUES (?, ?, ?, ?, ?, ?)",
+                                       ("req_" + str(uuid.uuid4()), user_id, track_id, time.time(), vibe_score, "DENIED"))
+                        conn.commit(); conn.close()
+                    await websocket.send_json({"type": "REQUEST_DENIED", "message": reason})
 
             elif action == "VOTE_TRACK":
                 tid = message.get("track_id")
+                found = False
                 for item in dj_state.upcoming_queue:
                     if item["track"]["id"] == tid:
                         item["votes"] += 1
                         dj_state.vote_history.append(time.time())
+                        found = True
                         break
-                dj_state.upcoming_queue.sort(key=lambda x: x["votes"], reverse=True)
-                await manager.broadcast_queue_update()
+                if found:
+                    if user_id != "anonymous":
+                        conn = get_db_connection(); cursor = conn.cursor()
+                        cursor.execute("INSERT INTO user_votes (id, user_id, track_id, timestamp) VALUES (?, ?, ?, ?)",
+                                       ("vote_" + str(uuid.uuid4()), user_id, tid, time.time()))
+                        conn.commit(); conn.close()
+                    dj_state.upcoming_queue.sort(key=lambda x: x["votes"], reverse=True)
+                    await manager.broadcast_queue_update()
 
             elif action == "USER_ACTIVITY":
                 dj_state.recent_activities.append({"timestamp": time.time(), "intensity": float(message.get("intensity", 0.1))})
