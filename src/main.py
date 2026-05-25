@@ -1,3 +1,6 @@
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("cdc-conductor")
 import asyncio
 import io
 import json
@@ -23,9 +26,11 @@ from src.api.schemas import Track, User, Token, UserCreate, EventCreate, Feedbac
 from src.api.utils import get_local_ip, verify_password, get_password_hash, create_access_token, get_current_user, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from src.core.conductor import TrackState, calculate_vibe_score, evaluate_track_fit, CONFIG, GENRE_COMPATIBILITY
 from src.core.recommender import NeuralConductor
+from src.core.monitoring import SystemMonitor
 
 TRACK_CATALOG = load_track_catalog()
 dj_state = TrackState(TRACK_CATALOG)
+monitor = SystemMonitor()
 neural_conductor = NeuralConductor(TRACK_CATALOG)
 
 class ConnectionManager:
@@ -57,7 +62,7 @@ class ConnectionManager:
             "start_time": dj_state.start_time,
             "duration": dj_state.duration,
             "target_bpm": dj_state.target_bpm,
-            "target_bpm": dj_state.current_bpm,
+            "current_bpm": dj_state.current_bpm,
             "energy_trend": dj_state.energy_trend,
             "is_peak_mode": dj_state.is_peak_mode,
             "queue": dj_state.upcoming_queue,
@@ -96,25 +101,17 @@ async def playback_simulation_loop():
             if dj_state.current_bpm < dj_state.target_bpm: dj_state.current_bpm = min(dj_state.target_bpm, dj_state.current_bpm + step)
             else: dj_state.current_bpm = max(dj_state.target_bpm, dj_state.current_bpm - step)
             for client in list(dj_state.active_connections):
-                try: await client.send_json({"type": "MASTER_CONTROL", "data": {"target_bpm": dj_state.current_bpm}})
+                try: await client.send_json({"type": "MASTER_CONTROL", "data": {"current_bpm": dj_state.current_bpm}})
                 except: pass
 
-        # Real-time Multi-Zone Lighting Control (v1.6.0)
-        # Zone 1: Main Floor (BPM Reactive), Zone 2: VIP (Steady)
-        r, g, b = (160, 32, 240)
+        # Real-time Lighting Control Broadcast (v1.5.0)
+        # RGB based on energy: Peak = Red/White, Stable = Purple, Low = Blue
+        r, g, b = (160, 32, 240) # Default Purple
         if dj_state.is_peak_mode: r, g, b = (255, 0, 0)
         elif dj_state.energy_trend == "falling": r, g, b = (0, 102, 255)
 
-        lighting_data = {
-            "zones": [
-                {"id": "main_floor", "rgb": [r, g, b], "intensity": dj_state.crowd_energy},
-                {"id": "vip_lounge", "rgb": [160, 32, 240], "intensity": 0.4}
-            ],
-            "strobe": dj_state.is_peak_mode
-        }
-
         for client in list(dj_state.active_connections):
-            try: await client.send_json({"type": "LIGHTING_CONTROL", "data": lighting_data})
+            try: await client.send_json({"type": "LIGHTING_CONTROL", "data": {"r": r, "g": g, "b": b, "intensity": dj_state.crowd_energy}})
             except: pass
 
         if 14.5 <= remaining <= 15.5:
@@ -319,15 +316,8 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                     await manager.broadcast_queue_update()
 
             elif action == "USER_ACTIVITY":
-                activity = {
-                    "timestamp": time.time(),
-                    "intensity": float(message.get("intensity", 0.1)),
-                    "x": float(message.get("x", 0.5)), # Normalized X position (0-1) for heatmap
-                    "y": float(message.get("y", 0.5))  # Normalized Y position (0-1) for heatmap
-                }
-                dj_state.recent_activities.append(activity)
-                dj_state.recent_activities = [a for a in dj_state.recent_activities if time.time() - a["timestamp"] < 30]
-                dj_state.crowd_energy = min(1.0, sum(a["intensity"] for a in dj_state.recent_activities) / 10.0)
+                dj_state.recent_activities.append({"timestamp": time.time(), "intensity": float(message.get("intensity", 0.1))})
+                dj_state.crowd_energy = min(1.0, sum(a["intensity"] for a in dj_state.recent_activities if time.time() - a["timestamp"] < 30) / 10.0)
                 await manager.broadcast_queue_update()
 
             elif action == "ADMIN_SKIP" and user_role == "admin":
@@ -337,30 +327,6 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 for c in list(dj_state.active_connections):
                     try: await c.send_json({"type": "MASTER_CONTROL", "data": {"action": "SKIP_NOW"}})
                     except: pass
-
-            elif action == "VOTE_TRANSITION":
-                style = message.get("style")
-                if style in dj_state.transition_votes:
-                    dj_state.transition_votes[style] += 1
-                    await manager.broadcast_queue_update()
-
-            elif action == "ADMIN_SET_TREND" and user_role == "admin":
-                trend = message.get("trend")
-                if trend in ["rising", "stable", "falling"]:
-                    dj_state.energy_trend = trend
-                    await manager.broadcast_queue_update()
-
-            elif action == "ADMIN_SET_BPM" and user_role == "admin":
-                bpm = float(message.get("bpm", 145.0))
-                dj_state.target_bpm = bpm
-                await manager.broadcast_queue_update()
-                for c in list(dj_state.active_connections):
-                    try: await c.send_json({"type": "MASTER_CONTROL", "data": {"target_bpm": bpm}})
-                    except: pass
-
-            elif action == "ADMIN_SET_GENRE" and user_role == "admin":
-                genre = message.get("genre")
-                print(f"[ADMIN] Requested genre shift to: {genre}")
     except: manager.disconnect(websocket)
 
 @app.post("/api/render-highlights")
@@ -426,6 +392,24 @@ async def get_all_feedback(current_user: dict = Depends(get_current_user)):
     rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
 
+@app.get("/api/admin/health")
+async def get_health(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return {
+        "system": monitor.get_health_stats(),
+        "vibe_consistency": monitor.get_vibe_consistency(),
+        "active_clients": len(dj_state.active_connections)
+    }
+
+from src.api.analytics import generate_vibe_performance_report
+
+@app.get("/api/admin/analytics/vibe-report")
+async def get_vibe_report(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return generate_vibe_performance_report()
+
 @app.get("/api/venues")
 async def get_venues():
     conn = get_db_connection(); cursor = conn.cursor()
@@ -433,17 +417,13 @@ async def get_venues():
     rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
 
-# Multi-venue state management (v1.6.0)
-venue_states: Dict[str, TrackState] = {
-    "CDC_MAIN": dj_state
-}
-
 @app.get("/api/venues/{venue_id}/state")
 async def get_venue_state(venue_id: str):
+    # Multi-venue state management (v1.6.0)
+    venue_states: Dict[str, TrackState] = {"CDC_MAIN": dj_state}
     if venue_id not in venue_states:
         raise HTTPException(status_code=404, detail="Venue not found")
     state = venue_states[venue_id]
-    # Standard synchronization payload
     return {
         "current_track": state.current_track,
         "crowd_energy": state.crowd_energy,

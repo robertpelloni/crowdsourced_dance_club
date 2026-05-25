@@ -93,6 +93,18 @@ def init_db():
     )
     ''')
 
+    # Create vibe_performance_logs table for ML training (v1.3.0)
+    cursor.execute('''
+    CREATE TABLE vibe_performance_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        track_id TEXT,
+        vibe_score REAL,
+        energy_delta REAL,
+        success_metric REAL,
+        timestamp REAL
+    )
+    ''')
+
     # Create user_votes table for persistent voting history
     cursor.execute('''
     CREATE TABLE user_votes (

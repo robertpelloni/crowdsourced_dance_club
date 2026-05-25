@@ -8,3 +8,4 @@ qrcode[pil]
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
+psutil

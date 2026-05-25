@@ -759,19 +759,13 @@
                 renderCatalog(currentTracks);
             } catch (err) { console.error(err); }
         }
-        async function openStreaming(id) {
-            const resp = await fetch(`/api/tracks/${id}/streaming`);
-            const links = await resp.json();
-            window.open(links.spotify, "_blank");
-        }
-
 
         function renderCatalog(tracks) {
             catalogListEl.innerHTML = tracks.map(track => `
                 <div class="list-item" id="catalog-${track.id}">
                     <div class="item-info">
                         <div class="item-title">${track.title}</div>
-                        <div class="item-meta">${track.artist} • ${track.bpm} BPM <a href="#" onclick="openStreaming('${track.id}')" style="color:var(--secondary); text-decoration:none; margin-left:10px;">🎧</a></div>
+                        <div class="item-meta">${track.artist} • ${track.bpm} BPM</div>
                         <div class="match-badge" id="match-${track.id}">Calculating Match...</div>
                     </div>
                     <button class="btn-action btn-request" onclick="requestSong('${track.id}')">＋</button>

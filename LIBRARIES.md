@@ -19,8 +19,8 @@ This document lists all major libraries used in the project, their versions (whe
 | Library | Version | Role | Reason for Selection |
 | :--- | :--- | :--- | :--- |
 | **Librosa** | 0.11.0 | Audio Analysis | The gold standard for feature extraction. Used to detect BPM, Harmonic Key (chroma), and Energy (RMS/Spectral) levels. |
-| **NumPy** | 2.0.0+ | Math/Arrays | Provides the high-performance numerical arrays used for all digital signal processing. |
-| **SciPy** | 1.13.0+ | DSP Filters | Used for implementing Butterworth filters (High-pass/Low-pass) in the offline rendering pipeline. |
+| **NumPy** | 2.4.6 | Math/Arrays | Provides the high-performance numerical arrays used for all digital signal processing. |
+| **SciPy** | 1.17.1 | DSP Filters | Used for implementing Butterworth filters (High-pass/Low-pass) in the offline rendering pipeline. |
 | **Pydub** | 0.25.1 | Audio Utility | Simplifies audio file slicing, concatenation, and format conversion. |
 | **Soundfile** | 0.13.1 | Audio I/O | Handles high-bitrate reading and writing of FLAC/WAV files without compression artifacts. |
 | **PyLoudNorm** | 0.2.0 | Normalization | Implements EBU R128 loudness normalization to ensure consistent volume across the mix. |

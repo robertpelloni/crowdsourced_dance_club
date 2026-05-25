@@ -33,5 +33,4 @@
 - Modular Refactoring and ML Data Strategy (v1.3.0).
 - Advanced User Profiles and Vibe Management (v1.4.0).
 - Iteration 1: Feedback-Driven Enhancements and Real-Time Lighting (v1.5.x).
-- Multi-Venue Decentralization and Streaming Integration (v1.6.0).
 - Neural Conductor Foundation and Lighting Protocol (v1.5.0).

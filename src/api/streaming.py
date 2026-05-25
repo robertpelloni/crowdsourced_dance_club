@@ -3,8 +3,6 @@ import urllib.parse
 def get_streaming_links(title: str, artist: str) -> dict:
     """
     Constructs search deep-links for major streaming platforms.
-    In a real production system, this would call Spotify/Apple Music APIs
-    to retrieve verified ISRC or track IDs.
     """
     query = f"{artist} {title}"
     encoded_query = urllib.parse.quote(query)
