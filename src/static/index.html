@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Crowdsourced Dance Club</title>
+    <style>
+        :root {
+            --bg-color: #0a0a0b;
+            --card-bg: #161618;
+            --primary: #a020f0;
+            --secondary: #00ffcc;
+            --text-main: #f0f0f5;
+            --text-dim: #94949e;
+            --accent-warm: #ff4d4d;
+            --accent-cool: #4d94ff;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            padding-bottom: 80px; /* Space for bottom nav */
+            overflow-x: hidden;
+        }
+
+        .header {
+            padding: 20px;
+            background: linear-gradient(180deg, rgba(160,32,240,0.1) 0%, rgba(10,10,11,0) 100%);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 { font-size: 1.4rem; margin: 0; color: var(--primary); font-weight: 800; cursor: pointer; }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--secondary);
+            display: inline-block;
+            margin-right: 5px;
+            box-shadow: 0 0 10px var(--secondary);
+        }
+
+        .container { padding: 15px; }
+
+        .section-title {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-dim);
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+
+        /* View Management */
+        .view { display: none; }
+        .view.active { display: block; }
+
+        /* Card Styles */
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .current-track-card {
+            background: linear-gradient(135deg, #161618 0%, #1e1e22 100%);
+            border: 1px solid rgba(0,255,204,0.1);
+        }
+
+        .track-title { font-size: 1.25rem; font-weight: 700; margin-bottom: 4px; }
+        .track-artist { font-size: 1rem; color: var(--text-dim); margin-bottom: 15px; }
+
+        .track-stats {
+            display: flex;
+            gap: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--secondary);
+        }
+
+        .energy-trend {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            font-weight: 800;
+            margin-top: 10px;
+        }
+
+        .trend-rising { color: var(--accent-warm); }
+        .trend-falling { color: var(--accent-cool); }
+        .trend-stable { color: var(--secondary); }
+
+        .progress-container {
+            width: 100%;
+            height: 6px;
+            background-color: rgba(255,255,255,0.05);
+            border-radius: 3px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary) 0%, var(--secondary) 100%);
+            width: 0%;
+            border-radius: 3px;
+            transition: width 1s linear;
+        }
+
+        /* List Styles */
+        .track-list { display: grid; gap: 12px; }
+
+        .list-item {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: transform 0.2s;
+        }
+
+        .list-item:active { transform: scale(0.98); }
+
+        .item-info { flex-grow: 1; }
+        .item-title { font-weight: 700; font-size: 1rem; }
+        .item-meta { font-size: 0.8rem; color: var(--text-dim); margin-top: 4px; }
+
+        .match-badge {
+            font-size: 0.7rem;
+            font-weight: 800;
+            padding: 4px 8px;
+            border-radius: 20px;
+            background-color: rgba(0,255,204,0.1);
+            color: var(--secondary);
+            margin-top: 6px;
+            display: inline-block;
+        }
+
+        .votes-badge {
+            background-color: var(--primary);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .btn-action {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            border: none;
+            background-color: rgba(160,32,240,0.1);
+            color: var(--primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+
+        .btn-request { color: var(--secondary); background-color: rgba(0,255,204,0.1); }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 70px;
+            background-color: rgba(22, 22, 24, 0.95);
+            backdrop-filter: blur(10px);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            z-index: 1000;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-dim);
+            text-decoration: none;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            gap: 5px;
+        }
+
+        .nav-item.active { color: var(--secondary); }
+
+        .nav-icon { font-size: 1.4rem; }
+
+        /* Notifications */
+        #notification {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            padding: 15px;
+            border-radius: 12px;
+            background-color: var(--card-bg);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            transform: translateY(-100px);
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+        }
+
+        #notification.show { transform: translateY(0); }
+    </style>
+</head>
+<body>
+    <div id="notification"></div>
+
+    <div class="header">
+        <h1>CDC // CONDUCTOR</h1>
+        <div id="status-container">
+            <span class="status-dot"></span>
+            <span id="status-text" style="font-size: 0.75rem; font-weight: 800; color: var(--secondary);">LIVE</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- View: Now Playing -->
+        <div id="view-now" class="view active">
+            <div class="section-title">Current Deck</div>
+            <div class="card current-track-card">
+                <div id="now-playing-content">
+                    <div class="track-title">Loading...</div>
+                    <div class="track-artist">Connecting to server</div>
+                </div>
+                <div class="energy-trend" id="energy-trend">
+                    <!-- Injected by JS -->
+                </div>
+                <div class="progress-container">
+                    <div id="playback-progress" class="progress-bar"></div>
+                </div>
+            </div>
+
+            <div class="section-title">Next Up</div>
+            <div id="quick-queue" class="track-list">
+                <!-- Top items from queue injected here -->
+            </div>
+        </div>
+
+        <!-- View: Queue -->
+        <div id="view-queue" class="view">
+            <div class="section-title">Full Room Queue</div>
+            <div id="full-queue" class="track-list">
+                <!-- Queue injected here -->
+            </div>
+        </div>
+
+        <!-- View: Catalog -->
+        <div id="view-catalog" class="view">
+            <div class="section-title">Music Catalog</div>
+            <div id="catalog-list" class="track-list">
+                <!-- Catalog injected here -->
+            </div>
+        </div>
+
+        <!-- View: Admin -->
+        <div id="view-admin" class="view">
+            <div class="section-title">AI Conductor Override</div>
+            <div class="card">
+                <div class="section-title" style="margin-top:0;">Master BPM</div>
+                <div style="display:flex; gap:10px; margin-bottom:20px;">
+                    <input type="number" id="admin-bpm-input" value="145" style="background:#252525; border:1px solid #444; color:white; padding:10px; border-radius:8px; width:80px;">
+                    <button class="btn-action" onclick="adminSetBPM()" style="width:auto; padding:0 20px;">SET</button>
+                </div>
+
+                <div class="section-title">Energy Trend</div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-bottom:20px;">
+                    <button class="btn-action" onclick="adminSetTrend('rising')">🔥</button>
+                    <button class="btn-action" onclick="adminSetTrend('stable')">✨</button>
+                    <button class="btn-action" onclick="adminSetTrend('falling')">❄️</button>
+                </div>
+
+                <div class="section-title">Vibe Shift</div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; margin-bottom:20px;">
+                    <button class="btn-action" onclick="adminSetGenre('Psytrance')" style="font-size:0.7rem; font-weight:bold;">PSY</button>
+                    <button class="btn-action" onclick="adminSetGenre('Techno')" style="font-size:0.7rem; font-weight:bold;">TECHNO</button>
+                    <button class="btn-action" onclick="adminSetGenre('Ambient')" style="font-size:0.7rem; font-weight:bold;">CHILL</button>
+                </div>
+
+                <div class="section-title">Playback</div>
+                <button class="btn-action" onclick="adminSkip()" style="width:100%; gap:10px; background:rgba(255,77,77,0.1); color:#ff4d4d; height:auto; padding: 15px;">
+                    ⏭️ SKIP TO NEXT
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <a href="#" class="nav-item active" onclick="switchView('now')">
+            <span class="nav-icon">📻</span>
+            <span>Now</span>
+        </a>
+        <a href="#" class="nav-item" onclick="switchView('queue')">
+            <span class="nav-icon">📋</span>
+            <span>Queue</span>
+        </a>
+        <a href="#" class="nav-item" onclick="switchView('catalog')">
+            <span class="nav-icon">🔍</span>
+            <span>Browse</span>
+        </a>
+        <a href="#" class="nav-item" onclick="switchView('admin')" id="nav-admin" style="display:none;">
+            <span class="nav-icon">🕹️</span>
+            <span>Admin</span>
+        </a>
+    </nav>
+
+    <script>
+        const statusText = document.getElementById('status-text');
+        const nowPlayingContent = document.getElementById('now-playing-content');
+        const energyTrendEl = document.getElementById('energy-trend');
+        const quickQueueEl = document.getElementById('quick-queue');
+        const fullQueueEl = document.getElementById('full-queue');
+        const catalogListEl = document.getElementById('catalog-list');
+        const notificationEl = document.getElementById('notification');
+
+        let ws;
+        let playbackTimer;
+        let currentTracks = [];
+
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/clubgoer`;
+
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = () => {
+                statusText.innerText = 'LIVE';
+                fetchCatalog();
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'QUEUE_SYNC') {
+                    updateUI(data);
+                } else if (data.type === 'VIBE_SCORE') {
+                    updateVibeIndicator(data);
+                } else if (data.type === 'ERROR') {
+                    showNotify(data.message, '#ff4d4d');
+                } else if (data.type === 'REQUEST_ACCEPTED') {
+                    showNotify('Request Accepted: ' + data.message, '#00ffcc');
+                } else if (data.type === 'ADMIN_SUCCESS') {
+                    showNotify(data.message, '#a020f0');
+                }
+            };
+
+            ws.onclose = () => {
+                statusText.innerText = 'RECONNECTING';
+                setTimeout(connect, 3000);
+            };
+        }
+
+        function switchView(viewName) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+            document.getElementById('view-' + viewName).classList.add('active');
+
+            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+        }
+
+        function showNotify(msg, color) {
+            notificationEl.innerText = msg;
+            notificationEl.style.borderLeft = `4px solid ${color}`;
+            notificationEl.classList.add('show');
+            setTimeout(() => notificationEl.classList.remove('show'), 3000);
+        }
+
+        async function fetchCatalog() {
+            try {
+                const response = await fetch('/catalog');
+                currentTracks = await response.json();
+                renderCatalog(currentTracks);
+            } catch (err) { console.error(err); }
+        }
+
+        function renderCatalog(tracks) {
+            catalogListEl.innerHTML = tracks.map(track => `
+                <div class="list-item" id="catalog-${track.id}">
+                    <div class="item-info">
+                        <div class="item-title">${track.title}</div>
+                        <div class="item-meta">${track.artist} • ${track.bpm} BPM</div>
+                        <div class="match-badge" id="match-${track.id}">Calculating Match...</div>
+                    </div>
+                    <button class="btn-action btn-request" onclick="requestSong('${track.id}')">＋</button>
+                </div>
+            `).join('');
+
+            tracks.forEach(track => {
+                ws.send(JSON.stringify({ action: 'GET_VIBE_SCORE', track_id: track.id }));
+            });
+        }
+
+        function updateVibeIndicator(data) {
+            const el = document.getElementById(`match-${data.track_id}`);
+            if (el) {
+                const score = (data.score * 100).toFixed(0);
+                el.innerText = `${score}% MATCH`;
+                if (data.score > 0.8) el.style.backgroundColor = 'rgba(0,255,204,0.1)';
+                else if (data.score > 0.5) el.style.backgroundColor = 'rgba(255,204,0,0.1)';
+                else el.style.backgroundColor = 'rgba(255,77,77,0.1)';
+            }
+        }
+
+        function updateUI(data) {
+            const cp = data.current_track;
+            nowPlayingContent.innerHTML = `
+                <div class="track-title">${cp.title}</div>
+                <div class="track-artist">${cp.artist}</div>
+                <div class="track-stats">
+                    <span>${cp.bpm} BPM</span>
+                    <span>${cp.key}</span>
+                    <span>ENERGY ${cp.energy}</span>
+                </div>
+            `;
+
+            // Energy Trend
+            const trend = data.energy_trend || 'stable';
+            const trendIcons = { rising: '🔥 RISING', falling: '❄️ COOLING', stable: '✨ STABLE' };
+            energyTrendEl.className = 'energy-trend trend-' + trend;
+            energyTrendEl.innerText = trendIcons[trend] || trendIcons.stable;
+
+            // Playback Progress
+            if (playbackTimer) clearInterval(playbackTimer);
+            const progressBar = document.getElementById('playback-progress');
+            playbackTimer = setInterval(() => {
+                const now = Date.now() / 1000;
+                const elapsed = now - data.start_time;
+                const percent = Math.min(100, (elapsed / data.duration) * 100);
+                progressBar.style.width = percent + '%';
+            }, 1000);
+
+            // Queue Views
+            const queueHTML = data.queue.map(item => `
+                <div class="list-item">
+                    <div class="item-info">
+                        <div class="item-title">${item.track.title}</div>
+                        <div class="item-meta">${item.track.artist} • ${item.track.key}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span class="votes-badge">${item.votes}</span>
+                        <button class="btn-action" onclick="voteTrack('${item.track.id}')">▲</button>
+                    </div>
+                </div>
+            `).join('');
+
+            fullQueueEl.innerHTML = queueHTML || '<div class="item-meta" style="text-align:center; padding: 20px;">Queue is empty.</div>';
+            quickQueueEl.innerHTML = queueHTML.split('</div></div>').slice(0, 2).join('</div></div>') || '<div class="item-meta">Empty</div>';
+
+            // Refresh match scores when track changes
+            if (currentTracks.length > 0) {
+                currentTracks.forEach(t => ws.send(JSON.stringify({ action: 'GET_VIBE_SCORE', track_id: t.id })));
+            }
+        }
+
+        function requestSong(id) { ws.send(JSON.stringify({ action: 'REQUEST_SONG', track_id: id })); }
+        function voteTrack(id) { ws.send(JSON.stringify({ action: 'VOTE_TRACK', track_id: id })); }
+
+        // Admin Functions
+        function adminSkip() { ws.send(JSON.stringify({ action: 'ADMIN_SKIP' })); }
+        function adminSetTrend(t) { ws.send(JSON.stringify({ action: 'ADMIN_SET_TREND', trend: t })); }
+        function adminSetBPM() {
+            const bpm = document.getElementById('admin-bpm-input').value;
+            ws.send(JSON.stringify({ action: 'ADMIN_SET_BPM', bpm: bpm }));
+        }
+        function adminSetGenre(g) { ws.send(JSON.stringify({ action: 'ADMIN_SET_GENRE', genre: g })); }
+
+        // Hidden gesture to enable admin mode (Tap "CDC" 5 times)
+        let tapCount = 0;
+        document.querySelector('h1').onclick = () => {
+            tapCount++;
+            if (tapCount >= 5) {
+                document.getElementById('nav-admin').style.display = 'flex';
+                showNotify('ADMIN MODE ENABLED', '#a020f0');
+            }
+        };
+
+        connect();
+    </script>
+</body>
+</html>
