@@ -28,3 +28,6 @@ The system is designed for venue deployment.
 
 ## Feedback-Driven Evolution
 A core tenet of CDC is continuous refinement. User feedback collected via the "Refine" interface provides a direct qualitative and quantitative dataset for adjusting algorithmic weights, transition archetypes, and system stability. This loop ensures the AI Conductor evolves alongside the preferences of the real-world community it serves.
+
+## Decentralized Venue Network
+The project is evolving into a multi-venue network. By decoupling the Conductor from a single hardcoded venue, CDC can power multiple simultaneous arena sessions, allowing users to discover and switch between different club vibes (e.g., Main Floor, VIP Lounge, Chill Zone) through a single interface.

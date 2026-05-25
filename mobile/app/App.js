@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Linking } from "react-native";
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, StatusBar, Dimensions, TextInput, Animated } from 'react-native';
 import { AppState } from "react-native";
 import * as Haptics from 'expo-haptics';
@@ -32,6 +33,7 @@ export default function App() {
   const [appState, setAppState] = useState(AppState.currentState);
 
   const [serverUrl, setServerUrl] = useState('localhost:8000');
+  const [venues, setVenues] = useState([]);
   const [hasPermission, setHasPermission] = useState(null);
   const [scanned, setScanned] = useState(false);
 
@@ -49,6 +51,7 @@ export default function App() {
     })();
     connect();
     fetchCatalog();
+    fetchVenues();
     if (authToken) {
         fetchMe();
         fetchHistory();
@@ -167,6 +170,14 @@ export default function App() {
         const data = await response.json();
         setCatalog(data);
     } catch (err) { console.error('Catalog Fetch Failed:', err); }
+  const fetchVenues = async () => {
+    try {
+        const response = await fetch(`${API_URL}/api/venues`);
+        const data = await response.json();
+        setVenues(data);
+    } catch (err) { console.error("Venues Fetch Failed:", err); }
+  };
+
   };
 
   const fetchMe = async () => {
@@ -237,6 +248,14 @@ export default function App() {
         if (response.ok) {
             setVibeStats(prev => ({ ...prev, vibe_preference: pref }));
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  const openStreaming = async (id) => {
+    try {
+        const resp = await fetch(`${API_URL}/api/tracks/${id}/streaming`);
+        const links = await resp.json();
+        Linking.openURL(links.spotify);
+    } catch (err) { console.error("Streaming Link Failed:", err); }
+  };
+
         }
     } catch (err) { console.error("Vibe Update Failed:", err); }
   };
@@ -408,7 +427,7 @@ export default function App() {
                             <Text style={styles.queueArtist}>{track.artist}</Text>
                             <Text style={styles.metaText}>{track.genre} • {track.bpm} BPM • {track.key}</Text>
                         </View>
-                        <Text style={styles.requestBtnText}>＋</Text>
+                        <View style={{flexDirection:"row", gap:15}}><TouchableOpacity onPress={() => openStreaming(track.id)}><Text style={{fontSize:20}}>🎧</Text></TouchableOpacity><Text style={styles.requestBtnText}>＋</Text></View>
                     </TouchableOpacity>
                 ))}
             </ScrollView>
@@ -532,6 +551,37 @@ export default function App() {
         </View>
     </ScrollView>
   );
+  const renderVenuesView = () => (
+    <ScrollView contentContainerStyle={styles.scrollContent}>
+        <Text style={styles.headerTitle}>DISCOVER VENUES</Text>
+        <Text style={[styles.metaText, {marginBottom:20}]}>Switch to a different club arena.</Text>
+
+        {venues.map((v) => (
+            <TouchableOpacity
+                key={v.id}
+                style={[styles.queueItem, serverUrl.includes(v.conductor_url.replace("http://", "")) && {borderColor: "#00ffcc", borderWidth: 1}]}
+                onPress={() => {
+                    const host = v.conductor_url.replace("http://", "").replace("https://", "");
+                    setServerUrl(host);
+                    setCurrentView("dance");
+                    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                }}
+            >
+                <View style={styles.queueInfo}>
+                    <Text style={styles.queueTitle}>{v.name}</Text>
+                    <Text style={styles.queueArtist}>{v.location}</Text>
+                    <Text style={styles.metaText}>Capacity: {v.capacity}</Text>
+                </View>
+                {serverUrl.includes(v.conductor_url.replace("http://", "")) && <Text style={styles.matchText}>CONNECTED</Text>}
+            </TouchableOpacity>
+        ))}
+
+        <TouchableOpacity style={[styles.actionBtn, {marginTop: 20}]} onPress={() => setCurrentView("sync")}>
+            <Text style={styles.actionBtnText}>📲 SCAN NEW QR CODE</Text>
+        </TouchableOpacity>
+    </ScrollView>
+  );
+
 
   const renderSyncView = () => (
     <View style={{flex:1, backgroundColor:'#000'}}>
@@ -607,6 +657,7 @@ export default function App() {
         {currentView === 'profile' && renderProfileView()}
         {currentView === "refine" && renderRefineView()}
         {currentView === 'sync' && renderSyncView()}
+        {currentView === "venues" && renderVenuesView()}
       </View>
 
       {currentView !== 'sync' && (
@@ -619,6 +670,9 @@ export default function App() {
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setCurrentView('profile')}>
                 <Text style={currentView === 'profile' ? styles.navTextActive : styles.navText}>PROFILE</Text>
+            <TouchableOpacity onPress={() => setCurrentView("venues")}>
+                <Text style={currentView === "venues" ? styles.navTextActive : styles.navText}>VENUES</Text>
+            </TouchableOpacity>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setCurrentView("refine")}>
                 <Text style={currentView === "refine" ? styles.navTextActive : styles.navText}>REFINE</Text>

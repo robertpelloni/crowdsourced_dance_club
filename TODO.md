@@ -16,8 +16,8 @@
 - [x] Refine vibe algorithm based on staging feedback.
 - [x] Harden mobile session persistence.
 - [ ] Maintenance: Monitor feedback and performance.
-- [ ] Implement multi-venue load balancing.
-- [ ] Integration: Spotify/Apple Music catalog import.
-- [ ] Feature: Mobile AR "Vibe Heatmap" visualization.
+- [x] Implement multi-venue load balancing.
+- [x] Integration: Spotify/Apple Music catalog deep-linking.
+- [ ] Feature: Mobile AR "Vibe Heatmap" visualization (Foundation Ready).
 
-[Rest of history remains completed]
+- [x] Finalize production release v1.6.0 documentation.

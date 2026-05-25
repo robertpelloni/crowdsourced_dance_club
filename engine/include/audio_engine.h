@@ -128,7 +128,7 @@ private:
     std::atomic<double> transition_progress;
     double transition_duration_frames;
     std::atomic<double> transition_timestamp;
-    std::atomic<int> transition_archetype_idx;
+    std::string transition_archetype;
 
     std::atomic<bool> is_intensifying;
     std::atomic<double> intensify_progress;

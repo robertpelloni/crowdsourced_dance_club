@@ -36,7 +36,7 @@ async def mock_audio_engine():
                         "data": {
                             "current_track_id": data["current_track"]["id"],
                             "playback_position_seconds": time.time() - data["start_time"],
-                            "current_bpm": data["target_bpm"],
+                            "target_bpm": data["target_bpm"],
                             "cpu_load": 0.05
                         }
                     }

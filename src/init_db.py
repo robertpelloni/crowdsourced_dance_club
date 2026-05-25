@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import time
 
 DB_PATH = "tracks.db"
 
@@ -42,6 +43,17 @@ def init_db():
     )
     ''')
 
+    # Create venues table for multi-venue support (v1.6.0)
+    cursor.execute('''
+    CREATE TABLE venues (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        location TEXT,
+        conductor_url TEXT,
+        capacity INTEGER
+    )
+    ''')
+
     # Create events table for upcoming club announcements
     cursor.execute('''
     CREATE TABLE events (
@@ -49,7 +61,8 @@ def init_db():
         title TEXT NOT NULL,
         description TEXT,
         start_time REAL NOT NULL,
-        venue_id TEXT DEFAULT 'CDC_MAIN'
+        venue_id TEXT DEFAULT 'CDC_MAIN',
+        FOREIGN KEY (venue_id) REFERENCES venues (id)
     )
     ''')
 
@@ -118,8 +131,11 @@ def init_db():
 
     cursor.executemany('INSERT INTO tracks VALUES (?, ?, ?, ?, ?, ?, ?, ?)', tracks)
 
+    # Seed default venue
+    cursor.execute("INSERT INTO venues (id, name, location, conductor_url, capacity) VALUES (?, ?, ?, ?, ?)",
+                   ("CDC_MAIN", "Virtual Arena", "Cloud Zone 1", "http://localhost:8000", 500))
+
     # Seed an example event starting in 10 minutes
-    import time
     example_event = ("event_001", "Neon Solstice", "Peak Psytrance Ritual", time.time() + 600, "CDC_MAIN")
     cursor.execute("INSERT INTO events VALUES (?, ?, ?, ?, ?)", example_event)
 

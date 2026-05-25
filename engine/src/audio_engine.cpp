@@ -6,7 +6,6 @@
 #include <chrono>
 
 AudioEngine::AudioEngine() : stream(nullptr), sample_rate(44100.0), running(false),
-                             transition_archetype_idx(0),
                              is_transitioning(false), transition_progress(0.0),
                              transition_duration_frames(44100.0 * 15.0),
                              transition_timestamp(0.0),
@@ -129,7 +128,7 @@ void AudioEngine::handle_track_sync(const json& data) {
 
         next_buffer = std::move(temp_buffer);
         transition_timestamp = timestamp;
-        if (archetype == "hpf_sweep") transition_archetype_idx = 1; else transition_archetype_idx = 0;
+        transition_archetype = archetype;
 
         update_tempo();
         st_next.clear();
@@ -237,7 +236,7 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
         float samples_next_l = (self->is_transitioning && i < (unsigned int)samples_received_next) ? stretched_next[i * 2] : 0.0f;
         float samples_next_r = (self->is_transitioning && i < (unsigned int)samples_received_next) ? stretched_next[i * 2 + 1] : 0.0f;
 
-        if (self->is_transitioning && self->transition_archetype_idx == 1) {
+        if (self->is_transitioning && self->transition_archetype == "hpf_sweep") {
             // Apply automated HPF sweep during transition
             float cutoff = 20.0f + 2000.0f * (1.0f - std::abs(2.0f * (float)gain_next - 1.0f));
             self->hpf_l.set_cutoff(cutoff, self->sample_rate);

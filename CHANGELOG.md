@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.6.0] - 2026-05-23
+### Added
+- **Multi-Venue Support:** Introduced a decentralized architecture supporting multiple club arenas (e.g., Main Floor, VIP Lounge) within a single session.
+- **Service Discovery:** Added a "Venues" discovery view to the mobile app for seamless arena switching.
+- **Streaming Mapping:** Integrated Spotify/Apple Music deep-linking for the entire track catalog.
+- **Enhanced Spatial Analytics:** USER_ACTIVITY now supports normalized X/Y coordinates to provide the data foundation for future AR heatmaps.
+- **Multi-Zone Lighting:** Upgraded the LIGHTING_CONTROL protocol to support zone-specific RGB configurations.
+
 ## [1.5.1] - 2026-05-23
 ### Added
 - **Integrated Feedback Loop:** Added "Refine" UI to the mobile application and a corresponding "Feedback Audit" panel to the Admin UI.
@@ -27,4 +35,3 @@
 - **Enhanced Staging Validation:** Confirmed full system integrity via automated staging pipeline and multi-user journey simulation.
 
 ## [1.2.0] - 2026-05-23
-... [rest of file]
