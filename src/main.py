@@ -1,8 +1,12 @@
+import logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+logger = logging.getLogger("cdc-conductor")
 import asyncio
 import io
 import json
 import os
-import sqlite3
+import random
+import string
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -164,12 +168,7 @@ class TrackState:
 dj_state = TrackState()
 
 class ConnectionManager:
-    """
-    Manages active smartphone WebSocket client connections.
-    Handles connection, disconnection, and broadcasting updates.
-    """
     async def connect(self, websocket: WebSocket):
-        """Accepts a new connection and sends the initial state."""
         await websocket.accept()
         dj_state.active_connections.append(websocket)
         # Immediately push current state to the new client
@@ -181,7 +180,6 @@ class ConnectionManager:
             dj_state.active_connections.remove(websocket)
 
     async def broadcast_queue_update(self):
-        """Sends the current queue state to all connected clients."""
         payload = self.get_broadcast_payload()
         # Create a copy of the list to avoid issues during iteration if a client disconnects
         for connection in list(dj_state.active_connections):
@@ -201,6 +199,7 @@ class ConnectionManager:
 
         return {
             "type": "QUEUE_SYNC",
+            "crowd_energy": dj_state.crowd_energy,
             "current_track": dj_state.current_track,
             "start_time": dj_state.start_time,
             "duration": dj_state.duration,
@@ -362,7 +361,13 @@ def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool
     if GENRE_COMPATIBILITY.get(genre1, {}).get(genre2, 0.5) < 0.3:
         return False, f"Genre clash: {genre2} is not compatible with current vibe ({genre1})."
 
-    return True, "Track fits the sonic profile perfectly."
+        if abs(dj_state.current_bpm - dj_state.target_bpm) > 0.01:
+            step = 0.05
+            if dj_state.current_bpm < dj_state.target_bpm: dj_state.current_bpm = min(dj_state.target_bpm, dj_state.current_bpm + step)
+            else: dj_state.current_bpm = max(dj_state.target_bpm, dj_state.current_bpm - step)
+            for client in list(dj_state.active_connections):
+                try: await client.send_json({"type": "MASTER_CONTROL", "data": {"current_bpm": dj_state.current_bpm}})
+                except: pass
 
 async def playback_simulation_loop():
     """
@@ -523,9 +528,74 @@ async def root():
     return FileResponse("src/static/index.html")
 
 @app.get("/catalog")
-async def get_catalog():
-    """Returns the list of available tracks in the curated catalog."""
-    return list(TRACK_CATALOG.values())
+async def get_catalog(): return list(TRACK_CATALOG.values())
+
+@app.post("/api/register")
+async def register(user: UserCreate):
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE username = ?", (user.username,))
+    if cursor.fetchone(): conn.close(); raise HTTPException(status_code=400, detail="Username taken")
+
+    referrer_id = None
+    if user.referral_code:
+        cursor.execute("SELECT id FROM users WHERE referral_code = ?", (user.referral_code,))
+        row = cursor.fetchone()
+        if row: referrer_id = row["id"]
+
+    new_referral_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+
+    user_id = "user_" + str(uuid.uuid4())
+    cursor.execute("INSERT INTO users (id, username, hashed_password, referral_code, referred_by_id, points) VALUES (?, ?, ?, ?, ?, ?)",
+                   (user_id, user.username, get_password_hash(user.password), new_referral_code, referrer_id, 50 if referrer_id else 0))
+    if referrer_id: cursor.execute("UPDATE users SET points = points + 50 WHERE id = ?", (referrer_id,))
+    conn.commit(); conn.close()
+    return {"message": "Success", "referral_code": new_referral_code}
+
+@app.post("/api/login", response_model=Token)
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE username = ?", (form_data.username,))
+    row = cursor.fetchone(); conn.close()
+    if not row or not verify_password(form_data.password, row["hashed_password"]):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return {"access_token": create_access_token(data={"sub": row["username"]}), "token_type": "bearer"}
+
+@app.get("/api/me", response_model=User)
+async def read_users_me(current_user: dict = Depends(get_current_user)):
+    return {
+        "username": current_user["username"], "points": current_user["points"],
+        "badges": json.loads(current_user["badges"]), "role": current_user.get("role", "user"),
+        "referral_code": current_user.get("referral_code"),
+        "vibe_preference": current_user.get("vibe_preference", "Psytrance")
+    }
+
+@app.get("/api/live/crowd-stats")
+async def get_live_crowd_stats(current_user: dict = Depends(get_current_user)):
+    return {"crowd_energy": dj_state.crowd_energy, "active_users_count": len(set(a.get("user_id", "anon") for a in dj_state.recent_activities))}
+
+@app.get("/api/leaderboard")
+async def get_leaderboard():
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("SELECT username, points, badges FROM users ORDER BY points DESC LIMIT 20")
+    rows = cursor.fetchall(); conn.close()
+    return [{"username": r["username"], "points": r["points"], "badges": json.loads(r["badges"])} for r in rows]
+
+@app.get("/api/me/history/requests")
+async def get_my_requests(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute('''SELECT r.*, t.title, t.artist FROM user_requests r JOIN tracks t ON r.track_id = t.id WHERE r.user_id = ? ORDER BY r.timestamp DESC''', (current_user["id"],))
+    rows = cursor.fetchall(); conn.close()
+    return [dict(row) for row in rows]
+
+@app.get("/sync-qr")
+async def get_sync_qr():
+    ip = get_local_ip()
+    sync_data = {"venue_name": "CDC Virtual Arena", "conductor_url": f"http://{ip}:8000", "websocket_url": f"ws://{ip}:8000/ws/clubgoer", "session_id": "session_001"}
+    qr = qrcode.QRCode(version=1, box_size=10, border=5)
+    qr.add_data(json.dumps(sync_data)); qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    img_byte_arr = io.BytesIO(); img.save(img_byte_arr, format='PNG')
+    return Response(content=img_byte_arr.getvalue(), media_type="image/png")
 
 @app.post("/api/register")
 async def register(user: UserCreate):
@@ -760,14 +830,8 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
     await manager.connect(websocket)
     try:
         while True:
-            # Wait for incoming JSON messages from a user's phone
             data = await websocket.receive_text()
-            try:
-                message = json.loads(data)
-            except json.JSONDecodeError:
-                await websocket.send_json({"type": "ERROR", "message": "Invalid JSON format."})
-                continue
-
+            message = json.loads(data)
             action = message.get("action")
 
             if action == "GET_VIBE_SCORE":
@@ -781,14 +845,10 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
 
             elif action == "REQUEST_SONG":
                 track_id = message.get("track_id")
-                requested_track = TRACK_CATALOG.get(track_id)
-
-                if not requested_track:
-                    await websocket.send_json({"type": "ERROR", "message": "Track not found in club database."})
-                    continue
-
-                # Run the algorithmic fit validation against the current track
-                fits, reason = evaluate_track_fit(requested_track, dj_state.current_track)
+                track = TRACK_CATALOG.get(track_id)
+                if not track: continue
+                fits, reason = evaluate_track_fit(track, dj_state.current_track)
+                vibe_score = calculate_vibe_score(track, dj_state.current_track, dj_state.energy_trend, user_vibe_pref)
 
                 if fits:
                     # Append to queue and notify the entire room via real-time broadcast
@@ -966,12 +1026,23 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
             else:
                 await websocket.send_json({"type": "ERROR", "message": f"Unknown action: {action}"})
 
-    except WebSocketDisconnect:
-        manager.disconnect(websocket)
-    except Exception as e:
-        # Catch unexpected errors to prevent the endpoint from crashing silently
-        print(f"WebSocket error: {e}")
-        manager.disconnect(websocket)
+            elif action == "VOTE_TRACK":
+                tid = message.get("track_id")
+                found = False
+                for item in dj_state.upcoming_queue:
+                    if item["track"]["id"] == tid:
+                        item["votes"] += 1
+                        dj_state.vote_history.append(time.time())
+                        found = True
+                        break
+                if found:
+                    if user_id != "anonymous":
+                        conn = get_db_connection(); cursor = conn.cursor()
+                        cursor.execute("INSERT INTO user_votes (id, user_id, track_id, timestamp) VALUES (?, ?, ?, ?)",
+                                       ("vote_" + str(uuid.uuid4()), user_id, tid, time.time()))
+                        conn.commit(); conn.close()
+                    dj_state.upcoming_queue.sort(key=lambda x: x["votes"], reverse=True)
+                    await manager.broadcast_queue_update()
 
 # Integration with auto_dj_script submodule
 def run_offline_compiler_worker(track_ids: List[str], output_path: str, bpm: float):
@@ -1029,13 +1100,113 @@ async def render_highlights(background_tasks: BackgroundTasks, track_ids: List[s
     background_tasks.add_task(run_offline_compiler_worker, track_ids, output_path, dj_state.target_bpm)
     return {"status": "processing", "message": "High-fidelity highlight render initiated."}
 
-@app.post("/api/render-set")
-async def render_compiled_set(background_tasks: BackgroundTasks, source_folder: str, output_path: str):
-    """
-    API endpoint that accepts a finalized room playlist and spins up
-    the offline script in a background thread to render a high-quality mix.
-    """
-    # Delegate the heavy lifting to the submodule without blocking the main event loop
-    background_tasks.add_task(run_offline_compiler_worker, source_folder, output_path, dj_state.target_bpm)
+@app.post("/api/render-highlights")
+async def render_highlights(background_tasks: BackgroundTasks, track_ids: List[str]):
+    return {"status": "processing", "message": "High-fidelity highlight render initiated."}
 
-    return {"status": "processing", "message": "Submodule background worker initialized."}
+@app.get("/api/events")
+async def get_events():
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("SELECT * FROM events WHERE start_time > ?", (time.time(),))
+    rows = cursor.fetchall(); conn.close()
+    return [dict(row) for row in rows]
+
+from src.api.schemas import UserUpdate
+
+@app.patch("/api/me", response_model=User)
+async def update_user_me(data: UserUpdate, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    if data.vibe_preference:
+        cursor.execute("UPDATE users SET vibe_preference = ? WHERE id = ?", (data.vibe_preference, current_user["id"]))
+    conn.commit(); conn.close()
+
+    # Return updated user
+    return {
+        **current_user,
+        "vibe_preference": data.vibe_preference or current_user.get("vibe_preference"),
+        "badges": json.loads(current_user["badges"]) if isinstance(current_user["badges"], str) else current_user["badges"]
+    }
+
+@app.get("/api/me/history/votes")
+async def get_my_votes(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute('''SELECT v.*, t.title, t.artist FROM user_votes v JOIN tracks t ON v.track_id = t.id WHERE v.user_id = ? ORDER BY v.timestamp DESC''', (current_user["id"],))
+    rows = cursor.fetchall(); conn.close()
+    return [dict(row) for row in rows]
+
+@app.post("/api/events", response_model=dict)
+async def create_event(event: EventCreate, current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    conn = get_db_connection(); cursor = conn.cursor()
+    event_id = "event_" + str(uuid.uuid4())
+    cursor.execute("INSERT INTO events (id, title, description, start_time) VALUES (?, ?, ?, ?)",
+                   (event_id, event.title, event.description, event.start_time))
+    conn.commit(); conn.close()
+    return {"message": "Event created", "id": event_id}
+
+@app.post("/api/feedback")
+async def submit_feedback(feedback: FeedbackSubmit, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    fb_id = "fb_" + str(uuid.uuid4())
+    cursor.execute("INSERT INTO feedback (id, user_id, vibe_rating, technical_rating, comment, timestamp) VALUES (?, ?, ?, ?, ?, ?)",
+                   (fb_id, current_user["id"], feedback.vibe_rating, feedback.technical_rating, feedback.comment, time.time()))
+    conn.commit(); conn.close()
+    return {"message": "Feedback submitted", "id": fb_id}
+
+@app.get("/api/admin/feedback")
+async def get_all_feedback(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute('''SELECT f.*, u.username FROM feedback f JOIN users u ON f.user_id = u.id ORDER BY f.timestamp DESC''')
+    rows = cursor.fetchall(); conn.close()
+    return [dict(row) for row in rows]
+
+@app.get("/api/admin/health")
+async def get_health(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return {
+        "system": monitor.get_health_stats(),
+        "vibe_consistency": monitor.get_vibe_consistency(),
+        "active_clients": len(dj_state.active_connections)
+    }
+
+from src.api.analytics import generate_vibe_performance_report
+
+@app.get("/api/admin/analytics/vibe-report")
+async def get_vibe_report(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return generate_vibe_performance_report()
+
+@app.get("/api/venues")
+async def get_venues():
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("SELECT * FROM venues")
+    rows = cursor.fetchall(); conn.close()
+    return [dict(row) for row in rows]
+
+@app.get("/api/venues/{venue_id}/state")
+async def get_venue_state(venue_id: str):
+    # Multi-venue state management (v1.6.0)
+    venue_states: Dict[str, TrackState] = {"CDC_MAIN": dj_state}
+    if venue_id not in venue_states:
+        raise HTTPException(status_code=404, detail="Venue not found")
+    state = venue_states[venue_id]
+    return {
+        "current_track": state.current_track,
+        "crowd_energy": state.crowd_energy,
+        "target_bpm": state.target_bpm,
+        "is_peak_mode": state.is_peak_mode
+    }
+
+from src.api.streaming import get_streaming_links
+
+@app.get("/api/tracks/{track_id}/streaming")
+async def get_track_streaming_links(track_id: str):
+    track = TRACK_CATALOG.get(track_id)
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    return get_streaming_links(track["title"], track["artist"])

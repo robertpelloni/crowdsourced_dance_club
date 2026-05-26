@@ -17,7 +17,7 @@
 ## Submodules
 
 ### Auto DJ Script
-- **URL:** https://github.com/robertpelloni/auto_dj_script
+- **URL:** https://github.com/robertpelloni/auto_dj_script.git
 - **Location:** `external/auto_dj_script`
 - **Description:** High-fidelity offline audio mixing engine. Used for rendering highlights and master sets.
 
