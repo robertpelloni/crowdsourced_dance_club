@@ -49,7 +49,7 @@ def verify_staging_flow(page: Page):
 
         # 4. User B: Vote for a Song
         page.get_by_role("navigation").get_by_text("Queue").click()
-        page.get_by_role("button", name="▲").first.click()
+        page.get_by_text("▲").first.click()
 
         # 5. User B: Submit Feedback
         page.get_by_role("navigation").get_by_text("Refine").click()

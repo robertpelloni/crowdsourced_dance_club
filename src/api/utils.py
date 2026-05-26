@@ -1,4 +1,5 @@
 import os
+import json
 import socket
 from datetime import datetime, timedelta
 from jose import jwt
@@ -53,3 +54,49 @@ async def get_current_user(token: str = Depends(oauth2_scheme)):
     conn.close()
     if row is None: raise HTTPException(status_code=401)
     return dict(row)
+
+async def check_and_award_badges(user_id: str, dj_state: any):
+    """
+    Service to check user activity and award achievement badges.
+    """
+    if user_id == "anonymous": return
+
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("SELECT points, streak, badges FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
+    if not row: conn.close(); return
+
+    points, streak, badges_json = row
+    badges = json.loads(badges_json)
+    new_badges = []
+
+    # Early Bird: Engaged within the first 10 minutes of session (simulated by points > 0)
+    if points > 0 and "Early Bird" not in badges:
+        new_badges.append("Early Bird")
+
+    # Super Voter: Voted 5+ times
+    cursor.execute("SELECT COUNT(*) FROM user_votes WHERE user_id = ?", (user_id,))
+    vote_count = cursor.fetchone()[0]
+    if vote_count >= 5 and "Super Voter" not in badges:
+        new_badges.append("Super Voter")
+
+    # Vibe Architect: 3 successful requests
+    cursor.execute("SELECT COUNT(*) FROM user_requests WHERE user_id = ? AND status = 'ACCEPTED'", (user_id,))
+    req_count = cursor.fetchone()[0]
+    if req_count >= 3 and "Vibe Architect" not in badges:
+        new_badges.append("Vibe Architect")
+
+    # Streak Master: 5 song streak
+    if streak >= 5 and "Streak Master" not in badges:
+        new_badges.append("Streak Master")
+
+    if new_badges:
+        all_badges = badges + new_badges
+        cursor.execute("UPDATE users SET badges = ? WHERE id = ?", (json.dumps(all_badges), user_id))
+        dj_state.user_stats[user_id]["badges"] = all_badges
+        # Signal the WebSocket to notify the user (this will be handled in main.py)
+        conn.commit(); conn.close()
+        return new_badges
+
+    conn.close()
+    return []

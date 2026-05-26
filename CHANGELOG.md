@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.8.0] - 2026-05-23
+### Added
+- **Engagement Streak System:** Users now earn engagement streaks (🔥) by interacting with the Conductor across multiple tracks.
+- **Dynamic Badge Awarding:** Implemented an automated service to award achievement badges ("Early Bird", "Super Voter", "Vibe Architect", "Streak Master") based on real-time activity.
+- **Milestone Notifications:** Real-time WebSocket alerts (ACHIEVEMENT_UNLOCKED) when users reach engagement milestones.
+- **Enhanced Leaderboard:** Integrated streak counts into the mobile and web leaderboards for improved competition.
+
 ## [1.7.0] - 2026-05-23
 ### Added
 - **Observability Suite:** Implemented structured logging, system health monitoring, and vibe consistency tracking.
@@ -20,23 +27,3 @@
 - **Integrated Feedback Loop:** Added "Refine" UI to the mobile application and a corresponding "Feedback Audit" panel to the Admin UI.
 - **Admin Analytics:** Exposed all user-submitted vibe and technical ratings to administrators for data-driven system tuning.
 - **Vision Update:** Codified the Feedback-Driven Evolution strategy in the project vision.
-
-## [1.5.0] - 2026-05-23
-### Added
-- **Neural Conductor Foundation:** Introduced rule-based heuristic prediction for transition archetypes based on historical vibe performance.
-- **Real-time Lighting Protocol:** Implemented LIGHTING_CONTROL WebSocket broadcast for dynamic RGB synchronization based on room energy.
-- **Enhanced Mobile Resilience:** Added automatic WebSocket reconnection using AppState to handle foreground/background transitions on mobile.
-- **Personalized Vibe Algorithm:** Integrated user genre preferences into the Conductor's vibe scoring algorithm (+10% matching bonus).
-
-## [1.4.0] - 2026-05-23
-### Added
-- **Advanced User Profiles:** Users can now set and update their musical "vibe preference" (Psytrance, Techno, etc.) in their profile.
-- **Enhanced Activity History:** Integrated "Recent Requests" and "Recent Votes" views into the mobile Profile tab.
-- **Improved UI/UX:** Added a dedicated genre preference selector in the mobile app with real-time server synchronization.
-- **Refined Modular Backend:** Finalized the transition to a modular architecture, ensuring all core logic resides in domain-specific packages (src/api, src/core, src/db).
-
-## [1.2.1] - 2026-05-23
-### Added
-- **Final Integration Verification:** Successfully validated the backend services with a 100% pass rate across the 19-test suite.
-- **Deployment Packaging:** Established a standardized dist/ directory for production release artifacts, including the native C++ engine binary.
-- **Enhanced Staging Validation:** Confirmed full system integrity via automated staging pipeline and multi-user journey simulation.
