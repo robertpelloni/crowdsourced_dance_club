@@ -21,7 +21,7 @@ from jose import JWTError, jwt
 from src.db.database import get_db_connection, load_track_catalog
 from src.db.vibe_logs import log_vibe_performance
 from src.api.schemas import Track, User, Token, UserCreate, EventCreate, FeedbackSubmit, UserUpdate
-from src.api.utils import get_local_ip, verify_password, get_password_hash, create_access_token, get_current_user, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES, check_and_award_badges
+from src.api.utils import get_local_ip, verify_password, get_password_hash, create_access_token, get_current_user, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from src.core.conductor import TrackState, calculate_vibe_score, evaluate_track_fit, CONFIG, GENRE_COMPATIBILITY
 from src.core.recommender import NeuralConductor
 from src.core.monitoring import SystemMonitor
@@ -51,11 +51,11 @@ class ConnectionManager:
         payload = self.get_broadcast_payload()
         for connection in list(dj_state.active_connections):
             try: await connection.send_json(payload)
-            except: self.disconnect(connection)
+            except Exception: self.disconnect(connection)
 
     def get_broadcast_payload(self) -> Dict:
         leaderboard = sorted(
-            [{"user_id": uid, "points": stats["points"], "badges": stats["badges"], "username": stats.get("username", "Anonymous"), "streak": stats.get("streak", 0)}
+            [{"user_id": uid, "points": stats["points"], "badges": stats["badges"], "username": stats.get("username", "Anonymous")}
              for uid, stats in dj_state.user_stats.items() if uid != "anonymous"],
             key=lambda x: x["points"], reverse=True
         )[:10]
@@ -88,7 +88,7 @@ async def playback_simulation_loop():
         if acceleration > 2 and not dj_state.is_peak_mode:
              for client in list(dj_state.active_connections):
                  try: await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "DSP_INTENSIFY", "duration": 10.0}})
-                 except: pass
+                 except Exception: pass
 
         if vote_velocity >= 5 and not dj_state.is_peak_mode:
             dj_state.is_peak_mode = True
@@ -106,7 +106,7 @@ async def playback_simulation_loop():
             else: dj_state.current_bpm = max(dj_state.target_bpm, dj_state.current_bpm - step)
             for client in list(dj_state.active_connections):
                 try: await client.send_json({"type": "MASTER_CONTROL", "data": {"target_bpm": dj_state.current_bpm}})
-                except: pass
+                except Exception: pass
 
         # Real-time Multi-Zone Lighting Control (v1.6.0)
         r, g, b = (160, 32, 240)
@@ -123,7 +123,7 @@ async def playback_simulation_loop():
 
         for client in list(dj_state.active_connections):
             try: await client.send_json({"type": "LIGHTING_CONTROL", "data": lighting_data})
-            except: pass
+            except Exception: pass
 
         if 14.5 <= remaining <= 15.5:
             if dj_state.upcoming_queue:
@@ -136,7 +136,7 @@ async def playback_simulation_loop():
                 sync_payload = {"type": "TRACK_SYNC", "data": {"track_id": next_track["id"], "filepath": next_track.get("filepath", f"tracks/{next_track['id']}.flac"), "bpm": next_track["bpm"], "key": next_track["key"], "energy": next_track["energy"], "transition_timestamp": dj_state.start_time + dj_state.duration, "crossfade_duration": 15.0, "archetype": winner}}
                 for client in list(dj_state.active_connections):
                     try: await client.send_json(sync_payload)
-                    except: pass
+                    except Exception: pass
 
         if remaining <= 0:
             # ML Data Collection
@@ -157,29 +157,6 @@ async def playback_simulation_loop():
                 if compatible: dj_state.current_track = random.choice(compatible)
             dj_state.start_time = now
             dj_state.transition_votes = {"classic": 0, "bass_swap": 0, "echo_out": 0, "hpf_sweep": 0}
-
-            # Engagement Streak Logic (v1.8.0)
-            # Update streaks for users who engaged during the last track
-            conn = get_db_connection(); cursor = conn.cursor()
-            active_users = list(dj_state.track_engagement)
-
-            for uid in active_users:
-                if uid != "anonymous":
-                    cursor.execute("UPDATE users SET streak = streak + 1 WHERE id = ?", (uid,))
-                    if uid in dj_state.user_stats:
-                        dj_state.user_stats[uid]["streak"] += 1
-
-            # Reset streaks for inactive users
-            if active_users:
-                placeholders = ",".join(["?"] * len(active_users))
-                cursor.execute(f"UPDATE users SET streak = 0 WHERE id NOT IN ({placeholders}) AND id != 'anonymous'", active_users)
-                for uid, stats in dj_state.user_stats.items():
-                    if uid not in active_users and uid != "anonymous":
-                        stats["streak"] = 0
-
-            conn.commit(); conn.close()
-            dj_state.track_engagement.clear()
-
             dj_state.duration = 180.0
             await manager.broadcast_queue_update()
             logger.info(f"[SYSTEM] Transitioned to: {dj_state.current_track['title']}")
@@ -302,7 +279,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 if row:
                     user_id = row["id"]; display_name = username; user_role = row["role"]
                     user_vibe_pref = row["vibe_preference"]
-        except: pass
+        except Exception: pass
 
     if user_id not in dj_state.user_stats:
         if user_id != "anonymous":
@@ -325,7 +302,6 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 if track: await websocket.send_json({"type": "VIBE_SCORE", "track_id": track["id"], "score": calculate_vibe_score(track, dj_state.current_track, dj_state.energy_trend, user_vibe_pref)})
 
             elif action == "REQUEST_SONG":
-                dj_state.track_engagement.add(user_id)
                 track_id = message.get("track_id")
                 track = TRACK_CATALOG.get(track_id)
                 if not track: continue
@@ -344,12 +320,6 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                         conn.commit(); conn.close()
 
                     await websocket.send_json({"type": "REQUEST_ACCEPTED", "message": reason, "track": track, "user_stats": dj_state.user_stats[user_id]})
-
-                    new_badges = await check_and_award_badges(user_id, dj_state)
-                    if new_badges:
-                        for b in new_badges:
-                            await websocket.send_json({"type": "ACHIEVEMENT_UNLOCKED", "badge": b, "message": f"You earned the {b} badge!"})
-
                     await manager.broadcast_queue_update()
                 else:
                     if user_id != "anonymous":
@@ -360,7 +330,6 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                     await websocket.send_json({"type": "REQUEST_DENIED", "message": reason})
 
             elif action == "VOTE_TRACK":
-                dj_state.track_engagement.add(user_id)
                 tid = message.get("track_id")
                 found = False
                 for item in dj_state.upcoming_queue:
@@ -376,12 +345,6 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                                        ("vote_" + str(uuid.uuid4()), user_id, tid, time.time()))
                         conn.commit(); conn.close()
                     dj_state.upcoming_queue.sort(key=lambda x: x["votes"], reverse=True)
-
-                    new_badges = await check_and_award_badges(user_id, dj_state)
-                    if new_badges:
-                        for b in new_badges:
-                            await websocket.send_json({"type": "ACHIEVEMENT_UNLOCKED", "badge": b, "message": f"You earned the {b} badge!"})
-
                     await manager.broadcast_queue_update()
 
             elif action == "USER_ACTIVITY":
@@ -402,7 +365,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 await manager.broadcast_queue_update()
                 for c in list(dj_state.active_connections):
                     try: await c.send_json({"type": "MASTER_CONTROL", "data": {"action": "SKIP_NOW"}})
-                    except: pass
+                    except Exception: pass
 
             elif action == "VOTE_TRANSITION":
                 style = message.get("style")
@@ -422,16 +385,13 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 await manager.broadcast_queue_update()
                 for c in list(dj_state.active_connections):
                     try: await c.send_json({"type": "MASTER_CONTROL", "data": {"target_bpm": bpm}})
-                    except: pass
+                    except Exception: pass
 
             elif action == "ADMIN_SET_GENRE" and user_role == "admin":
                 genre = message.get("genre")
                 logger.warning(f"[ADMIN] Requested genre shift to: {genre}")
-                dj_state.energy_trend = "stable"  # Force stabilization on shift
-                dj_state.genre_history.append(genre)
-                await manager.broadcast_queue_update()
 
-    except: manager.disconnect(websocket)
+    except Exception: manager.disconnect(websocket)
 
 @app.post("/api/render-highlights")
 async def render_highlights(background_tasks: BackgroundTasks, track_ids: List[str]):
@@ -515,14 +475,3 @@ async def get_track_streaming_links(track_id: str):
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
     return get_streaming_links(track["title"], track["artist"])
-
-# Final cleanup of zombie handlers (v1.8.0)
-@app.get("/api/admin/debug-state")
-async def get_debug_state(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "admin":
-        raise HTTPException(status_code=403)
-    return {
-        "track_engagement_count": len(dj_state.track_engagement),
-        "active_connections": len(dj_state.active_connections),
-        "target_bpm": dj_state.target_bpm
-    }

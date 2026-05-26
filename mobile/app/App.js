@@ -15,7 +15,7 @@ export default function App() {
   const [energyTrend, setEnergyTrend] = useState('stable');
   const [isPeakMode, setIsPeakMode] = useState(false);
   const [targetBPM, setTargetBPM] = useState(145.0);
-  const [vibeStats, setVibeStats] = useState({ points: 0, badges: [], streak: 0 });
+  const [vibeStats, setVibeStats] = useState({ points: 0, badges: [] });
   const [leaderboard, setLeaderboard] = useState([]);
   const [transitionVotes, setTransitionVotes] = useState({ classic: 0, bass_swap: 0, echo_out: 0, hpf_sweep: 0 });
   const [requestHistory, setRequestHistory] = useState([]);
@@ -145,7 +145,7 @@ export default function App() {
         setLeaderboard(data.leaderboard || []);
         setTransitionVotes(data.transition_votes || { classic: 0, bass_swap: 0, echo_out: 0, hpf_sweep: 0 });
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      } else if (data.type === 'REQUEST_ACCEPTED' || data.type === 'REQUEST_DENIED' || data.type === 'ERROR' || data.type === 'ACHIEVEMENT_UNLOCKED') {
+      } else if (data.type === 'REQUEST_ACCEPTED' || data.type === 'REQUEST_DENIED' || data.type === 'ERROR') {
         if (data.user_stats) setVibeStats(data.user_stats);
         console.log("WebSocket Notice:", data.message);
       }
@@ -181,8 +181,7 @@ export default function App() {
                 points: data.points,
                 badges: data.badges,
                 referral_code: data.referral_code,
-                vibe_preference: data.vibe_preference,
-                streak: data.streak
+                vibe_preference: data.vibe_preference
             });
         }
     } catch (err) { console.error('Me Fetch Failed:', err); }
@@ -469,7 +468,7 @@ export default function App() {
             <View style={styles.meterBase}>
                 <View style={[styles.meterFill, { width: `${(vibeStats.points % 100)}%`, backgroundColor: '#a020f0' }]} />
             </View>
-            <Text style={styles.energyStatus}>LEVEL {Math.floor(vibeStats.points / 100) + 1} • 🔥 {vibeStats.streak} STREAK</Text>
+            <Text style={styles.energyStatus}>LEVEL {Math.floor(vibeStats.points / 100) + 1}</Text>
 
             <View style={{marginTop: 20, padding: 15, backgroundColor: 'rgba(0,255,204,0.05)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,255,204,0.1)'}}>
                 <Text style={[styles.sectionLabel, {color: '#00ffcc', marginBottom: 5}]}>YOUR REFERRAL CODE</Text>
@@ -527,7 +526,7 @@ export default function App() {
             {leaderboard.map((u, i) => (
                 <View key={(u.user_id || u.username) + i} style={styles.leaderboardItem}>
                     <Text style={styles.navTextActive}>{i+1}. {u.username || u.user_id}</Text>
-                    <Text style={styles.matchText}>{u.streak > 0 ? "🔥 " + u.streak + " • " : ""}{u.points} PTS</Text>
+                    <Text style={styles.matchText}>{u.points} PTS</Text>
                 </View>
             ))}
         </View>

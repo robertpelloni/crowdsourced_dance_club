@@ -35,4 +35,4 @@
 - Iteration 1: Feedback-Driven Enhancements and Real-Time Lighting (v1.5.x).
 - Multi-Venue Decentralization and Streaming Integration (v1.6.0).
 - Observability and Performance Analytics Suite (v1.7.0).
-- User Engagement and Participation Promotion (v1.8.0).
+- Iteration 2: Neural Conductor Training and Mobile AR (v1.8.x).

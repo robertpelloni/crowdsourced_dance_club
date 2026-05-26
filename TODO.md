@@ -22,3 +22,6 @@
 - [x] Integration: Spotify/Apple Music catalog deep-linking.
 - [x] Finalize production release v1.7.0 documentation.
 - [ ] Feature: Mobile AR "Vibe Heatmap" visualization (Foundation Ready).
+- [ ] Implement Vibe Orb Augmented Reality (AR) layer.
+- [ ] Train Neural Conductor regression model using vibe_logs.
+- [ ] Support native DMX hardware control.

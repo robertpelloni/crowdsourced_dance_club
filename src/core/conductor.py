@@ -44,7 +44,7 @@ class TrackState:
         self.user_stats: Dict[str, Dict] = {}
         self.genre_history: List[str] = []
         self.notified_events: List[str] = []
-        self.transition_votes: Dict[str, int] = {"classic": 0, "bass_swap": 0, "echo_out": 0, "hpf_sweep": 0}; self.track_engagement = set()
+        self.transition_votes: Dict[str, int] = {"classic": 0, "bass_swap": 0, "echo_out": 0, "hpf_sweep": 0}
 
 def is_harmonically_compatible(key1: str, key2: str) -> bool:
     if not key1 or not key2: return False
