@@ -2,7 +2,7 @@
 set -e
 
 # Production Deployment Script for Crowdsourced Dance Club (CDC)
-# Version: 1.4.0
+# Version: 1.7.0
 
 echo "[PRODUCTION] Initializing release sequence..."
 
@@ -38,14 +38,9 @@ cd ..
 echo "[PRODUCTION] Running final integrity suite..."
 export PYTHONPATH=$PYTHONPATH:.
 # Run core logic tests (skipping frontend-heavy or slow mocks if necessary)
-python3 -m pytest tests/test_api.py tests/test_fit_logic.py tests/test_rbac.py tests/test_referrals.py tests/test_profile_ext.py
+python3 -m pytest tests/test_api.py tests/test_fit_logic.py tests/test_rbac.py tests/test_referrals.py tests/test_profile_ext.py tests/test_observability.py tests/test_multi_venue.py tests/test_observability.py tests/test_multi_venue.py
 
 echo "--------------------------------------------------------"
-echo "[SUCCESS] Production build v1.4.0 is ready."
-# 6. Post-Deployment Health Check
-echo "[PRODUCTION] Performing initial health check..."
-# We assume the server is being started by a process manager (like systemd or supervisor)
-# For the script validation, we can simulate a health check to a running instance if available.
-
-echo "Launch Command: uvicorn src.main:app --host 0.0.0.0 --port 80 --workers 4 --log-config logging.conf"
+echo "[SUCCESS] Production build v1.7.0 is ready."
+echo "Launch Command: uvicorn src.main:app --host 0.0.0.0 --port 80 --workers 4"
 echo "--------------------------------------------------------"
