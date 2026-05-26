@@ -2,7 +2,7 @@
 
 ## Phase 5: Production & Post-Production (Active)
 - [x] Conduct User Acceptance Testing (UAT).
-- [x] Finalize `UAT_REPORT.md`.
+- [x] Finalize UAT_REPORT.md.
 - [x] Increment version to 0.4.0 (Production Candidate).
 - [x] Implement Global Vibe Leaderboard in Web UI.
 - [x] Dynamic IP detection for QR synchronization.

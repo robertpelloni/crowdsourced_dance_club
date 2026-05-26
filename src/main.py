@@ -1,9 +1,7 @@
-import logging
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger("cdc-conductor")
 import asyncio
 import io
 import json
+import logging
 import os
 import random
 import string
@@ -366,8 +364,8 @@ def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool
             if dj_state.current_bpm < dj_state.target_bpm: dj_state.current_bpm = min(dj_state.target_bpm, dj_state.current_bpm + step)
             else: dj_state.current_bpm = max(dj_state.target_bpm, dj_state.current_bpm - step)
             for client in list(dj_state.active_connections):
-                try: await client.send_json({"type": "MASTER_CONTROL", "data": {"current_bpm": dj_state.current_bpm}})
-                except: pass
+                try: await client.send_json({"type": "MASTER_CONTROL", "data": {"target_bpm": dj_state.current_bpm}})
+                except Exception: pass
 
 async def playback_simulation_loop():
     """
@@ -569,6 +567,19 @@ async def read_users_me(current_user: dict = Depends(get_current_user)):
         "vibe_preference": current_user.get("vibe_preference", "Psytrance")
     }
 
+@app.patch("/api/me", response_model=User)
+async def update_user_me(data: UserUpdate, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    if data.vibe_preference:
+        cursor.execute("UPDATE users SET vibe_preference = ? WHERE id = ?", (data.vibe_preference, current_user["id"]))
+    conn.commit(); conn.close()
+
+    return {
+        **current_user,
+        "vibe_preference": data.vibe_preference or current_user.get("vibe_preference"),
+        "badges": json.loads(current_user["badges"]) if isinstance(current_user["badges"], str) else current_user["badges"]
+    }
+
 @app.get("/api/live/crowd-stats")
 async def get_live_crowd_stats(current_user: dict = Depends(get_current_user)):
     return {"crowd_energy": dj_state.crowd_energy, "active_users_count": len(set(a.get("user_id", "anon") for a in dj_state.recent_activities))}
@@ -584,6 +595,13 @@ async def get_leaderboard():
 async def get_my_requests(current_user: dict = Depends(get_current_user)):
     conn = get_db_connection(); cursor = conn.cursor()
     cursor.execute('''SELECT r.*, t.title, t.artist FROM user_requests r JOIN tracks t ON r.track_id = t.id WHERE r.user_id = ? ORDER BY r.timestamp DESC''', (current_user["id"],))
+    rows = cursor.fetchall(); conn.close()
+    return [dict(row) for row in rows]
+
+@app.get("/api/me/history/votes")
+async def get_my_votes(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute('''SELECT v.*, t.title, t.artist FROM user_votes v JOIN tracks t ON v.track_id = t.id WHERE v.user_id = ? ORDER BY v.timestamp DESC''', (current_user["id"],))
     rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
 
@@ -1111,29 +1129,6 @@ async def get_events():
     rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
 
-from src.api.schemas import UserUpdate
-
-@app.patch("/api/me", response_model=User)
-async def update_user_me(data: UserUpdate, current_user: dict = Depends(get_current_user)):
-    conn = get_db_connection(); cursor = conn.cursor()
-    if data.vibe_preference:
-        cursor.execute("UPDATE users SET vibe_preference = ? WHERE id = ?", (data.vibe_preference, current_user["id"]))
-    conn.commit(); conn.close()
-
-    # Return updated user
-    return {
-        **current_user,
-        "vibe_preference": data.vibe_preference or current_user.get("vibe_preference"),
-        "badges": json.loads(current_user["badges"]) if isinstance(current_user["badges"], str) else current_user["badges"]
-    }
-
-@app.get("/api/me/history/votes")
-async def get_my_votes(current_user: dict = Depends(get_current_user)):
-    conn = get_db_connection(); cursor = conn.cursor()
-    cursor.execute('''SELECT v.*, t.title, t.artist FROM user_votes v JOIN tracks t ON v.track_id = t.id WHERE v.user_id = ? ORDER BY v.timestamp DESC''', (current_user["id"],))
-    rows = cursor.fetchall(); conn.close()
-    return [dict(row) for row in rows]
-
 @app.post("/api/events", response_model=dict)
 async def create_event(event: EventCreate, current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "admin":
@@ -1163,24 +1158,6 @@ async def get_all_feedback(current_user: dict = Depends(get_current_user)):
     rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
 
-@app.get("/api/admin/health")
-async def get_health(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    return {
-        "system": monitor.get_health_stats(),
-        "vibe_consistency": monitor.get_vibe_consistency(),
-        "active_clients": len(dj_state.active_connections)
-    }
-
-from src.api.analytics import generate_vibe_performance_report
-
-@app.get("/api/admin/analytics/vibe-report")
-async def get_vibe_report(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    return generate_vibe_performance_report()
-
 @app.get("/api/venues")
 async def get_venues():
     conn = get_db_connection(); cursor = conn.cursor()
@@ -1190,7 +1167,6 @@ async def get_venues():
 
 @app.get("/api/venues/{venue_id}/state")
 async def get_venue_state(venue_id: str):
-    # Multi-venue state management (v1.6.0)
     venue_states: Dict[str, TrackState] = {"CDC_MAIN": dj_state}
     if venue_id not in venue_states:
         raise HTTPException(status_code=404, detail="Venue not found")
@@ -1202,7 +1178,21 @@ async def get_venue_state(venue_id: str):
         "is_peak_mode": state.is_peak_mode
     }
 
-from src.api.streaming import get_streaming_links
+@app.get("/api/admin/health")
+async def get_health(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return {
+        "system": monitor.get_health_stats(),
+        "vibe_consistency": monitor.get_vibe_consistency(),
+        "active_clients": len(dj_state.active_connections)
+    }
+
+@app.get("/api/admin/analytics/vibe-report")
+async def get_vibe_report(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return generate_vibe_performance_report()
 
 @app.get("/api/tracks/{track_id}/streaming")
 async def get_track_streaming_links(track_id: str):
