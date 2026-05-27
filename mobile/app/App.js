@@ -20,6 +20,7 @@ export default function App() {
   const [transitionVotes, setTransitionVotes] = useState({ classic: 0, bass_swap: 0, echo_out: 0, hpf_sweep: 0 });
   const [requestHistory, setRequestHistory] = useState([]);
   const [voteHistory, setVoteHistory] = useState([]);
+  const [likeHistory, setLikeHistory] = useState([]);
 
   const [vibeRating, setVibeRating] = useState(5);
   const [techRating, setTechRating] = useState(5);
@@ -28,6 +29,8 @@ export default function App() {
   const [myUser, setMyUser] = useState(null);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [regReferral, setRegReferral] = useState('');
   const [appState, setAppState] = useState(AppState.currentState);
 
@@ -194,6 +197,8 @@ export default function App() {
         setRequestHistory(await reqs.json());
         const votes = await fetch(`${API_URL}/api/me/history/votes`, { headers: { 'Authorization': `Bearer ${authToken}` } });
         setVoteHistory(await votes.json());
+        const likes = await fetch(`${API_URL}/api/me/history/likes`, { headers: { 'Authorization': `Bearer ${authToken}` } });
+        setLikeHistory(await likes.json());
     } catch (err) { console.error('History Fetch Failed:', err); }
   };
 
@@ -240,6 +245,32 @@ export default function App() {
         }
     } catch (err) { console.error("Vibe Update Failed:", err); }
   };
+  const changePassword = async () => {
+    if (!currentPassword || !newPassword) return alert("Both fields required");
+    try {
+        const response = await fetch(`${API_URL}/api/me/change-password`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${authToken}`
+            },
+            body: JSON.stringify({
+                current_password: currentPassword,
+                new_password: newPassword
+            })
+        });
+        if (response.ok) {
+            alert("Password updated!");
+            setCurrentPassword("");
+            setNewPassword("");
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        } else {
+            const data = await response.json();
+            alert(data.detail || "Update failed");
+        }
+    } catch (err) { console.error("Password Update Failed:", err); }
+  };
+
   const submitFeedback = async () => {
     try {
         const response = await fetch(`${API_URL}/api/feedback`, {
@@ -505,6 +536,20 @@ export default function App() {
             ))}
         </View>
 
+        <Text style={styles.sectionLabel}>FAVORITE TRACKS ❤️</Text>
+        <View style={{marginBottom: 20}}>
+            {likeHistory.length === 0 ? <Text style={styles.emptyText}>No favorites yet.</Text> :
+             likeHistory.map((l, i) => (
+                <View key={l.id + i} style={styles.queueItem}>
+                    <View style={styles.queueInfo}>
+                        <Text style={styles.queueTitle}>{l.title}</Text>
+                        <Text style={styles.queueArtist}>{l.artist}</Text>
+                    </View>
+                    <Text style={{fontSize: 20}}>❤️</Text>
+                </View>
+            ))}
+        </View>
+
         <Text style={styles.sectionLabel}>RECENT CONTRIBUTIONS</Text>
         <View style={{marginBottom: 20}}>
             {requestHistory.slice(0, 3).map((r, i) => (
@@ -519,6 +564,29 @@ export default function App() {
                     <Text style={styles.matchText}>+1 VOTE</Text>
                 </View>
             ))}
+        </View>
+
+        <Text style={styles.sectionLabel}>ACCOUNT SECURITY</Text>
+        <View style={styles.nowPlayingCard}>
+            <TextInput
+                style={[styles.searchInput, {marginBottom:10}]}
+                placeholder="Current Password"
+                placeholderTextColor="#666"
+                secureTextEntry
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+            />
+            <TextInput
+                style={[styles.searchInput, {marginBottom:10}]}
+                placeholder="New Password"
+                placeholderTextColor="#666"
+                secureTextEntry
+                value={newPassword}
+                onChangeText={setNewPassword}
+            />
+            <TouchableOpacity style={styles.actionBtn} onPress={changePassword}>
+                <Text style={styles.actionBtnText}>UPDATE PASSWORD</Text>
+            </TouchableOpacity>
         </View>
 
         <Text style={styles.sectionLabel}>TOP DANCERS (LEADERBOARD)</Text>

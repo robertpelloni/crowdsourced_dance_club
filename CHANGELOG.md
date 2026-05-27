@@ -9,6 +9,7 @@
 - **Club Management Suite:** Implemented a multi-tier club system (Owner, Admin, Member) with persistent club profiles and membership management.
 - **Crowd Broadcast System:** Added a high-priority "Announcement" system for venue administrators to broadcast messages to all connected users.
 - **Enhanced Mobile/Web Synchronization:** Unified real-time state broadcasts for "Crowd Energy" and "Peak Mode" across all tiers.
+- **Improved User Profile:** Added "Favorite Tracks" history and "Change Password" functionality for enhanced personalization and security.
 
 ## [1.9.0] - 2026-05-23
 ### Added

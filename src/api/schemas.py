@@ -32,6 +32,10 @@ class UserCreate(BaseModel):
 class UserUpdate(BaseModel):
     vibe_preference: Optional[str] = None
 
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
 class EventCreate(BaseModel):
     title: str
     description: str

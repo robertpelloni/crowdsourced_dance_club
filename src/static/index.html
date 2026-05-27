@@ -411,6 +411,7 @@
                 <!-- Real-time Transition Feedback -->
                 <div id="transition-feedback" style="margin-top: 20px; display: flex; justify-content: center; gap: 20px;">
                     <button class="btn-action" onclick="voteTransition(true)" style="background: rgba(0,255,204,0.1); color: var(--secondary); width: auto; padding: 0 15px; height: 36px; font-size: 0.8rem;">👍 VIBE UP</button>
+                    <button class="btn-action" onclick="voteSong(true)" id="btn-like-song" style="background: rgba(255,105,180,0.1); color: #ff69b4; width: 44px; height: 44px; border-radius: 50%;">❤️</button>
                     <button class="btn-action" onclick="voteTransition(false)" style="background: rgba(255,77,77,0.1); color: var(--accent-warm); width: auto; padding: 0 15px; height: 36px; font-size: 0.8rem;">👎 VIBE DOWN</button>
                 </div>
             </div>
@@ -556,9 +557,25 @@
                 </div>
             </div>
 
+            <div id="profile-likes-section">
+                <div class="section-title">Favorite Tracks ❤️</div>
+                <div id="profile-likes" class="track-list" style="margin-bottom: 20px;">
+                    <!-- Liked songs injected here -->
+                </div>
+            </div>
+
             <div class="section-title">Recent Contributions</div>
-            <div id="profile-history" class="track-list">
+            <div id="profile-history" class="track-list" style="margin-bottom: 30px;">
                 <!-- History injected here -->
+            </div>
+
+            <div class="section-title">Account Security</div>
+            <div class="card">
+                <input type="password" id="change-old-pwd" class="auth-input" placeholder="Current Password" style="margin-bottom:10px;">
+                <input type="password" id="change-new-pwd" class="auth-input" placeholder="New Password" style="margin-bottom:10px;">
+                <button class="btn-action" onclick="changePassword()" style="width:100%; background:var(--primary); color:white; font-weight:bold; height:auto; padding: 12px;">
+                    UPDATE PASSWORD
+                </button>
             </div>
         </div>
 
@@ -827,8 +844,48 @@
                     </div>
                 `).join('') || '<div class="item-meta" style="text-align:center; padding:20px;">No requests yet.</div>';
 
+                // Fetch Liked Songs
+                const likesResp = await fetch('/api/me/history/likes', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const likes = await likesResp.json();
+                document.getElementById('profile-likes').innerHTML = likes.map(l => `
+                    <div class="list-item">
+                        <div class="item-info">
+                            <div class="item-title">${l.title}</div>
+                            <div class="item-meta">${l.artist}</div>
+                        </div>
+                        <div style="color:#ff69b4;">❤️</div>
+                    </div>
+                `).join('') || '<div class="item-meta" style="text-align:center; padding:20px;">No favorites yet.</div>';
+
             } catch (err) { console.error(err); }
         }
+        async function changePassword() {
+            const oldPwd = document.getElementById('change-old-pwd').value;
+            const newPwd = document.getElementById('change-new-pwd').value;
+            if (!oldPwd || !newPwd) return showNotify('Both fields required', '#ff4d4d');
+
+            try {
+                const response = await fetch('/api/me/change-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${localStorage.getItem('cdc_token')}`
+                    },
+                    body: JSON.stringify({ current_password: oldPwd, new_password: newPwd })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    showNotify('Password updated!', '#00ffcc');
+                    document.getElementById('change-old-pwd').value = '';
+                    document.getElementById('change-new-pwd').value = '';
+                } else {
+                    showNotify(result.detail || 'Update failed', '#ff4d4d');
+                }
+            } catch (err) { showNotify('Connection failed', '#ff4d4d'); }
+        }
+
         async function fetchAdminFeedback() {
             try {
                 const response = await fetch("/api/admin/feedback", {
@@ -1062,6 +1119,33 @@
                 });
                 if (response.ok) {
                     showNotify('Feedback recorded!', '#00ffcc');
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        async function voteSong(isLike) {
+            const token = localStorage.getItem('cdc_token');
+            if (!token) return showNotify('Login to like songs', '#ff4d4d');
+
+            // Get current track from UI
+            const titleEl = document.querySelector('#now-playing-content .track-title');
+            if (!titleEl) return;
+            const title = titleEl.innerText;
+            const track = currentTracks.find(t => t.title === title);
+            if (!track) return;
+
+            try {
+                const response = await fetch('/api/feedback/song', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ track_id: track.id, is_like: isLike })
+                });
+                if (response.ok) {
+                    showNotify('Song feedback recorded!', '#ff69b4');
+                    fetchProfile(); // Refresh profile if in view
                 }
             } catch (err) { console.error(err); }
         }

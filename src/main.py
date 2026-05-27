@@ -20,7 +20,7 @@ from jose import JWTError, jwt
 
 from src.db.database import get_db_connection, load_track_catalog
 from src.db.vibe_logs import log_vibe_performance
-from src.api.schemas import Track, User, Token, UserCreate, EventCreate, FeedbackSubmit, UserUpdate, ClubCreate, ClubUpdate, ClubMemberAdd, ClubMemberUpdate, ClubResponse, TransitionVote, SongFeedback
+from src.api.schemas import Track, User, Token, UserCreate, EventCreate, FeedbackSubmit, UserUpdate, PasswordChange, ClubCreate, ClubUpdate, ClubMemberAdd, ClubMemberUpdate, ClubResponse, TransitionVote, SongFeedback
 from src.api.utils import get_local_ip, verify_password, get_password_hash, create_access_token, get_current_user, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from src.core.conductor import TrackState, calculate_vibe_score, evaluate_track_fit, CONFIG, GENRE_COMPATIBILITY
 from src.core.recommender import NeuralConductor
@@ -231,6 +231,21 @@ async def update_user_me(data: UserUpdate, current_user: dict = Depends(get_curr
         "badges": json.loads(current_user["badges"]) if isinstance(current_user["badges"], str) else current_user["badges"]
     }
 
+@app.post("/api/me/change-password")
+async def change_password(data: PasswordChange, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("SELECT hashed_password FROM users WHERE id = ?", (current_user["id"],))
+    row = cursor.fetchone()
+
+    if not row or not verify_password(data.current_password, row["hashed_password"]):
+        conn.close()
+        raise HTTPException(status_code=401, detail="Incorrect current password")
+
+    new_hashed = get_password_hash(data.new_password)
+    cursor.execute("UPDATE users SET hashed_password = ? WHERE id = ?", (new_hashed, current_user["id"]))
+    conn.commit(); conn.close()
+    return {"message": "Password updated successfully"}
+
 @app.get("/api/live/crowd-stats")
 async def get_live_crowd_stats(current_user: dict = Depends(get_current_user)):
     return {"crowd_energy": dj_state.crowd_energy, "active_users_count": len(set(a.get("user_id", "anon") for a in dj_state.recent_activities))}
@@ -253,6 +268,13 @@ async def get_my_requests(current_user: dict = Depends(get_current_user)):
 async def get_my_votes(current_user: dict = Depends(get_current_user)):
     conn = get_db_connection(); cursor = conn.cursor()
     cursor.execute('''SELECT v.*, t.title, t.artist FROM user_votes v JOIN tracks t ON v.track_id = t.id WHERE v.user_id = ? ORDER BY v.timestamp DESC''', (current_user["id"],))
+    rows = cursor.fetchall(); conn.close()
+    return [dict(row) for row in rows]
+
+@app.get("/api/me/history/likes")
+async def get_my_likes(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute('''SELECT f.*, t.title, t.artist FROM song_feedback f JOIN tracks t ON f.track_id = t.id WHERE f.user_id = ? AND f.is_like = 1 ORDER BY f.timestamp DESC''', (current_user["id"],))
     rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
 
