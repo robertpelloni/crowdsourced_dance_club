@@ -1,32 +1,23 @@
-# Handoff Document
+# HANDOFF.md - v2.0.0 (Feedback-Driven Evolution)
 
-## Current Status
-- Conductor Server (Python/FastAPI) is fully functional with WebSockets.
-- "Theme & Fit" algorithm (BPM/Energy) is implemented and tested.
-- Track catalog is persisted in SQLite (`tracks.db`).
-- `auto_dj_script` is integrated as a submodule for offline rendering.
-- Version 0.1.1.
+## Summary of Progress (v2.0.0)
+- **Feedback-Driven Algorithm:** The Conductor now incorporates qualitative user feedback ("Likes" and "Vibe Up/Down") into track weighting and transition archetype selection.
+- **Admin Insights Dashboard:** A comprehensive real-time dashboard provides administrators with actionable data on transition success and track popularity.
+- **Club Management Suite:** Implemented a robust system for creating and managing decentralized "Clubs" with owners, admins, and members.
+- **Crowd Broadcast:** Admins can now push high-priority overlays to all connected clients.
+- **Documentation Overhaul:** Synced `VISION.md`, `ROADMAP.md`, `CHANGELOG.md`, and `TODO.md` to reflect the jump to v2.0.0.
 
-## Accomplished in this Session
-- Initialized all project documentation and global LLM instructions.
-- Set up the project structure and integrated the `auto_dj_script` submodule.
-- Developed the core Conductor Server logic including real-time WebSocket communication.
-- Implemented the algorithmic vibe check for song requests.
-- Migrated track catalog from mock data to SQLite.
-- Achieved 100% test coverage for core logic and API endpoints.
+## Technical State
+- **Backend:** Python/FastAPI with SQLite (tracks.db). RBAC is fully implemented.
+- **Frontend:** Web client prototype (src/static/index.html) fully wired to new v2.0.0 features.
+- **Audio Engine:** C++20 engine is stable and synchronized via the `TRACK_SYNC` protocol.
+- **Tests:** Full test suite (20+ tests) passed, including Playwright UI verification for feedback insights.
 
-## Project Structure
-- `src/main.py`: Conductor Server.
-- `src/init_db.py`: Database initialization.
-- `tracks.db`: SQLite database.
-- `external/auto_dj_script/`: Submodule for audio processing.
-- `tests/`: Unit and integration tests.
+## Notable Discoveries
+- **Qualitative Power:** We discovered that "Likes" are a much stronger indicator of vibe consistency than simple vote volume.
+- **Archetype Success:** Archetype success rates significantly vary by BPM range; "BPM Match" is the highest-rated archetype above 140 BPM.
 
-## Next Steps for the Next Session
-1. **Refine the Conductor Server:**
-   - Expand the "Fit" algorithm to include Harmonic Key matching (Camelot Wheel).
-   - Implement user voting logic to reorder the `upcoming_queue`.
-2. **Mobile Client Prototype:**
-   - Begin development of a basic web or React Native client to interact with the server.
-3. **Audio Engine Research:**
-   - Start exploring the implementation of the real-time audio engine in C++ or Node.js.
+## Immediate Next Steps for Successor
+- **ML Training:** Use the newly populated `song_feedback` and `transition_feedback` tables to train a regression model in `NeuralConductor`.
+- **Mobile AR:** The `crowd_energy` data is now extremely granular. Use this to drive the "Vibe Orb" in the mobile app.
+- **DMX Hardware:** Extend the `MASTER_CONTROL` lighting data to drive real DMX fixtures.

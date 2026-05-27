@@ -8,7 +8,7 @@ client = TestClient(app)
 def test_read_root():
     response = client.get("/")
     assert response.status_code == 200
-    assert response.json() == {"message": "Algorithmic DJ Conductor Server is running."}
+    assert "<title>Crowdsourced Dance Club" in response.text
 
 def test_get_catalog():
     response = client.get("/catalog")
@@ -18,6 +18,8 @@ def test_get_catalog():
     assert any(track["id"] == "track_001" for track in catalog)
 
 def test_websocket_request_song():
+    # Reset queue
+    dj_state.upcoming_queue = []
     with client.websocket_connect("/ws/clubgoer") as websocket:
         # Initial sync
         data = websocket.receive_json()
@@ -31,7 +33,23 @@ def test_websocket_request_song():
         # Verify broadcast
         data = websocket.receive_json()
         assert data["type"] == "QUEUE_SYNC"
-        assert any(t["id"] == "track_002" for t in data["queue"])
+        assert any(item["track"]["id"] == "track_002" for item in data["queue"])
+
+def test_websocket_vote_song():
+    # Reset queue and add a song
+    dj_state.upcoming_queue = [{"track": TRACK_CATALOG["track_002"], "votes": 1},
+                                {"track": TRACK_CATALOG["track_003"], "votes": 1}]
+    with client.websocket_connect("/ws/clubgoer") as websocket:
+        websocket.receive_json() # Initial sync
+
+        # Vote for track_003
+        websocket.send_json({"action": "VOTE_TRACK", "track_id": "track_003"})
+
+        # Verify broadcast and reorder
+        data = websocket.receive_json()
+        assert data["type"] == "QUEUE_SYNC"
+        assert data["queue"][0]["track"]["id"] == "track_003"
+        assert data["queue"][0]["votes"] == 2
 
 def test_websocket_request_invalid_song():
     with client.websocket_connect("/ws/clubgoer") as websocket:

@@ -1,27 +1,24 @@
 # TODO List
 
-## Immediate Tasks
-- [x] Create initial documentation (`AGENTS.md`, `VISION.md`, etc.).
-- [x] Add `auto_dj_script` as a submodule.
-- [x] Set up Python environment and `requirements.txt`.
-- [x] Implement `src/main.py` with FastAPI and WebSockets.
-- [x] Implement `evaluate_track_fit` logic.
-- [x] Set up SQLite database for `TRACK_CATALOG`.
-- [x] Write unit tests for fit logic and API endpoints.
-- [ ] Implement Harmonic Key matching logic.
-- [ ] Implement user voting system for queue reordering.
+## Phase 6: Professional Expansion (Upcoming)
+- [ ] Feature: Mobile AR "Vibe Heatmap" visualization (Foundation Ready).
+- [ ] Implement Vibe Orb Augmented Reality (AR) layer.
+- [ ] Train Neural Conductor regression model using vibe_logs and qualitative feedback.
+- [ ] Support native DMX hardware control.
+- [ ] Integration: SoundCloud/YouTube Music API.
+- [ ] Implement multi-venue load balancing for global club networks.
 
-## Phase 2: Mobile Client Prototype
-- [ ] Design and implement basic React Native client.
-- [ ] Connect client to Conductor Server via WebSockets.
-- [ ] Implement song request and voting UI.
+## Phase 5: Feedback & Clubs (v2.0.0 - Complete)
+- [x] Implement Qualitative Feedback (Likes/Vibe Votes).
+- [x] Refine Neural Conductor with feedback data.
+- [x] Implement Admin Insights Dashboard.
+- [x] Implement Club Management (Clubs/Members).
+- [x] Add Crowd Broadcast system.
+- [x] Update documentation (VISION, ROADMAP, CHANGELOG).
+- [x] Finalize v2.0.0 release.
 
-## Phase 3: Real-Time Audio Engine
-- [ ] Research and select C++ audio framework (JUCE/PortAudio).
-- [ ] Implement low-latency playback loop.
-
-## Bug Fixes
-- None identified.
-
-## Refactoring
-- [x] Move mock data to persistent storage.
+## Legacy & Maintenance (Complete)
+- [x] Unified repository reconciliation and intelligent branch merge.
+- [x] Implement RBAC for admin security.
+- [x] Integrate real-time crowd data and activity metrics.
+- [x] Establish structured logging and health monitoring.
