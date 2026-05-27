@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+pydantic
+pytest
+httpx
+websockets
+qrcode[pil]
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+psutil
+requests
