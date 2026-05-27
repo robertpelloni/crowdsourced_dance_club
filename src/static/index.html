@@ -608,18 +608,6 @@
                     </div>
                 </div>
 
-                <div class="section-title">Feedback Insights</div>
-                <div class="card" style="background:rgba(160,32,240,0.05); border:1px solid rgba(160,32,240,0.1);">
-                    <div id="insight-transition-stats" style="margin-bottom:15px;">
-                        <div class="item-meta">Transition Success Rates</div>
-                        <div id="archetype-rates" style="font-size:0.8rem; margin-top:5px;"></div>
-                    </div>
-                    <div id="insight-song-stats">
-                        <div class="item-meta">Top Community Picks</div>
-                        <div id="top-songs" style="font-size:0.8rem; margin-top:5px;"></div>
-                    </div>
-                </div>
-
                 <div class="section-title">Feedback Audit</div>
                 <div id="admin-feedback-list" class="list-container"></div>
 
@@ -734,11 +722,7 @@
             }
 
             if (viewName === 'profile') fetchProfile();
-            if (viewName === 'admin') {
-                fetchAdminFeedback();
-                fetchFeedbackInsights();
-                startEngagementPolling();
-            }
+            if (viewName === 'admin') { fetchAdminFeedback(); startEngagementPolling(); }
             else { stopEngagementPolling(); }
             if (viewName === 'clubs') fetchClubs();
         }
@@ -1100,25 +1084,6 @@
                 document.getElementById('metric-clubs').innerText = data.total_clubs;
                 document.getElementById('metric-users').innerText = data.active_users_with_points;
                 document.getElementById('metric-peak').innerText = data.is_peak_mode ? 'ON' : 'OFF';
-
-                fetchFeedbackInsights();
-            } catch (err) { console.error(err); }
-        }
-
-        async function fetchFeedbackInsights() {
-            try {
-                const response = await fetch("/api/admin/analytics/insights", {
-                    headers: { "Authorization": `Bearer ${localStorage.getItem("cdc_token")}` }
-                });
-                const data = await response.json();
-
-                document.getElementById('archetype-rates').innerHTML = data.transition_performance.map(p =>
-                    `<div>${p.archetype.toUpperCase()}: ${ (p.success_rate * 100).toFixed(0) }%</div>`
-                ).join('') || 'No transition data yet.';
-
-                document.getElementById('top-songs').innerHTML = data.song_popularity_ranking.slice(0, 3).map(s =>
-                    `<div>${s.title} - ${s.artist} (${s.score > 0 ? '+' : ''}${s.score})</div>`
-                ).join('') || 'No song ratings yet.';
             } catch (err) { console.error(err); }
         }
 

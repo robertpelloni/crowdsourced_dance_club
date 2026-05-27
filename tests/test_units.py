@@ -33,11 +33,9 @@ def test_neural_conductor_heuristics():
     history = ["Techno", "Techno", "Psytrance"]
     assert nc.predict_next_track_vibe(history) == "Techno"
 
-    # Test transition archetype suggestion
+    # Test transition archetype suggestion (no logs yet, should return default)
     archetype = nc.get_best_transition_archetype("t1", "t2")
-    # v2.0.0 incorporates many more archetypes including filter_sweep, beat_sync, etc.
-    assert isinstance(archetype, str)
-    assert len(archetype) > 0
+    assert archetype in ["classic", "bass_swap", "echo_out", "hpf_sweep"]
 
 def test_system_monitor_health():
     sm = SystemMonitor()

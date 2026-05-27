@@ -23,7 +23,7 @@
 - **Description:** High-fidelity offline audio mixing engine. Used for rendering highlights and master sets.
 
 ## Critical Files
-- `VERSION.md`: Centralized project version governance (Current: 2.0.0).
+- `VERSION.md`: Centralized project version governance (Current: 1.0.1).
 - `AUDIO_ENGINE_PROTOCOL.md`: WebSocket JSON specification for Brain-Body communication.
 - `LIBRARIES.md`: Rationale and versions for all major dependencies across all tiers.
 - `deploy_staging.sh`: Automated deployment pipeline for staging validation.

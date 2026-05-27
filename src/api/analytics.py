@@ -72,12 +72,3 @@ def get_feedback_insights() -> Dict:
         "transition_performance": transition_insights,
         "song_popularity_ranking": song_insights
     }
-
-def get_engagement_metrics(dj_state) -> Dict:
-    """Analyzes real-time engagement and voting velocity."""
-    return {
-        "vote_velocity_per_min": len(dj_state.vote_history),
-        "active_users_with_points": len([u for u, s in dj_state.user_stats.items() if s['points'] > 0]),
-        "total_clubs": 0,
-        "is_peak_mode": dj_state.is_peak_mode
-    }

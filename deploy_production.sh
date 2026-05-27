@@ -2,7 +2,7 @@
 set -e
 
 # Production Deployment Script for Crowdsourced Dance Club (CDC)
-# Version: 1.9.0
+# Version: 2.0.0
 
 echo "[PRODUCTION] Initializing release sequence..."
 
@@ -41,6 +41,6 @@ export PYTHONPATH=$PYTHONPATH:.
 python3 -m pytest tests/test_api.py tests/test_fit_logic.py tests/test_rbac.py tests/test_referrals.py tests/test_profile_ext.py tests/test_observability.py tests/test_multi_venue.py tests/test_observability.py tests/test_multi_venue.py
 
 echo "--------------------------------------------------------"
-echo "[SUCCESS] Production build v1.9.0 is ready."
+echo "[SUCCESS] Production build v2.0.0 is ready."
 echo "Launch Command: uvicorn src.main:app --host 0.0.0.0 --port 80 --workers 4"
 echo "--------------------------------------------------------"

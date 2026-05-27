@@ -82,33 +82,20 @@ def calculate_vibe_score(track: Dict, current_track: Dict, energy_trend: str, us
         pref_bonus = 0.1 # 10% boost for matching user's favorite genre
 
     # Community Popularity Bonus (v2.0.0)
-    # Simple ephemeral cache to avoid per-track DB queries in broadcast loops
-    if not hasattr(calculate_vibe_score, "_pop_cache"):
-        calculate_vibe_score._pop_cache = {}
-        calculate_vibe_score._last_cache_update = 0
-
-    now = time.time()
-    if now - calculate_vibe_score._last_cache_update > 60:
-        calculate_vibe_score._pop_cache = {}
-        calculate_vibe_score._last_cache_update = now
-
-    if track["id"] in calculate_vibe_score._pop_cache:
-        popularity_bonus = calculate_vibe_score._pop_cache[track["id"]]
-    else:
-        popularity_bonus = 0.0
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            cursor.execute('''
-                SELECT SUM(CASE WHEN is_like THEN 1 ELSE -1 END) as score
-                FROM song_feedback WHERE track_id = ?
-            ''', (track["id"],))
-            res = cursor.fetchone()
-            if res and res["score"]:
-                popularity_bonus = min(0.2, max(-0.2, res["score"] * 0.02))
-            conn.close()
-            calculate_vibe_score._pop_cache[track["id"]] = popularity_bonus
-        except Exception: pass
+    popularity_bonus = 0.0
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT SUM(CASE WHEN is_like THEN 1 ELSE -1 END) as score
+            FROM song_feedback WHERE track_id = ?
+        ''', (track["id"],))
+        res = cursor.fetchone()
+        if res and res["score"]:
+            # Max bonus of 0.2 if the song has high net likes
+            popularity_bonus = min(0.2, max(-0.2, res["score"] * 0.02))
+        conn.close()
+    except Exception: pass
 
     return min(1.0, max(0.0, (bpm_score * CONFIG["VIBE_WEIGHT_BPM"]) + (energy_score * CONFIG["VIBE_WEIGHT_ENERGY"]) + \
             (ramping_score * CONFIG["VIBE_WEIGHT_RAMPING"]) + (key_score * CONFIG["VIBE_WEIGHT_KEY"]) + \
