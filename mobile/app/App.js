@@ -184,7 +184,8 @@ export default function App() {
                 points: data.points,
                 badges: data.badges,
                 referral_code: data.referral_code,
-                vibe_preference: data.vibe_preference
+                vibe_preference: data.vibe_preference,
+                vibe_impact: data.vibe_impact
             });
         }
     } catch (err) { console.error('Me Fetch Failed:', err); }
@@ -500,6 +501,26 @@ export default function App() {
                 <View style={[styles.meterFill, { width: `${(vibeStats.points % 100)}%`, backgroundColor: '#a020f0' }]} />
             </View>
             <Text style={styles.energyStatus}>LEVEL {Math.floor(vibeStats.points / 100) + 1}</Text>
+
+            {vibeStats.vibe_impact && (
+                <View style={{marginTop: 15, padding: 12, backgroundColor: 'rgba(160,32,240,0.1)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(160,32,240,0.2)'}}>
+                    <Text style={[styles.sectionLabel, {color: '#a020f0', marginBottom: 5}]}>VIBE IMPACT</Text>
+                    <View style={{flexDirection:'row', justifyContent:'space-around'}}>
+                        <View style={{alignItems:'center'}}>
+                            <Text style={{color:'#fff', fontSize:18, fontWeight:'900'}}>{vibeStats.vibe_impact.vibe_boost_factor}</Text>
+                            <Text style={{color:'#a020f0', fontSize:8, fontWeight:'bold'}}>BOOST</Text>
+                        </View>
+                        <View style={{alignItems:'center'}}>
+                            <Text style={{color:'#fff', fontSize:18, fontWeight:'900'}}>{vibeStats.vibe_impact.request_success_rate}%</Text>
+                            <Text style={{color:'#a020f0', fontSize:8, fontWeight:'bold'}}>SUCCESS</Text>
+                        </View>
+                        <View style={{alignItems:'center'}}>
+                            <Text style={{color:'#fff', fontSize:18, fontWeight:'900'}}>{vibeStats.vibe_impact.total_votes_cast}</Text>
+                            <Text style={{color:'#a020f0', fontSize:8, fontWeight:'bold'}}>VOTES</Text>
+                        </View>
+                    </View>
+                </View>
+            )}
 
             <View style={{marginTop: 20, padding: 15, backgroundColor: 'rgba(0,255,204,0.05)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(0,255,204,0.1)'}}>
                 <Text style={[styles.sectionLabel, {color: '#00ffcc', marginBottom: 5}]}>YOUR REFERRAL CODE</Text>

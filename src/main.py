@@ -520,6 +520,15 @@ async def get_all_feedback(current_user: dict = Depends(get_current_user)):
     rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
 
+@app.get("/api/admin/users")
+async def get_all_users(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("SELECT id, username, points, badges, streak, role, vibe_preference FROM users")
+    rows = cursor.fetchall(); conn.close()
+    return [dict(row) for row in rows]
+
 @app.get("/api/venues")
 async def get_venues():
     conn = get_db_connection(); cursor = conn.cursor()
