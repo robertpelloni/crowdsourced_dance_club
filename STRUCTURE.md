@@ -13,6 +13,7 @@
 - `mobile/`: Official React Native mobile application for clubgoers.
 - `tests/`: Comprehensive Python unit and integration tests.
 - `tracks.db`: SQLite database for track metadata.
+- `models/`: Trained ML model artifacts for the Neural Conductor.
 
 ## Submodules
 

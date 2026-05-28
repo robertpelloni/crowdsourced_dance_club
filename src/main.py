@@ -25,7 +25,8 @@ from src.api.utils import get_local_ip, verify_password, get_password_hash, crea
 from src.core.conductor import TrackState, calculate_vibe_score, evaluate_track_fit, CONFIG, GENRE_COMPATIBILITY
 from src.core.recommender import NeuralConductor
 from src.core.monitoring import SystemMonitor
-from src.api.analytics import generate_vibe_performance_report
+from src.api.analytics import generate_vibe_performance_report, get_user_vibe_impact, get_engagement_metrics, get_feedback_insights
+from src.core.ml_trainer import train_model
 from src.api.streaming import get_streaming_links
 from src.core.clubs import create_club, get_club, list_user_clubs, add_club_member, update_club_member_role, remove_club_member, is_club_admin
 
@@ -564,6 +565,29 @@ async def get_vibe_report(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
     return generate_vibe_performance_report()
+
+@app.get("/api/admin/analytics/engagement")
+async def get_engagement(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return get_engagement_metrics(dj_state)
+
+@app.get("/api/admin/analytics/insights")
+async def get_insights(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return get_feedback_insights()
+
+@app.post("/api/admin/ml/retrain")
+async def trigger_retrain(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    success, message = train_model()
+    if not success:
+        raise HTTPException(status_code=400, detail=message)
+    # Refresh model in the neural conductor
+    neural_conductor._load_model()
+    return {"message": message}
 
 @app.get("/api/tracks/{track_id}/streaming")
 async def get_track_streaming_links(track_id: str):

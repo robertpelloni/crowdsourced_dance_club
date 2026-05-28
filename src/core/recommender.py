@@ -1,6 +1,12 @@
 import time
+import os
+import joblib
+import pandas as pd
 from typing import List, Dict, Optional
 from src.db.database import get_db_connection
+
+MODEL_PATH = "models/neural_conductor_v1.joblib"
+ENCODER_PATH = "models/archetype_encoder.joblib"
 
 class NeuralConductor:
     """
@@ -9,6 +15,17 @@ class NeuralConductor:
     """
     def __init__(self, track_catalog: Dict):
         self.track_catalog = track_catalog
+        self.model = None
+        self.encoder = None
+        self._load_model()
+
+    def _load_model(self):
+        if os.path.exists(MODEL_PATH) and os.path.exists(ENCODER_PATH):
+            try:
+                self.model = joblib.load(MODEL_PATH)
+                self.encoder = joblib.load(ENCODER_PATH)
+            except Exception:
+                pass
 
     def get_best_transition_archetype(self, current_track_id: str, next_track_id: str) -> str:
         """
@@ -50,6 +67,33 @@ class NeuralConductor:
         ''')
         top_performers = [r["track_id"] for r in cursor.fetchall()]
         conn.close()
+
+        # 4. Use ML model for prediction if available
+        if self.model and self.encoder:
+            try:
+                t1 = self.track_catalog.get(current_track_id)
+                t2 = self.track_catalog.get(next_track_id)
+                if t1 and t2:
+                    archetypes = self.encoder.classes_
+                    best_score = -1.0
+                    best_arch = "bass_swap"
+
+                    for arch in archetypes:
+                        arch_encoded = self.encoder.transform([arch])[0]
+                        features = pd.DataFrame([[
+                            arch_encoded, t1['bpm'], t1['energy'], t2['bpm'], t2['energy'],
+                            abs(t1['bpm'] - t2['bpm']), abs(t1['energy'] - t2['energy'])
+                        ]], columns=['archetype_encoded', 'from_bpm', 'from_energy', 'to_bpm', 'to_energy', 'bpm_delta', 'energy_delta'])
+
+                        score = self.model.predict(features)[0]
+                        if score > best_score:
+                            best_score = score
+                            best_arch = arch
+
+                    if best_score > 0.6:
+                        return best_arch
+            except Exception:
+                pass
 
         if general_best and general_best["success_rate"] > 0.6:
             return general_best["archetype"]

@@ -1,4 +1,4 @@
-# HANDOFF.md - v2.1.0 (Professional Analytics & Scaling)
+# HANDOFF.md - v2.2.0 (Professional Analytics & Scaling)
 
 ## Summary of Progress (v2.1.0)
 - **Admin User Management:** Launched a global user directory in the Admin dashboard, allowing administrators to search and monitor user stats and roles in real-time.
