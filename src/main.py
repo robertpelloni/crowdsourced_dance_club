@@ -27,10 +27,14 @@ from src.api.utils import get_local_ip, verify_password, get_password_hash, crea
 from src.core.conductor import TrackState, calculate_vibe_score, evaluate_track_fit, CONFIG, GENRE_COMPATIBILITY
 from src.core.recommender import NeuralConductor
 from src.core.ml_trainer import train_model
+from src.core.monitoring import SystemMonitor
+from src.api.analytics import generate_vibe_performance_report
+from src.api.streaming import get_streaming_links
 
 TRACK_CATALOG = load_track_catalog()
 dj_state = TrackState(TRACK_CATALOG)
 neural_conductor = NeuralConductor(TRACK_CATALOG)
+monitor = SystemMonitor()
 
 class ConnectionManager:
     async def connect(self, websocket: WebSocket):
@@ -374,6 +378,49 @@ async def get_all_feedback(current_user: dict = Depends(get_current_user)):
     cursor.execute('''SELECT f.*, u.username FROM feedback f JOIN users u ON f.user_id = u.id ORDER BY f.timestamp DESC''')
     rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
+
+@app.get("/api/venues")
+async def get_venues():
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("SELECT * FROM venues")
+    rows = cursor.fetchall(); conn.close()
+    return [dict(row) for row in rows]
+
+@app.get("/api/venues/{venue_id}/state")
+async def get_venue_state(venue_id: str):
+    venue_states: Dict[str, TrackState] = {"CDC_MAIN": dj_state}
+    if venue_id not in venue_states:
+        raise HTTPException(status_code=404, detail="Venue not found")
+    state = venue_states[venue_id]
+    return {
+        "current_track": state.current_track,
+        "crowd_energy": state.crowd_energy,
+        "target_bpm": state.target_bpm,
+        "is_peak_mode": state.is_peak_mode
+    }
+
+@app.get("/api/admin/health")
+async def get_health(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return {
+        "system": monitor.get_health_stats(),
+        "vibe_consistency": monitor.get_vibe_consistency(),
+        "active_clients": len(dj_state.active_connections)
+    }
+
+@app.get("/api/admin/analytics/vibe-report")
+async def get_vibe_report(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return generate_vibe_performance_report()
+
+@app.get("/api/tracks/{track_id}/streaming")
+async def get_track_streaming_links(track_id: str):
+    track = TRACK_CATALOG.get(track_id)
+    if not track:
+        raise HTTPException(status_code=404, detail="Track not found")
+    return get_streaming_links(track["title"], track["artist"])
 
 @app.post("/api/admin/ml/retrain")
 async def retrain_ml(current_user: dict = Depends(get_current_user)):
