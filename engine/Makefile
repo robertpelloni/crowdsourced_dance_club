@@ -1,24 +1,19 @@
-CXX = g++
-CXXFLAGS = -std=c++20 -Iinclude -I/usr/include/nlohmann
-LDFLAGS = -lportaudio -lwebsockets -lsndfile -lSoundTouch -lm
+CC = g++
+CFLAGS = -std=c++20 -O3 -Wall -Iinclude -I/usr/include/soundtouch
+LIBS = -lportaudio -lsndfile -lSoundTouch -lwebsockets
 
-SRC_DIR = src
-OBJ_DIR = obj
-BIN = cdc_engine
+SRCS = src/main.cpp src/audio_engine.cpp
+OBJS = $(SRCS:src/%.cpp=obj/%.o)
+TARGET = cdc_engine
 
-SRCS = $(wildcard $(SRC_DIR)/*.cpp)
-OBJS = $(SRCS:$(SRC_DIR)/%.cpp=$(OBJ_DIR)/%.o)
+all: $(TARGET)
 
-all: $(BIN)
+$(TARGET): $(OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LIBS)
 
-$(BIN): $(OBJS)
-	$(CXX) -o $@ $^ $(LDFLAGS)
-
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
-	@mkdir -p $(OBJ_DIR)
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
+obj/%.o: src/%.cpp
+	@mkdir -p obj
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -rf $(OBJ_DIR) $(BIN)
-
-.PHONY: all clean
+	rm -rf obj $(TARGET)

@@ -8,8 +8,10 @@ import string
 import sys
 import time
 import uuid
+import socket
 from contextlib import asynccontextmanager
 from typing import List, Dict, Optional, Tuple
+from datetime import timedelta
 
 import qrcode
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException, Depends, status
@@ -20,24 +22,15 @@ from jose import JWTError, jwt
 
 from src.db.database import get_db_connection, load_track_catalog
 from src.db.vibe_logs import log_vibe_performance
-from src.api.schemas import Track, User, Token, UserCreate, EventCreate, FeedbackSubmit, UserUpdate, PasswordChange, ClubCreate, ClubUpdate, ClubMemberAdd, ClubMemberUpdate, ClubResponse, TransitionVote, SongFeedback
+from src.api.schemas import Track, User, Token, UserCreate, EventCreate, FeedbackSubmit, UserUpdate
 from src.api.utils import get_local_ip, verify_password, get_password_hash, create_access_token, get_current_user, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from src.core.conductor import TrackState, calculate_vibe_score, evaluate_track_fit, CONFIG, GENRE_COMPATIBILITY
 from src.core.recommender import NeuralConductor
-from src.core.monitoring import SystemMonitor
-from src.api.analytics import generate_vibe_performance_report, get_user_vibe_impact, get_engagement_metrics, get_feedback_insights
 from src.core.ml_trainer import train_model
-from src.api.streaming import get_streaming_links
-from src.core.clubs import create_club, get_club, list_user_clubs, add_club_member, update_club_member_role, remove_club_member, is_club_admin
-
-# Production Logging Configuration
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger = logging.getLogger("cdc-conductor")
 
 TRACK_CATALOG = load_track_catalog()
 dj_state = TrackState(TRACK_CATALOG)
 neural_conductor = NeuralConductor(TRACK_CATALOG)
-monitor = SystemMonitor()
 
 class ConnectionManager:
     async def connect(self, websocket: WebSocket):
@@ -53,7 +46,7 @@ class ConnectionManager:
         payload = self.get_broadcast_payload()
         for connection in list(dj_state.active_connections):
             try: await connection.send_json(payload)
-            except Exception: self.disconnect(connection)
+            except: self.disconnect(connection)
 
     def get_broadcast_payload(self) -> Dict:
         leaderboard = sorted(
@@ -90,7 +83,7 @@ async def playback_simulation_loop():
         if acceleration > 2 and not dj_state.is_peak_mode:
              for client in list(dj_state.active_connections):
                  try: await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "DSP_INTENSIFY", "duration": 10.0}})
-                 except Exception: pass
+                 except: pass
 
         if vote_velocity >= 5 and not dj_state.is_peak_mode:
             dj_state.is_peak_mode = True
@@ -107,41 +100,28 @@ async def playback_simulation_loop():
             if dj_state.current_bpm < dj_state.target_bpm: dj_state.current_bpm = min(dj_state.target_bpm, dj_state.current_bpm + step)
             else: dj_state.current_bpm = max(dj_state.target_bpm, dj_state.current_bpm - step)
             for client in list(dj_state.active_connections):
-                try: await client.send_json({"type": "MASTER_CONTROL", "data": {"target_bpm": dj_state.current_bpm}})
-                except Exception: pass
+                try: await client.send_json({"type": "MASTER_CONTROL", "data": {"current_bpm": dj_state.current_bpm}})
+                except: pass
 
-        # Real-time Multi-Zone Lighting Control (v1.6.0)
-        r, g, b = (160, 32, 240)
+        r, g, b = (160, 32, 240) # Default Purple
         if dj_state.is_peak_mode: r, g, b = (255, 0, 0)
         elif dj_state.energy_trend == "falling": r, g, b = (0, 102, 255)
 
-        lighting_data = {
-            "zones": [
-                {"id": "main_floor", "rgb": [r, g, b], "intensity": dj_state.crowd_energy},
-                {"id": "vip_lounge", "rgb": [160, 32, 240], "intensity": 0.4}
-            ],
-            "strobe": dj_state.is_peak_mode
-        }
-
         for client in list(dj_state.active_connections):
-            try: await client.send_json({"type": "LIGHTING_CONTROL", "data": lighting_data})
-            except Exception: pass
+            try: await client.send_json({"type": "LIGHTING_CONTROL", "data": {"r": r, "g": g, "b": b, "intensity": dj_state.crowd_energy}})
+            except: pass
 
         if 14.5 <= remaining <= 15.5:
             if dj_state.upcoming_queue:
                 next_track = dj_state.upcoming_queue[0]["track"]
-
-                # Dynamic Transition Heuristic (v1.5.0)
                 predicted_archetype = neural_conductor.get_best_transition_archetype(dj_state.current_track["id"], next_track["id"])
                 winner = max(dj_state.transition_votes, key=dj_state.transition_votes.get) if any(dj_state.transition_votes.values()) else predicted_archetype
-
                 sync_payload = {"type": "TRACK_SYNC", "data": {"track_id": next_track["id"], "filepath": next_track.get("filepath", f"tracks/{next_track['id']}.flac"), "bpm": next_track["bpm"], "key": next_track["key"], "energy": next_track["energy"], "transition_timestamp": dj_state.start_time + dj_state.duration, "crossfade_duration": 15.0, "archetype": winner}}
                 for client in list(dj_state.active_connections):
                     try: await client.send_json(sync_payload)
-                    except Exception: pass
+                    except: pass
 
         if remaining <= 0:
-            # ML Data Collection
             log_vibe_performance(
                 dj_state.current_track["id"],
                 calculate_vibe_score(dj_state.current_track, dj_state.current_track, dj_state.energy_trend),
@@ -161,7 +141,6 @@ async def playback_simulation_loop():
             dj_state.transition_votes = {"classic": 0, "bass_swap": 0, "echo_out": 0, "hpf_sweep": 0}
             dj_state.duration = 180.0
             await manager.broadcast_queue_update()
-            logger.info(f"[SYSTEM] Transitioned to: {dj_state.current_track['title']}")
 
         await asyncio.sleep(1)
 
@@ -193,7 +172,6 @@ async def register(user: UserCreate):
         if row: referrer_id = row["id"]
 
     new_referral_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-
     user_id = "user_" + str(uuid.uuid4())
     cursor.execute("INSERT INTO users (id, username, hashed_password, referral_code, referred_by_id, points) VALUES (?, ?, ?, ?, ?, ?)",
                    (user_id, user.username, get_password_hash(user.password), new_referral_code, referrer_id, 50 if referrer_id else 0))
@@ -225,27 +203,11 @@ async def update_user_me(data: UserUpdate, current_user: dict = Depends(get_curr
     if data.vibe_preference:
         cursor.execute("UPDATE users SET vibe_preference = ? WHERE id = ?", (data.vibe_preference, current_user["id"]))
     conn.commit(); conn.close()
-
     return {
         **current_user,
         "vibe_preference": data.vibe_preference or current_user.get("vibe_preference"),
         "badges": json.loads(current_user["badges"]) if isinstance(current_user["badges"], str) else current_user["badges"]
     }
-
-@app.post("/api/me/change-password")
-async def change_password(data: PasswordChange, current_user: dict = Depends(get_current_user)):
-    conn = get_db_connection(); cursor = conn.cursor()
-    cursor.execute("SELECT hashed_password FROM users WHERE id = ?", (current_user["id"],))
-    row = cursor.fetchone()
-
-    if not row or not verify_password(data.current_password, row["hashed_password"]):
-        conn.close()
-        raise HTTPException(status_code=401, detail="Incorrect current password")
-
-    new_hashed = get_password_hash(data.new_password)
-    cursor.execute("UPDATE users SET hashed_password = ? WHERE id = ?", (new_hashed, current_user["id"]))
-    conn.commit(); conn.close()
-    return {"message": "Password updated successfully"}
 
 @app.get("/api/live/crowd-stats")
 async def get_live_crowd_stats(current_user: dict = Depends(get_current_user)):
@@ -269,13 +231,6 @@ async def get_my_requests(current_user: dict = Depends(get_current_user)):
 async def get_my_votes(current_user: dict = Depends(get_current_user)):
     conn = get_db_connection(); cursor = conn.cursor()
     cursor.execute('''SELECT v.*, t.title, t.artist FROM user_votes v JOIN tracks t ON v.track_id = t.id WHERE v.user_id = ? ORDER BY v.timestamp DESC''', (current_user["id"],))
-    rows = cursor.fetchall(); conn.close()
-    return [dict(row) for row in rows]
-
-@app.get("/api/me/history/likes")
-async def get_my_likes(current_user: dict = Depends(get_current_user)):
-    conn = get_db_connection(); cursor = conn.cursor()
-    cursor.execute('''SELECT f.*, t.title, t.artist FROM song_feedback f JOIN tracks t ON f.track_id = t.id WHERE f.user_id = ? AND f.is_like = 1 ORDER BY f.timestamp DESC''', (current_user["id"],))
     rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
 
@@ -303,7 +258,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 if row:
                     user_id = row["id"]; display_name = username; user_role = row["role"]
                     user_vibe_pref = row["vibe_preference"]
-        except Exception: pass
+        except: pass
 
     if user_id not in dj_state.user_stats:
         if user_id != "anonymous":
@@ -335,14 +290,12 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 if fits:
                     dj_state.user_stats[user_id]["points"] += 10
                     dj_state.upcoming_queue.append({"track": track, "votes": 1})
-
                     if user_id != "anonymous":
                         conn = get_db_connection(); cursor = conn.cursor()
                         cursor.execute("UPDATE users SET points = points + 10 WHERE id = ?", (user_id,))
                         cursor.execute("INSERT INTO user_requests (id, user_id, track_id, timestamp, vibe_score, status) VALUES (?, ?, ?, ?, ?, ?)",
                                        ("req_" + str(uuid.uuid4()), user_id, track_id, time.time(), vibe_score, "ACCEPTED"))
                         conn.commit(); conn.close()
-
                     await websocket.send_json({"type": "REQUEST_ACCEPTED", "message": reason, "track": track, "user_stats": dj_state.user_stats[user_id]})
                     await manager.broadcast_queue_update()
                 else:
@@ -352,6 +305,12 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                                        ("req_" + str(uuid.uuid4()), user_id, track_id, time.time(), vibe_score, "DENIED"))
                         conn.commit(); conn.close()
                     await websocket.send_json({"type": "REQUEST_DENIED", "message": reason})
+
+            elif action == "VOTE_TRANSITION":
+                style = message.get("style")
+                if style in dj_state.transition_votes:
+                    dj_state.transition_votes[style] += 1
+                    await manager.broadcast_queue_update()
 
             elif action == "VOTE_TRACK":
                 tid = message.get("track_id")
@@ -371,67 +330,14 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                     dj_state.upcoming_queue.sort(key=lambda x: x["votes"], reverse=True)
                     await manager.broadcast_queue_update()
 
-            elif action == "USER_ACTIVITY":
-                activity = {
-                    "timestamp": time.time(),
-                    "intensity": float(message.get("intensity", 0.1)),
-                    "x": float(message.get("x", 0.5)),
-                    "y": float(message.get("y", 0.5))
-                }
-                dj_state.recent_activities.append(activity)
-                dj_state.recent_activities = [a for a in dj_state.recent_activities if time.time() - a["timestamp"] < 30]
-                dj_state.crowd_energy = min(1.0, sum(a["intensity"] for a in dj_state.recent_activities) / 10.0)
-                await manager.broadcast_queue_update()
-
             elif action == "ADMIN_SKIP" and user_role == "admin":
                 if dj_state.upcoming_queue: dj_state.current_track = dj_state.upcoming_queue.pop(0)["track"]
                 dj_state.start_time = time.time()
                 await manager.broadcast_queue_update()
                 for c in list(dj_state.active_connections):
                     try: await c.send_json({"type": "MASTER_CONTROL", "data": {"action": "SKIP_NOW"}})
-                    except Exception: pass
-
-            elif action == "VOTE_TRANSITION":
-                style = message.get("style")
-                if style in dj_state.transition_votes:
-                    dj_state.transition_votes[style] += 1
-                    await manager.broadcast_queue_update()
-
-            elif action == "ADMIN_SET_TREND" and user_role == "admin":
-                trend = message.get("trend")
-                if trend in ["rising", "stable", "falling"]:
-                    dj_state.energy_trend = trend
-                    await manager.broadcast_queue_update()
-
-            elif action == "ADMIN_SET_BPM" and user_role == "admin":
-                bpm = float(message.get("bpm", 145.0))
-                dj_state.target_bpm = bpm
-                await manager.broadcast_queue_update()
-                for c in list(dj_state.active_connections):
-                    try: await c.send_json({"type": "MASTER_CONTROL", "data": {"target_bpm": bpm}})
-                    except Exception: pass
-
-            elif action == "ADMIN_SET_GENRE" and user_role == "admin":
-                genre = message.get("genre")
-                logger.warning(f"[ADMIN] Requested genre shift to: {genre}")
-
-            elif action == "ADMIN_BROADCAST" and user_role == "admin":
-                payload = {
-                    "type": "NEW_EVENT",
-                    "data": {
-                        "title": message.get("title", "Broadcast"),
-                        "description": message.get("description", "")
-                    }
-                }
-                for client in list(dj_state.active_connections):
-                    try: await client.send_json(payload)
-                    except Exception: pass
-
-    except Exception: manager.disconnect(websocket)
-
-@app.post("/api/render-highlights")
-async def render_highlights(background_tasks: BackgroundTasks, track_ids: List[str]):
-    return {"status": "processing", "message": "High-fidelity highlight render initiated."}
+                    except: pass
+    except: manager.disconnect(websocket)
 
 @app.get("/api/events")
 async def get_events():
@@ -460,58 +366,6 @@ async def submit_feedback(feedback: FeedbackSubmit, current_user: dict = Depends
     conn.commit(); conn.close()
     return {"message": "Feedback submitted", "id": fb_id}
 
-@app.post("/api/feedback/transition")
-async def vote_transition(vote: TransitionVote, current_user: dict = Depends(get_current_user)):
-    # Record and persist transition feedback
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    fb_id = "trans_fb_" + str(uuid.uuid4())
-
-    # We infer the transition details from the current state
-    track_id_from = dj_state.current_track["id"]
-    track_id_to = dj_state.upcoming_queue[0]["track"]["id"] if dj_state.upcoming_queue else "NONE"
-
-    cursor.execute('''
-        INSERT INTO transition_feedback (id, user_id, track_id_from, track_id_to, archetype, is_upvote, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    ''', (fb_id, current_user["id"], track_id_from, track_id_to, "classic", vote.is_upvote, time.time()))
-    conn.commit()
-    conn.close()
-
-    # Ephemeral activity for real-time dashboard
-    activity = {
-        "user_id": current_user["id"],
-        "timestamp": time.time(),
-        "type": "TRANSITION_VOTE",
-        "is_upvote": vote.is_upvote
-    }
-    dj_state.recent_activities.append(activity)
-    return {"message": "Transition feedback recorded"}
-
-@app.post("/api/feedback/song")
-async def post_song_feedback(feedback: SongFeedback, current_user: dict = Depends(get_current_user)):
-    # Record and persist song feedback
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    fb_id = "song_fb_" + str(uuid.uuid4())
-
-    cursor.execute('''
-        INSERT INTO song_feedback (id, user_id, track_id, is_like, timestamp)
-        VALUES (?, ?, ?, ?, ?)
-    ''', (fb_id, current_user["id"], feedback.track_id, feedback.is_like, time.time()))
-    conn.commit()
-    conn.close()
-
-    # Activity for real-time tracking
-    activity = {
-        "user_id": current_user["id"],
-        "timestamp": time.time(),
-        "type": "SONG_LIKE" if feedback.is_like else "SONG_DISLIKE",
-        "track_id": feedback.track_id
-    }
-    dj_state.recent_activities.append(activity)
-    return {"message": "Song feedback recorded"}
-
 @app.get("/api/admin/feedback")
 async def get_all_feedback(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "admin":
@@ -521,125 +375,12 @@ async def get_all_feedback(current_user: dict = Depends(get_current_user)):
     rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
 
-@app.get("/api/admin/users")
-async def get_all_users(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    conn = get_db_connection(); cursor = conn.cursor()
-    cursor.execute("SELECT id, username, points, badges, streak, role, vibe_preference FROM users")
-    rows = cursor.fetchall(); conn.close()
-    return [dict(row) for row in rows]
-
-@app.get("/api/venues")
-async def get_venues():
-    conn = get_db_connection(); cursor = conn.cursor()
-    cursor.execute("SELECT * FROM venues")
-    rows = cursor.fetchall(); conn.close()
-    return [dict(row) for row in rows]
-
-@app.get("/api/venues/{venue_id}/state")
-async def get_venue_state(venue_id: str):
-    venue_states: Dict[str, TrackState] = {"CDC_MAIN": dj_state}
-    if venue_id not in venue_states:
-        raise HTTPException(status_code=404, detail="Venue not found")
-    state = venue_states[venue_id]
-    return {
-        "current_track": state.current_track,
-        "crowd_energy": state.crowd_energy,
-        "target_bpm": state.target_bpm,
-        "is_peak_mode": state.is_peak_mode
-    }
-
-@app.get("/api/admin/health")
-async def get_health(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    return {
-        "system": monitor.get_health_stats(),
-        "vibe_consistency": monitor.get_vibe_consistency(),
-        "active_clients": len(dj_state.active_connections)
-    }
-
-@app.get("/api/admin/analytics/vibe-report")
-async def get_vibe_report(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    return generate_vibe_performance_report()
-
-@app.get("/api/admin/analytics/engagement")
-async def get_engagement(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    return get_engagement_metrics(dj_state)
-
-@app.get("/api/admin/analytics/insights")
-async def get_insights(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    return get_feedback_insights()
-
 @app.post("/api/admin/ml/retrain")
-async def trigger_retrain(current_user: dict = Depends(get_current_user)):
+async def retrain_ml(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") != "admin":
         raise HTTPException(status_code=403, detail="Admin only")
-    success, message = train_model()
-    if not success:
-        raise HTTPException(status_code=400, detail=message)
-    # Refresh model in the neural conductor
-    neural_conductor._load_model()
-    return {"message": message}
-
-@app.get("/api/tracks/{track_id}/streaming")
-async def get_track_streaming_links(track_id: str):
-    track = TRACK_CATALOG.get(track_id)
-    if not track:
-        raise HTTPException(status_code=404, detail="Track not found")
-    return get_streaming_links(track["title"], track["artist"])
-
-# --- Club Management API ---
-
-@app.post("/api/clubs", response_model=Dict)
-async def api_create_club(club: ClubCreate, current_user: dict = Depends(get_current_user)):
-    club_id = create_club(club.name, club.description, current_user["id"])
-    return {"id": club_id, "message": "Club created successfully"}
-
-@app.get("/api/clubs", response_model=List[Dict])
-async def api_list_clubs(current_user: dict = Depends(get_current_user)):
-    return list_user_clubs(current_user["id"])
-
-@app.get("/api/clubs/{club_id}", response_model=ClubResponse)
-async def api_get_club(club_id: str, current_user: dict = Depends(get_current_user)):
-    club = get_club(club_id)
-    if not club:
-        raise HTTPException(status_code=404, detail="Club not found")
-    return club
-
-@app.post("/api/clubs/{club_id}/members", response_model=Dict)
-async def api_add_member(club_id: str, member: ClubMemberAdd, current_user: dict = Depends(get_current_user)):
-    if not is_club_admin(club_id, current_user["id"]):
-        raise HTTPException(status_code=403, detail="Only club admins can add members")
-
-    success, message = add_club_member(club_id, member.username, member.role)
-    if not success:
-        raise HTTPException(status_code=400, detail=message)
-    return {"message": message}
-
-@app.patch("/api/clubs/{club_id}/members/{user_id}", response_model=Dict)
-async def api_update_member(club_id: str, user_id: str, member: ClubMemberUpdate, current_user: dict = Depends(get_current_user)):
-    if not is_club_admin(club_id, current_user["id"]):
-        raise HTTPException(status_code=403, detail="Only club admins can update member roles")
-
-    success, message = update_club_member_role(club_id, user_id, member.role)
-    if not success:
-        raise HTTPException(status_code=400, detail=message)
-    return {"message": message}
-
-@app.delete("/api/clubs/{club_id}/members/{user_id}", response_model=Dict)
-async def api_remove_member(club_id: str, user_id: str, current_user: dict = Depends(get_current_user)):
-    if not is_club_admin(club_id, current_user["id"]):
-        raise HTTPException(status_code=403, detail="Only club admins can remove members")
-
-    success, message = remove_club_member(club_id, user_id)
-    if not success:
-        raise HTTPException(status_code=400, detail=message)
-    return {"message": message}
+    success = train_model()
+    if success:
+        return {"message": "ML Model retrained successfully."}
+    else:
+        raise HTTPException(status_code=500, detail="ML Training failed or insufficient data.")
