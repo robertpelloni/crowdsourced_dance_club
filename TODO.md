@@ -12,7 +12,10 @@
   - [ ] Finalize C++ SoundTouch integration for pitch-stable stretching.
   - [ ] Implement multi-band compression in the audio callback.
 
-## Completed (v2.2.0)
+## Completed (v2.3.0)
+- [x] Implement User profile bios and advanced account management.
+- [x] Expand qualitative feedback system (Song Likes/Transition Votes).
+- [x] Update Web Prototype with Profile Settings and feedback buttons.
 - [x] Random Forest ML model for transition prediction.
 - [x] Admin ML Management dashboard.
 - [x] User Vibe Impact metrics and professional analytics.

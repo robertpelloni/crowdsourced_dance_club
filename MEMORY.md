@@ -13,6 +13,8 @@
 ## Neural Conductor Observations
 - **Archetype Success:** "Crossfade" is a safe baseline, but "Filter Sweep" and "Bass Swap" have significantly higher "Vibe Up" rates during "Peak Mode".
 - **Genre Compatibility:** Transitioning from Psytrance to Ambient requires a 2-track "Progressive" buffer to avoid severe vibe clash.
+- **Identity Foundation:** User profiles now support textual bios, providing a richer identity layer for future community features (v2.3.0).
+- **Feedback Granularity:** Separating track likes from transition votes allows for more nuanced ML training, predicting track selection success independently of transition technical quality (v2.3.0).
 
 ## Integration Dependencies
 - **Submodules:** The `auto_dj_script` is essential for high-fidelity master renders. Ensure it is synced recursively.

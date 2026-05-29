@@ -14,6 +14,7 @@ class User(BaseModel):
     points: int = 0
     badges: List[str] = []
     role: str = "user"
+    bio: Optional[str] = None
     referral_code: Optional[str] = None
     vibe_preference: Optional[str] = "Psytrance"
 
@@ -31,6 +32,7 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     vibe_preference: Optional[str] = None
+    bio: Optional[str] = None
 
 class PasswordChange(BaseModel):
     current_password: str

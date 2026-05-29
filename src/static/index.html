@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>CDC AI Conductor Dashboard v2.2.0</title>
+    <title>CDC AI Conductor Dashboard v2.3.0</title>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0f0f; color: #00ff00; }
         .panel { border: 1px solid #00ff00; padding: 20px; margin: 10px; border-radius: 8px; }
@@ -12,11 +12,15 @@
     </style>
 </head>
 <body>
-    <h1>CDC AI Conductor Dashboard <small>v2.2.0</small></h1>
+    <h1>CDC AI Conductor Dashboard <small>v2.3.0</small></h1>
 
     <div class="panel">
         <h2>Live Status</h2>
         <div id="current-track">Loading...</div>
+        <div>
+            <button class="btn" onclick="submitSongFeedback(true)">👍 Like</button>
+            <button class="btn" onclick="submitSongFeedback(false)">👎 Dislike</button>
+        </div>
         <div id="energy-trend">Trend: Stable</div>
         <div id="peak-mode">Peak Mode: OFF</div>
     </div>
@@ -30,6 +34,23 @@
     <div class="panel">
         <h2>Vibe Insights</h2>
         <div id="archetype-performance">Archetype "HPF Sweep" success rate: 84%</div>
+        <div>
+            Rate last transition:
+            <button class="btn" onclick="submitTransitionFeedback(true)">🔥 Epic</button>
+            <button class="btn" onclick="submitTransitionFeedback(false)">💀 Clash</button>
+        </div>
+    </div>
+
+    <div class="panel" id="user-profile-panel">
+        <h2>My Profile</h2>
+        <div id="user-stats">Points: 0 | Badges: 0</div>
+        <textarea id="user-bio" placeholder="Tell us about your vibe..." style="width: 100%; background: #1a1a1a; color: #00ff00; border: 1px solid #00ff00; margin-top: 10px;"></textarea>
+        <button class="btn" style="margin-top: 5px;" onclick="updateProfile()">Update Bio</button>
+
+        <h3 style="margin-top: 20px;">Security</h3>
+        <input type="password" id="current-password" placeholder="Current Password" style="background: #1a1a1a; color: #00ff00; border: 1px solid #00ff00; margin-bottom: 5px;"><br>
+        <input type="password" id="new-password" placeholder="New Password" style="background: #1a1a1a; color: #00ff00; border: 1px solid #00ff00; margin-bottom: 5px;"><br>
+        <button class="btn" onclick="changePassword()">Change Password</button>
     </div>
 
     <script>
@@ -51,6 +72,48 @@
             const response = await fetch('/api/admin/ml/retrain', { method: 'POST' });
             const result = await response.json();
             document.getElementById('ml-status').innerText = `Status: ${result.message}`;
+        }
+
+        async function submitSongFeedback(isLike) {
+            const trackId = "track_001"; // Placeholder for demo
+            await fetch('/api/feedback/song', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ track_id: trackId, is_like: isLike })
+            });
+            alert("Feedback recorded!");
+        }
+
+        async function submitTransitionFeedback(isUpvote) {
+            await fetch('/api/feedback/transition', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ is_upvote: isUpvote })
+            });
+            alert("Transition feedback recorded!");
+        }
+
+        async function updateProfile() {
+            const bio = document.getElementById('user-bio').value;
+            const response = await fetch('/api/me', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ bio: bio })
+            });
+            const result = await response.json();
+            alert("Profile updated!");
+        }
+
+        async function changePassword() {
+            const currentPassword = document.getElementById('current-password').value;
+            const newPassword = document.getElementById('new-password').value;
+            const response = await fetch('/api/me/change-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
+            });
+            if (response.ok) alert("Password changed!");
+            else alert("Error changing password.");
         }
     </script>
 </body>

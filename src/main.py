@@ -22,7 +22,7 @@ from jose import JWTError, jwt
 
 from src.db.database import get_db_connection, load_track_catalog
 from src.db.vibe_logs import log_vibe_performance
-from src.api.schemas import Track, User, Token, UserCreate, EventCreate, FeedbackSubmit, UserUpdate
+from src.api.schemas import Track, User, Token, UserCreate, EventCreate, FeedbackSubmit, UserUpdate, SongFeedback, TransitionVote
 from src.api.utils import get_local_ip, verify_password, get_password_hash, create_access_token, get_current_user, SECRET_KEY, ALGORITHM, ACCESS_TOKEN_EXPIRE_MINUTES
 from src.core.conductor import TrackState, calculate_vibe_score, evaluate_track_fit, CONFIG, GENRE_COMPATIBILITY
 from src.core.recommender import NeuralConductor
@@ -197,6 +197,7 @@ async def read_users_me(current_user: dict = Depends(get_current_user)):
     return {
         "username": current_user["username"], "points": current_user["points"],
         "badges": json.loads(current_user["badges"]), "role": current_user.get("role", "user"),
+        "bio": current_user.get("bio"),
         "referral_code": current_user.get("referral_code"),
         "vibe_preference": current_user.get("vibe_preference", "Psytrance")
     }
@@ -206,12 +207,44 @@ async def update_user_me(data: UserUpdate, current_user: dict = Depends(get_curr
     conn = get_db_connection(); cursor = conn.cursor()
     if data.vibe_preference:
         cursor.execute("UPDATE users SET vibe_preference = ? WHERE id = ?", (data.vibe_preference, current_user["id"]))
+    if data.bio is not None:
+        cursor.execute("UPDATE users SET bio = ? WHERE id = ?", (data.bio, current_user["id"]))
     conn.commit(); conn.close()
+
+    # Reload user data to return correct state
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE id = ?", (current_user["id"],))
+    updated_user = dict(cursor.fetchone()); conn.close()
+
     return {
-        **current_user,
-        "vibe_preference": data.vibe_preference or current_user.get("vibe_preference"),
-        "badges": json.loads(current_user["badges"]) if isinstance(current_user["badges"], str) else current_user["badges"]
+        **updated_user,
+        "badges": json.loads(updated_user["badges"]) if isinstance(updated_user["badges"], str) else updated_user["badges"]
     }
+
+from src.api.schemas import PasswordChange
+
+@app.post("/api/me/change-password")
+async def change_password(data: PasswordChange, current_user: dict = Depends(get_current_user)):
+    if not verify_password(data.current_password, current_user["hashed_password"]):
+        raise HTTPException(status_code=400, detail="Incorrect current password")
+
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("UPDATE users SET hashed_password = ? WHERE id = ?", (get_password_hash(data.new_password), current_user["id"]))
+    conn.commit(); conn.close()
+    return {"message": "Password updated successfully"}
+
+@app.delete("/api/me")
+async def delete_account(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    # Delete associated data first to respect foreign keys if necessary
+    cursor.execute("DELETE FROM user_requests WHERE user_id = ?", (current_user["id"],))
+    cursor.execute("DELETE FROM user_votes WHERE user_id = ?", (current_user["id"],))
+    cursor.execute("DELETE FROM feedback WHERE user_id = ?", (current_user["id"],))
+    cursor.execute("DELETE FROM song_feedback WHERE user_id = ?", (current_user["id"],))
+    cursor.execute("DELETE FROM transition_feedback WHERE user_id = ?", (current_user["id"],))
+    cursor.execute("DELETE FROM users WHERE id = ?", (current_user["id"],))
+    conn.commit(); conn.close()
+    return {"message": "Account and associated data deleted"}
 
 @app.get("/api/live/crowd-stats")
 async def get_live_crowd_stats(current_user: dict = Depends(get_current_user)):
@@ -378,6 +411,25 @@ async def get_all_feedback(current_user: dict = Depends(get_current_user)):
     cursor.execute('''SELECT f.*, u.username FROM feedback f JOIN users u ON f.user_id = u.id ORDER BY f.timestamp DESC''')
     rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
+
+@app.post("/api/feedback/song")
+async def submit_song_feedback(feedback: SongFeedback, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("INSERT INTO song_feedback (id, user_id, track_id, is_like, timestamp) VALUES (?, ?, ?, ?, ?)",
+                   ("sfb_" + str(uuid.uuid4()), current_user["id"], feedback.track_id, feedback.is_like, time.time()))
+    conn.commit(); conn.close()
+    return {"message": "Song feedback recorded"}
+
+@app.post("/api/feedback/transition")
+async def submit_transition_feedback(feedback: TransitionVote, current_user: dict = Depends(get_current_user)):
+    # In a real scenario, we'd need to know which transition.
+    # For now, we'll assume it's the most recent transition occurred.
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("INSERT INTO transition_feedback (id, user_id, track_id_from, track_id_to, archetype, is_upvote, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                   ("tfb_" + str(uuid.uuid4()), current_user["id"], dj_state.genre_history[-2] if len(dj_state.genre_history) > 1 else "None",
+                    dj_state.current_track["id"], "auto", feedback.is_upvote, time.time()))
+    conn.commit(); conn.close()
+    return {"message": "Transition feedback recorded"}
 
 @app.get("/api/venues")
 async def get_venues():

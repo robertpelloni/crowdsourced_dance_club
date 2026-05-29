@@ -19,6 +19,7 @@
 - **Neural Conductor:** ML-driven vibe analysis and predictive queuing using Random Forest.
 - **ML Retraining:** On-demand retraining pipeline via Admin UI.
 - **Professional Analytics:** Deep insights into user "Vibe Impact" and track performance.
+- **Personalization & Identity:** Profile bios and advanced account management (v2.3.0).
 
 ## Milestone 5: Global Expansion (Upcoming)
 - **Hardware Integration:** Native support for professional DJ controllers and lighting (DMX).

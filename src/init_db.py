@@ -36,6 +36,7 @@ def init_db():
         badges TEXT DEFAULT '[]',
         streak INTEGER DEFAULT 0,
         role TEXT DEFAULT 'user',
+        bio TEXT,
         referral_code TEXT UNIQUE,
         referred_by_id TEXT,
         vibe_preference TEXT DEFAULT 'Psytrance',
