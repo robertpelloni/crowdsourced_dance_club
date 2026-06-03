@@ -1,4 +1,4 @@
-# Project Vision: Crowdsourced Dance Club
+# Vision
 
 ## Ultimate Goal
 To build a collaborative, algorithmic club-night engine where users dynamically steer the musical direction via a mobile application. CDC is not just a player; it's a "Cybernetic DJ" that understands energy, harmony, and crowd sentiment.

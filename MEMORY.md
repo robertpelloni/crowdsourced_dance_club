@@ -1,4 +1,4 @@
-# Project Memory
+# MEMORY.md - Internal Architectural Observations
 
 ## Architectural Observations
 - **Hybrid Vibe System:** The project successfully transitioned from a simple BPM/Energy check to a weighted "Vibe Score" that includes Harmonic Key and Genre compatibility.
