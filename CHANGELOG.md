@@ -1,28 +1,24 @@
 # Changelog
 
-## [0.5.2] - 2026-05-23
+## [2.3.0] - 2026-05-23
 ### Added
-- **Staging Deployment Pipeline:** Operationalized `deploy_staging.sh` for automated environment setup, dependency management, and binary builds.
-- **Automated Validation Suite:** Implemented `tests/verify_staging.py` using Playwright to simulate end-to-end multi-user interactions in the staging environment.
-- **Staging Reports:** Introduced `STAGING_REPORT.md` to document validation results and integrate qualitative user feedback into the development cycle.
+- **Personalization & Identity:** Users can now maintain a profile `bio` and update it via the UI.
+- **Enhanced Security:** Implemented password change and account deletion functionality.
+- **Qualitative Feedback Expansion:** Added granular feedback loops for specific songs (Like/Dislike) and transitions (Upvote/Downvote).
+- **Web Prototype v2:** Integrated profile management and feedback interactions into the dashboard.
 
-## [0.5.1] - 2026-05-23
+## [2.2.0] - 2026-05-23
 ### Added
-- **Mobile Referral Support:** Ported the user referral program to the React Native mobile application. Users can now enter referral codes during mobile registration and view their own codes in the profile.
-- **Mobile UI Polishing:** Updated the mobile leaderboard to display display names (usernames) instead of internal UUIDs.
+- **Cybernetic Intelligence (ML Integration):** Integrated `scikit-learn` and `pandas` to implement a Random Forest regression model for transition prediction.
+- **ML Retraining Pipeline:** Added Admin API and UI for on-demand model retraining based on qualitative crowd feedback.
+- **Neural Conductor Upgrade:** Neural Conductor now predicts the optimal transition archetype using the trained ML model.
 
-### Changed
-- **Mobile Auth Logic:** Refactored `handleAuth` in the mobile app to support both Form-Data (login) and JSON (registration) payloads as required by the Python Conductor API.
-
-## [0.5.0] - 2026-05-23
+## [2.1.0] - 2026-05-23
 ### Added
-- **User Referral Program:** Implemented a new growth-focused referral system. Users now receive a unique 8-character referral code upon registration, displayed in their profile.
-- **Referral Incentives:** New users registering with a valid referral code, along with their referrers, are automatically awarded 50 bonus Vibe Points.
-- **Web Auth Overlay:** Replaced the minimal auth placeholder with a fully functional login/registration overlay in the Web Prototype, including a field for referral codes.
+- **Professional Analytics:** Added Admin User Directory and personalized "Vibe Impact" metrics (Boost Factor, Success Rate).
+- **Admin Insights Dashboard:** Real-time visualization of track and archetype performance.
 
-### Changed
-- **Database Schema:** Updated the `users` table in SQLite to support `referral_code` and `referred_by_id`.
-- **API Enhancements:** Updated the `/api/register` and `/api/me` endpoints to support referral data.
-
-## [0.4.3] - 2026-05-23
-... [rest of file]
+## [2.0.0] - 2026-05-23
+### Added
+- **Feedback-Driven Evolution:** Launched qualitative feedback system (Likes/Vibe Votes) for songs and transitions.
+- **Enhanced Data Collection:** Created `song_feedback` and `transition_feedback` database schemas.

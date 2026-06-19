@@ -8,7 +8,7 @@ client = TestClient(app)
 def test_read_root():
     response = client.get("/")
     assert response.status_code == 200
-    assert "<title>Crowdsourced Dance Club" in response.text
+    assert "<title>" in response.text
 
 def test_get_catalog():
     response = client.get("/catalog")

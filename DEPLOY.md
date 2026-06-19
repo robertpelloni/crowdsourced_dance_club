@@ -1,9 +1,6 @@
 # Deployment Guide: Crowdsourced Dance Club (CDC)
 
-## Conductor Server (Python)
-### Prerequisites
-- Python 3.12+
-- pip
+This document outlines the procedures for deploying CDC to staging and production environments.
 
 ## Architecture Overview
 - **Brain (Python):** FastAPI orchestration, RBAC, and ML-ready vibe scoring.
@@ -61,38 +58,16 @@ make CXXFLAGS="-O3 -std=c++20 -DNDEBUG"
    - Scan the QR code from the server's `/sync-qr` endpoint to automatically configure the mobile client.
 2. **Build for Release:**
    ```bash
-   git clone --recursive <repo-url>
-   ```
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   pip install -r external/auto_dj_script/requirements.txt
-   ```
-3. Initialize the database:
-   ```bash
-   python src/init_db.py
-   ```
-4. Run the server:
-   ```bash
-   uvicorn src.main:app --host 0.0.0.0 --port 8000
+   cd mobile
+   npx expo prebuild
+   # Build for Android/iOS following standard Expo/React Native procedures.
    ```
 
-## Audio Engine (C++)
-### Prerequisites
-- g++ (C++11 support)
-- PortAudio
-- libwebsockets
-- libsndfile
-- SoundTouch
-- nlohmann-json-dev
+## 🔒 Security Hardening
+- **JWT:** Ensure `SECRET_KEY` is rotated periodically.
+- **RBAC:** Admin privileges are restricted to the `admin` role in the `users` table.
+- **WebSocket:** Use `wss://` (Secure WebSockets) in production by terminating SSL at the load balancer or reverse proxy level (e.g., Nginx).
 
-### Build & Run
-```bash
-cd engine
-make
-./cdc_engine
-```
-
-## Web Client Prototype
-Accessible at `http://localhost:8000` once the Conductor Server is running.
-- **Admin Mode:** Tap the "CDC" header 5 times to enable.
+## 📊 Monitoring
+- **Crowd Stats:** Monitor `/api/live/crowd-stats` for engagement metrics.
+- **Vibe Logs:** Analyze `vibe_performance_logs` table in `tracks.db` for ML model training data.
