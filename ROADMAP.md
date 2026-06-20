@@ -23,5 +23,5 @@
 
 ## Milestone 5: Global Expansion (Active)
 - **Hardware Integration:** Native support for professional DJ controllers and lighting (DMX). (DMX Support Completed in v2.4.0)
-- **Decentralized Network:** Multi-venue support and geographic service discovery.
+- **Decentralized Network:** Multi-venue support and geographic service discovery. (Multi-tenant schema & Haversine proximity added in v2.5.0)
 - **Mobile AR:** Immersive "Vibe Orb" visualization using Augmented Reality.

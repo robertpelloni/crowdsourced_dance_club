@@ -5,9 +5,9 @@
   - [x] Implement `LIGHTING_CONTROL_DMX` protocol.
   - [x] Integrate libftdi for USB-to-DMX hardware support.
   - [x] Map crowd energy peaks to DMX strobe sequences.
-- [ ] Milestone 6: Decentralized Networking
-  - [ ] Implement multi-tenant venue database schema.
-  - [ ] Add geographic service discovery for mobile clients.
+- [x] Milestone 6: Decentralized Networking
+  - [x] Implement multi-tenant venue database schema.
+  - [x] Add geographic service discovery for mobile clients.
 - [ ] Milestone 7: Professional Audio Refinement
   - [ ] Finalize C++ SoundTouch integration for pitch-stable stretching.
   - [ ] Implement multi-band compression in the audio callback.

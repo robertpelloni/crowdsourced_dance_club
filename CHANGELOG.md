@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.5.0] - 2026-06-19
+### Added
+- **Multi-Tenant State Management:** Restructured `venue_states` dictionary allowing for concurrent operations across physical locations.
+- **Geographic Service Discovery:** Venues table populated with latitude and longitude data.
+- **Geographic Proximity API:** `GET /api/venues` now supports `latitude`, `longitude`, and `radius_km` queries to rank nearby clubs using the Haversine formula.
+### Changed
+- **Database Scalability:** Upgraded the global SQLite connection `PRAGMA` to use `WAL` journaling mode with `timeout=20.0` ensuring high concurrency scaling.
+
 ## [2.4.0] - 2026-06-19
 ### Added
 - **Hardware Integration:** Integrated `libftdi` for USB-to-DMX hardware support in the C++ Audio Engine.

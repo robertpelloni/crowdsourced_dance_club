@@ -74,8 +74,10 @@ def get_local_ip():
         return 'localhost'
 
 def get_db_connection():
-    """Helper to create a connection to the SQLite database."""
-    conn = sqlite3.connect(DB_PATH)
+    """Helper to create a connection to the SQLite database with multi-venue scaling configurations."""
+    conn = sqlite3.connect(DB_PATH, timeout=20.0) # Prevent database is locked errors
+    conn.execute('PRAGMA journal_mode=WAL;')      # Write-Ahead Logging for concurrency
+    conn.execute('PRAGMA synchronous=NORMAL;')    # Faster writes
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -1186,16 +1188,50 @@ async def get_all_feedback(current_user: dict = Depends(get_current_user)):
     rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
 
+import math
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculates distance in km between two lat/lon coordinates."""
+    R = 6371.0
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+
+    dlon = lon2_rad - lon1_rad
+    dlat = lat2_rad - lat1_rad
+
+    a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
 @app.get("/api/venues")
-async def get_venues():
+async def get_venues(latitude: float = None, longitude: float = None, radius_km: float = 50.0):
     conn = get_db_connection(); cursor = conn.cursor()
     cursor.execute("SELECT * FROM venues")
     rows = cursor.fetchall(); conn.close()
-    return [dict(row) for row in rows]
+
+    venues = [dict(row) for row in rows]
+
+    if latitude is not None and longitude is not None:
+        filtered_venues = []
+        for venue in venues:
+            if venue.get('latitude') is not None and venue.get('longitude') is not None:
+                dist = haversine_distance(latitude, longitude, venue['latitude'], venue['longitude'])
+                if dist <= radius_km:
+                    venue['distance_km'] = round(dist, 2)
+                    filtered_venues.append(venue)
+        # Sort by distance
+        filtered_venues.sort(key=lambda x: x['distance_km'])
+        return filtered_venues
+
+    return venues
+
+# Global multi-tenant state manager
+venue_states: Dict[str, TrackState] = {"CDC_MAIN": dj_state, "CDC_BERLIN": TrackState()}
 
 @app.get("/api/venues/{venue_id}/state")
 async def get_venue_state(venue_id: str):
-    venue_states: Dict[str, TrackState] = {"CDC_MAIN": dj_state}
     if venue_id not in venue_states:
         raise HTTPException(status_code=404, detail="Venue not found")
     state = venue_states[venue_id]

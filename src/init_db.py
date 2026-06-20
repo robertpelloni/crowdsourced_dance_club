@@ -50,6 +50,8 @@ def init_db():
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         location TEXT,
+        latitude REAL,
+        longitude REAL,
         conductor_url TEXT,
         capacity INTEGER
     )
@@ -196,9 +198,11 @@ def init_db():
 
     cursor.executemany('INSERT INTO tracks VALUES (?, ?, ?, ?, ?, ?, ?, ?)', tracks)
 
-    # Seed default venue
-    cursor.execute("INSERT INTO venues (id, name, location, conductor_url, capacity) VALUES (?, ?, ?, ?, ?)",
-                   ("CDC_MAIN", "Virtual Arena", "Cloud Zone 1", "http://localhost:8000", 500))
+    # Seed default venues
+    cursor.execute("INSERT INTO venues (id, name, location, latitude, longitude, conductor_url, capacity) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                   ("CDC_MAIN", "Virtual Arena", "Cloud Zone 1", 40.7128, -74.0060, "http://localhost:8000", 500))
+    cursor.execute("INSERT INTO venues (id, name, location, latitude, longitude, conductor_url, capacity) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                   ("CDC_BERLIN", "Berghain Simulation", "Berlin, DE", 52.5110, 13.4350, "http://localhost:8001", 1500))
 
     # Seed an example event starting in 10 minutes
     example_event = ("event_001", "Neon Solstice", "Peak Psytrance Ritual", time.time() + 600, "CDC_MAIN")
