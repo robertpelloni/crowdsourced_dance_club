@@ -1,6 +1,16 @@
 # TODO List
 
-## Phase 2: Global Expansion (Active)
+## Phase 3: The Sentient Venue (Upcoming)
+- [ ] Milestone 8: Infinite Catalog
+  - [ ] Investigate Spotify/SoundCloud API terms of service for DJ playback.
+  - [ ] Implement on-the-fly audio analysis (BPM/Key) for external URLs.
+- [ ] Milestone 9: The Virtual MC
+  - [ ] Integrate local TTS engine or ElevenLabs API.
+  - [ ] Write logic to generate hype text based on crowd energy velocity.
+- [ ] Milestone 10: Stem-Level Mixing
+  - [ ] Evaluate `demucs` vs `spleeter` for background pre-processing.
+
+## Phase 2: Global Expansion (Complete)
 - [x] Milestone 5: Hardware Integration
   - [x] Implement `LIGHTING_CONTROL_DMX` protocol.
   - [x] Integrate libftdi for USB-to-DMX hardware support.

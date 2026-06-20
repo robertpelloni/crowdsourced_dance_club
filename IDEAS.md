@@ -1,16 +1,21 @@
-# Improvements & Expansion Ideas
+# IDEAS for Phase 3: The Sentient Venue
 
-## Conductor Server
-- **ML-Driven Vibe Analysis:** Use a small neural network to predict the "next best song" based on historical vote patterns and time of night.
-- **Collaborative Transitions:** Let users vote on the *type* of transition (e.g., "Bass Swap", "Echo Out", "Long Fade").
-- **Dynamic Master Compressor:** Adjust the server-side "target energy" to influence the audio engine's soft-clipper and gain stages.
+1. **AI Voice Announcer (The MC)**
+   - Use ElevenLabs or a local TTS engine to generate dynamic "hype" announcements before massive energy drops.
+   - Inject these audio clips into the C++ Engine's secondary buffer just before a `Bass Swap` transition.
 
-## Mobile Client
-- **Dynamic Haptic Rhythms:** Use `expo-haptics` to pulse the phone in time with the BPM, intensifying during peak modes.
-- **AR Visualizer:** Use the phone's camera to display an augmented "Vibe Orb" floating over the dancefloor.
-- **Venue Social Graph:** See "Vibe Affinity" with other users based on shared song requests.
+2. **Spotify / SoundCloud Catalog Integration**
+   - Move beyond local FLAC files and integrate with major streaming APIs to allow the audience to request *any* track.
+   - We would need to implement an on-the-fly BPM and Key detection algorithm (using Librosa or essentia) to score requested tracks in real-time.
 
-## Audio Engine
-- **Vibe-Responsive Reverb:** Increase reverb tail length as the room BPM rises to create a more "expansive" peak feel.
-- **GPU-Accelerated FFT:** Move spectral analysis to the GPU for even lower latency and higher resolution.
-- **Multi-Node Audio:** Support distributed audio output across multiple synced hardware engines for massive venues.
+3. **Immersive "Vibe Orb" Visualizer**
+   - Create an interactive React Three Fiber visualization representing the room's current energy, key, and genre archetype.
+   - The orb physically pulses in sync with the WebSockets `PLAYBACK_STATE` messages.
+
+4. **Biometric Feedback Loop**
+   - Integrate with Apple Watch / WearOS SDKs to pull anonymous aggregate heart rate data from the dancefloor.
+   - Use the average heart rate delta to automatically trigger "Peak Mode" instead of relying purely on voting velocity.
+
+5. **Stem Separation & Live Mashups**
+   - Integrate Demucs or Spleeter into the Python Conductor to pre-process upcoming tracks into stems (Vocals, Drums, Bass, Other).
+   - The C++ Engine can then crossfade specific stems (e.g., swapping the bassline from Track A with the bassline from Track B) for true live mashups.
