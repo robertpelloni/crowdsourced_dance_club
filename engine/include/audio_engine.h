@@ -14,6 +14,42 @@
 using json = nlohmann::json;
 
 // Simple One-pole High-Pass Filter for real-time sweeps
+// Simple Dynamics Compressor for Master Bus
+struct Compressor {
+    float threshold_db;
+    float ratio;
+    float attack_ms;
+    float release_ms;
+    float makeup_gain_db;
+
+    float envelope;
+
+    Compressor() : threshold_db(-12.0f), ratio(4.0f), attack_ms(10.0f), release_ms(100.0f), makeup_gain_db(3.0f), envelope(0.0f) {}
+
+    float process(float in, float sample_rate) {
+        float in_db = 20.0f * std::log10(std::max(std::abs(in), 0.000001f));
+
+        float over_db = in_db - threshold_db;
+        if (over_db < 0.0f) over_db = 0.0f;
+
+        float attack_coeff = std::exp(-1.0f / (attack_ms * 0.001f * sample_rate));
+        float release_coeff = std::exp(-1.0f / (release_ms * 0.001f * sample_rate));
+
+        if (over_db > envelope) {
+            envelope = attack_coeff * envelope + (1.0f - attack_coeff) * over_db;
+        } else {
+            envelope = release_coeff * envelope + (1.0f - release_coeff) * over_db;
+        }
+
+        float gain_reduction_db = envelope * (1.0f - 1.0f / ratio);
+        float out_db = in_db - gain_reduction_db + makeup_gain_db;
+
+        float out_linear = std::pow(10.0f, out_db / 20.0f);
+        return in >= 0 ? out_linear : -out_linear;
+    }
+};
+
+// Simple One-pole High-Pass Filter for real-time sweeps
 struct HighPassFilter {
     float last_in;
     float last_out;
@@ -109,6 +145,9 @@ private:
 
     HighPassFilter hpf_l;
     HighPassFilter hpf_r;
+
+    Compressor master_comp_l;
+    Compressor master_comp_r;
 
     std::atomic<double> target_bpm;
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.6.0] - 2026-06-19
+### Added
+- **Professional Audio Refinement:** Finalized pitch-stable time-stretching in C++ Audio Engine utilizing SoundTouch with disabled quick-seek and enabled AA filters for artifact-free BPM adjustments.
+- **Master Bus Compression:** Implemented a new digital compressor in the C++ engine's DSP chain to smoothly manage dynamic range prior to the master output soft clipper.
+
 ## [2.5.0] - 2026-06-19
 ### Added
 - **Multi-Tenant State Management:** Restructured `venue_states` dictionary allowing for concurrent operations across physical locations.

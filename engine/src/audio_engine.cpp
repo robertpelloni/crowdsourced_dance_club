@@ -84,12 +84,22 @@ bool AudioEngine::load_audio_file(const std::string& path, AudioBuffer& buffer) 
 }
 
 void AudioEngine::update_tempo() {
+    // SoundTouch setTempo changes tempo without affecting pitch.
+    // However, for high-fidelity DJing, a small amount of pitch drift is expected
+    // when BPM changes, but we want to constrain it using a combination of pitch and rate.
+    // For this refinement, we configure SoundTouch to explicitly preserve pitch
+    // using setTempo, and disable the quickseek algorithm for better quality.
+
     if (current_buffer.loaded) {
         double tempo = target_bpm / current_buffer.native_bpm;
+        st_current.setSetting(SETTING_USE_QUICKSEEK, 0); // High quality
+        st_current.setSetting(SETTING_USE_AA_FILTER, 1);
         st_current.setTempo(tempo);
     }
     if (next_buffer.loaded) {
         double tempo = target_bpm / next_buffer.native_bpm;
+        st_next.setSetting(SETTING_USE_QUICKSEEK, 0); // High quality
+        st_next.setSetting(SETTING_USE_AA_FILTER, 1);
         st_next.setTempo(tempo);
     }
 }
@@ -233,7 +243,11 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
             }
         }
 
-        // 4. Peak Limiting (Simple Soft Clipper)
+        // 4. Master Bus Compression
+        left = self->master_comp_l.process(left, 44100.0f);
+        right = self->master_comp_r.process(right, 44100.0f);
+
+        // 5. Peak Limiting (Simple Soft Clipper)
         auto soft_clip = [](float x) {
             if (x > 1.0f) return 1.0f;
             if (x < -1.0f) return -1.0f;
