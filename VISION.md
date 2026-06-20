@@ -8,7 +8,7 @@ To create the world's first truly collaborative, AI-driven club experience. Crow
 - C++ Audio Engine with low-latency DSP.
 - ML-driven transition prediction (v2.2.0).
 
-## Phase 2: Global Expansion (Upcoming)
+## Phase 2: Global Expansion (Active)
 - **Decentralized Venues:** Scalable architecture for simultaneous events across different geographical locations.
-- **Hardware Ecosystem:** Native support for professional lighting (DMX) and high-fidelity audio hardware.
+- **Hardware Ecosystem:** Native support for professional lighting (DMX) and high-fidelity audio hardware. (DMX support integrated v2.4.0).
 - **Unified Vibe Identity:** Global leaderboards and persistent musical identities for users.

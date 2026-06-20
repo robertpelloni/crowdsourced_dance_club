@@ -1,0 +1,39 @@
+--- engine/src/audio_engine.cpp
++++ engine/src/audio_engine.cpp
+@@ -38,6 +39,10 @@
+     hpf_r.set_cutoff(20.0f, 44100.0f);
+
+     last_state_time_ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
++
++    if (!dmx.initialize()) {
++        printf("[WARNING] DMX Hardware failed to initialize.\n");
++    }
+
+     return true;
+ }
+@@ -49,6 +54,7 @@
+         printf("PortAudio Stop Error: %s\n", Pa_GetErrorText(err));
+     }
+     Pa_Terminate();
++    dmx.stop();
+ }
+
+ void AudioEngine::start() {
+@@ -189,7 +195,7 @@
+     int intensity = data.value("intensity", 0);
+     int duration_ms = data.value("duration_ms", 0);
+
+-    // TODO: Forward to libftdi DMX controller
+     printf("[LIGHTING] Sequence: %s, Intensity: %d, Duration: %d ms\n", sequence.c_str(), intensity, duration_ms);
++    dmx.trigger_sequence(sequence, intensity, duration_ms);
+ }
+--- engine/Makefile
++++ engine/Makefile
+@@ -2,6 +2,6 @@
+ CXX = g++
+ CXXFLAGS = -std=c++11 -Iinclude -I/usr/include/nlohmann
+-LDFLAGS = -lportaudio -lwebsockets -lsndfile -lSoundTouch -lm
++LDFLAGS = -lportaudio -lwebsockets -lsndfile -lSoundTouch -lm -lftdi1
+
+ SRC_DIR = src
+ OBJ_DIR = obj

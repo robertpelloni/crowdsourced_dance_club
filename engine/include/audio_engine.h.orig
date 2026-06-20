@@ -9,7 +9,6 @@
 #include <portaudio.h>
 #include <sndfile.h>
 #include <soundtouch/SoundTouch.h>
-#include "dmx_controller.h"
 
 using json = nlohmann::json;
 
@@ -113,8 +112,6 @@ private:
     std::atomic<double> target_bpm;
 
     uint64_t last_state_time_ms;
-
-    DmxController dmx;
 };
 
 #endif

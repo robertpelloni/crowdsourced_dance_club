@@ -4,7 +4,6 @@
 #include <cmath>
 #include <algorithm>
 #include <chrono>
-#include "dmx_controller.h"
 
 AudioEngine::AudioEngine() : stream(nullptr), running(false),
                              is_transitioning(false), transition_progress(0.0),
@@ -34,11 +33,6 @@ bool AudioEngine::initialize() {
 
     err = Pa_OpenDefaultStream(&stream, 0, 2, paFloat32, 44100, 256, audio_callback, this);
     if (err != paNoError) return false;
-
-    if (!dmx.initialize()) {
-        printf("[WARNING] DMX Hardware failed to initialize.\n");
-    }
-
     return true;
 }
 
@@ -58,7 +52,6 @@ void AudioEngine::stop() {
     }
     Pa_Terminate();
     running = false;
-    dmx.stop();
 }
 
 bool AudioEngine::load_audio_file(const std::string& path, AudioBuffer& buffer) {
@@ -265,6 +258,6 @@ void AudioEngine::handle_lighting_control(const json& data) {
     int intensity = data.value("intensity", 0);
     int duration_ms = data.value("duration_ms", 0);
 
+    // TODO: Forward to libftdi DMX controller
     printf("[LIGHTING] Sequence: %s, Intensity: %d, Duration: %d ms\n", sequence.c_str(), intensity, duration_ms);
-    dmx.trigger_sequence(sequence, intensity, duration_ms);
 }

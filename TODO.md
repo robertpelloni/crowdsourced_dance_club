@@ -1,10 +1,10 @@
 # TODO List
 
 ## Phase 2: Global Expansion (Active)
-- [ ] Milestone 5: Hardware Integration
-  - [ ] Implement `LIGHTING_CONTROL_DMX` protocol.
-  - [ ] Integrate libftdi for USB-to-DMX hardware support.
-  - [ ] Map crowd energy peaks to DMX strobe sequences.
+- [x] Milestone 5: Hardware Integration
+  - [x] Implement `LIGHTING_CONTROL_DMX` protocol.
+  - [x] Integrate libftdi for USB-to-DMX hardware support.
+  - [x] Map crowd energy peaks to DMX strobe sequences.
 - [ ] Milestone 6: Decentralized Networking
   - [ ] Implement multi-tenant venue database schema.
   - [ ] Add geographic service discovery for mobile clients.

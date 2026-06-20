@@ -399,6 +399,10 @@ async def playback_simulation_loop():
             dj_state.energy_trend = "rising"
             dj_state.target_bpm += 2.0
             print(f"[SYSTEM] ENERGY PEAK DETECTED! Velocity: {vote_velocity} votes/min. Ramping up.")
+            # Map crowd energy peak to DMX strobe sequence
+            for client in dj_state.active_connections:
+                 try: await client.send_json({"type": "LIGHTING_CONTROL_DMX", "data": {"sequence": "strobe_fast", "intensity": 255, "duration_ms": 15000}})
+                 except: pass
             await manager.broadcast_queue_update()
         elif vote_velocity < 2 and dj_state.is_peak_mode:
             dj_state.is_peak_mode = False

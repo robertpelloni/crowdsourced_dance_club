@@ -59,3 +59,17 @@ Immediate overrides from the Conductor/Admin.
 - The Audio Engine MUST maintain a high-priority audio thread.
 - WebSocket handling MUST be performed on a separate networking thread to avoid blocking the audio callback.
 - Jitter buffer management is required if streaming over a network rather than local Unix sockets.
+
+### 4. Lighting Control (Server -> Engine)
+Sent to coordinate DMX lighting with the audio playback, specifically reacting to crowd energy peaks.
+
+```json
+{
+  "type": "LIGHTING_CONTROL_DMX",
+  "data": {
+    "sequence": "strobe_fast",
+    "intensity": 255,
+    "duration_ms": 1000
+  }
+}
+```

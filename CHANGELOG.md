@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.4.0] - 2026-06-19
+### Added
+- **Hardware Integration:** Integrated `libftdi` for USB-to-DMX hardware support in the C++ Audio Engine.
+- **DMX Protocol:** Added `LIGHTING_CONTROL_DMX` protocol via WebSockets.
+- **Lighting Automation:** The Python Conductor now maps crowd energy peaks to DMX strobe sequences.
+
 ## [2.3.0] - 2026-05-23
 ### Added
 - **Personalization & Identity:** Users can now maintain a profile `bio` and update it via the UI.

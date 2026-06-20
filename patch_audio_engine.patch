@@ -1,0 +1,10 @@
+--- engine/src/audio_engine.cpp
++++ engine/src/audio_engine.cpp
+@@ -259,6 +259,5 @@
+     int intensity = data.value("intensity", 0);
+     int duration_ms = data.value("duration_ms", 0);
+
+-    // TODO: Forward to libftdi DMX controller
+     printf("[LIGHTING] Sequence: %s, Intensity: %d, Duration: %d ms\n", sequence.c_str(), intensity, duration_ms);
++    dmx.trigger_sequence(sequence, intensity, duration_ms);
+ }

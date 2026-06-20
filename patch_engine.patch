@@ -1,0 +1,21 @@
+--- engine/src/main.cpp
++++ engine/src/main.cpp
+@@ -36,6 +36,8 @@
+                     engine.handle_track_sync(data["data"]);
+                 } else if (data["type"] == "MASTER_CONTROL") {
+                     engine.handle_master_control(data["data"]);
++                } else if (data["type"] == "LIGHTING_CONTROL_DMX") {
++                    engine.handle_lighting_control(data["data"]);
+                 }
+             } catch (std::exception &e) {
+                 lwsl_err("JSON Parse Error: %s\n", e.what());
+--- engine/include/audio_engine.h
++++ engine/include/audio_engine.h
+@@ -74,6 +74,7 @@
+     // Protocol Handlers
+     void handle_track_sync(const json& data);
+     void handle_master_control(const json& data);
++    void handle_lighting_control(const json& data);
+     void send_playback_state(void* wsi);
+
+ private:

@@ -21,7 +21,7 @@
 - **Professional Analytics:** Deep insights into user "Vibe Impact" and track performance.
 - **Personalization & Identity:** Profile bios and advanced account management (v2.3.0).
 
-## Milestone 5: Global Expansion (Upcoming)
-- **Hardware Integration:** Native support for professional DJ controllers and lighting (DMX).
+## Milestone 5: Global Expansion (Active)
+- **Hardware Integration:** Native support for professional DJ controllers and lighting (DMX). (DMX Support Completed in v2.4.0)
 - **Decentralized Network:** Multi-venue support and geographic service discovery.
 - **Mobile AR:** Immersive "Vibe Orb" visualization using Augmented Reality.
