@@ -21,6 +21,7 @@ from src.api.schemas import UserUpdate, SongFeedback, TransitionVote, FeedbackSu
 from src.core.monitoring import SystemMonitor
 from src.api.analytics import generate_vibe_performance_report
 from src.api.streaming import get_streaming_links
+from src.core.spotify_integration import get_track_metadata
 
 monitor = SystemMonitor()
 from fastapi.responses import Response
@@ -885,9 +886,28 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
 
             elif action == "REQUEST_SONG":
                 track_id = message.get("track_id")
+
+                # Check external source (Spotify)
+                if track_id.startswith("spotify:track:") or "spotify.com/track/" in track_id:
+                    spotify_id = track_id.split("/")[-1].split("?")[0] if "spotify.com/track/" in track_id else track_id.split(":")[-1]
+                    meta = get_track_metadata(spotify_id)
+                    if meta:
+                        new_track_id = f"ext_{spotify_id}"
+                        TRACK_CATALOG[new_track_id] = {
+                            "id": new_track_id,
+                            "title": meta["title"],
+                            "artist": meta["artist"],
+                            "bpm": meta["bpm"],
+                            "key": meta["key"],
+                            "energy": meta["energy"],
+                            "genre": meta["genre"],
+                            "filepath": meta["preview_url"] if meta["preview_url"] else "mock_url"
+                        }
+                        track_id = new_track_id
+
                 track = TRACK_CATALOG.get(track_id)
                 if not track:
-                    await websocket.send_json({"type": "ERROR", "message": "Track not found."})
+                    await websocket.send_json({"type": "ERROR", "message": "Track not found or invalid external URL."})
                     continue
                 fits, reason = evaluate_track_fit(track, dj_state.current_track)
                 user_vibe_pref = dj_state.user_stats[user_id].get("vibe_preference", "Psytrance")

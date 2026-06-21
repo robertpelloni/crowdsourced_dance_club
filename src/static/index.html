@@ -17,6 +17,10 @@
     <div class="panel">
         <h2>Live Status</h2>
         <div id="current-track">Loading...</div>
+        <div style="margin-top: 15px;">
+            <input type="text" id="request-input" placeholder="Spotify URL or Track ID" style="background: #1a1a1a; color: #00ff00; border: 1px solid #00ff00; padding: 5px; width: 60%;">
+            <button class="btn" onclick="requestTrack()">Request Track</button>
+        </div>
         <div>
             <button class="btn" onclick="submitSongFeedback(true)">👍 Like</button>
             <button class="btn" onclick="submitSongFeedback(false)">👎 Dislike</button>
@@ -66,6 +70,17 @@
                 else document.getElementById('peak-mode').classList.remove('peak');
             }
         };
+
+        function requestTrack() {
+            const trackId = document.getElementById('request-input').value;
+            if (!trackId) return;
+            ws.send(JSON.stringify({
+                action: "REQUEST_SONG",
+                track_id: trackId
+            }));
+            document.getElementById('request-input').value = "";
+            alert("Request sent!");
+        }
 
         async function retrainModel() {
             document.getElementById('ml-status').innerText = "Status: TRAINING...";
