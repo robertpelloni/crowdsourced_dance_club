@@ -26,10 +26,10 @@
 - **Decentralized Network:** Multi-venue support and geographic service discovery. (Multi-tenant schema & Haversine proximity added in v2.5.0)
 - **Mobile AR:** Immersive "Vibe Orb" visualization using Augmented Reality.
 
-## Phase 3: The Sentient Venue (Ideation)
-- **Milestone 8: Infinite Catalog**
+## Phase 3: The Sentient Venue (Active)
+- **Milestone 8: Infinite Catalog (Complete)**
   - Integrate Spotify/SoundCloud APIs.
-  - On-the-fly BPM/Key analysis via Essentia.
+  - On-the-fly BPM/Key analysis via Librosa.
 - **Milestone 9: The Virtual MC**
   - Generative TTS (Text-to-Speech) for automated crowd hype.
 - **Milestone 10: Stem-Level Mixing**

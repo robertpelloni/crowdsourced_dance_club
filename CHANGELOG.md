@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.0.0] - 2026-06-19
+### Added
+- **Phase 3 Bootstrapped (The Sentient Venue):** Initialized the first major feature of the next phase.
+- **Infinite Catalog (Spotify):** Users can now input Spotify Track IDs or URLs directly into the Web UI.
+- **Dynamic Analysis:** Integrated `spotipy` and `librosa` to pull live metadata and calculate BPM/Key estimations on the fly for external URLs before pushing them to the Real-Time C++ Audio Engine.
+
 ## [2.6.0] - 2026-06-19
 ### Added
 - **Professional Audio Refinement:** Finalized pitch-stable time-stretching in C++ Audio Engine utilizing SoundTouch with disabled quick-seek and enabled AA filters for artifact-free BPM adjustments.
