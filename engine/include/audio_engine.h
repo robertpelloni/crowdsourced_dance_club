@@ -129,6 +129,7 @@ private:
 
     AudioBuffer current_buffer;
     AudioBuffer next_buffer;
+    AudioBuffer sample_buffer; // For one-shot samples like Virtual MC
     std::mutex buffer_mutex;
 
     soundtouch::SoundTouch st_current;

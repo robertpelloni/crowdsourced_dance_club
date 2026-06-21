@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.1.0] - 2026-06-19
+### Added
+- **The Virtual MC:** Integrated `gTTS` in the AI Conductor to generate dynamic audio announcements when voting energy spikes.
+- **Audio Engine Updates:** Modified the C++ real-time audio callback to support playing simultaneous one-shot audio samples (like TTS recordings) alongside the main deck buffers without stalling playback.
+
 ## [3.0.0] - 2026-06-19
 ### Added
 - **Phase 3 Bootstrapped (The Sentient Venue):** Initialized the first major feature of the next phase.

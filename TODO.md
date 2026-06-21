@@ -4,9 +4,9 @@
 - [x] Milestone 8: Infinite Catalog
   - [x] Investigate Spotify/SoundCloud API terms of service for DJ playback.
   - [x] Implement on-the-fly audio analysis (BPM/Key) for external URLs.
-- [ ] Milestone 9: The Virtual MC
-  - [ ] Integrate local TTS engine or ElevenLabs API.
-  - [ ] Write logic to generate hype text based on crowd energy velocity.
+- [x] Milestone 9: The Virtual MC
+  - [x] Integrate local TTS engine or ElevenLabs API.
+  - [x] Write logic to generate hype text based on crowd energy velocity.
 - [ ] Milestone 10: Stem-Level Mixing
   - [ ] Evaluate `demucs` vs `spleeter` for background pre-processing.
 
