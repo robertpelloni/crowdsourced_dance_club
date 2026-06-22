@@ -35,6 +35,14 @@
         <div id="ml-status">Status: READY</div>
     </div>
 
+    <div class="panel" id="admin-panel" style="display:none; border-color: #ff00ff;">
+        <h2 style="color: #ff00ff;">Shadow Pilot (Admin)</h2>
+        <div id="sp-status">Status: UNKNOWN</div>
+        <div id="sp-diff">Diff Count: 0</div>
+        <div id="sp-anomaly">Anomaly: None</div>
+        <button class="btn" style="margin-top: 10px; background: #ff00ff;" onclick="fetchShadowPilotStatus()">Refresh Status</button>
+    </div>
+
     <div class="panel">
         <h2>Vibe Insights</h2>
         <div id="archetype-performance">Archetype "HPF Sweep" success rate: 84%</div>
@@ -130,6 +138,26 @@
             if (response.ok) alert("Password changed!");
             else alert("Error changing password.");
         }
+
+        async function fetchShadowPilotStatus() {
+            try {
+                const response = await fetch('/api/admin/shadow-pilot/status', {
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                });
+                if (response.ok) {
+                    document.getElementById('admin-panel').style.display = 'block';
+                    const result = await response.json();
+                    document.getElementById('sp-status').innerText = `Status: ${result.status} (Active: ${result.is_active})`;
+                    document.getElementById('sp-diff').innerText = `Diff Count: ${result.diff_count}`;
+                    document.getElementById('sp-anomaly').innerText = `Anomaly: ${result.last_anomaly || 'None'}`;
+                }
+            } catch (e) {
+                console.error("Shadow pilot error", e);
+            }
+        }
+
+        // Check admin status on load
+        setTimeout(fetchShadowPilotStatus, 1000);
     </script>
 </body>
 </html>

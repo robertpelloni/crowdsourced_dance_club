@@ -24,6 +24,7 @@ from src.api.streaming import get_streaming_links
 from src.core.spotify_integration import get_track_metadata
 from src.core.virtual_mc import generate_hype_announcement, create_tts_audio
 from src.core.stem_separator import extract_stems
+from src.core.shadow_pilot import shadow_pilot_instance
 
 monitor = SystemMonitor()
 from fastapi.responses import Response
@@ -545,9 +546,11 @@ async def lifespan(app: FastAPI):
     """Lifecycle manager for the FastAPI application."""
     # Startup: Initialize background tasks
     loop_task = asyncio.create_task(playback_simulation_loop())
+    sp_task = asyncio.create_task(shadow_pilot_instance.run_loop())
     yield
     # Shutdown: Clean up tasks
     loop_task.cancel()
+    sp_task.cancel()
 
 app = FastAPI(title="Algorithmic DJ Conductor Server", lifespan=lifespan)
 
@@ -1293,6 +1296,17 @@ async def get_health(current_user: dict = Depends(get_current_user)):
         "system": monitor.get_health_stats(),
         "vibe_consistency": monitor.get_vibe_consistency(),
         "active_clients": len(dj_state.active_connections)
+    }
+
+@app.get("/api/admin/shadow-pilot/status")
+async def get_shadow_pilot_status(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return {
+        "status": shadow_pilot_instance.status_msg,
+        "is_active": shadow_pilot_instance.is_active,
+        "diff_count": shadow_pilot_instance.diff_count,
+        "last_anomaly": shadow_pilot_instance.last_anomaly
     }
 
 @app.get("/api/admin/analytics/vibe-report")
