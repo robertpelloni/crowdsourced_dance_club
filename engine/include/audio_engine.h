@@ -81,7 +81,10 @@ struct AudioBuffer {
     double native_bpm;
     bool loaded;
 
-    AudioBuffer() : frames(0), channels(0), samplerate(0), position(0), native_bpm(145.0), loaded(false) {}
+    std::vector<float> data_stems[4]; // 0: vocals, 1: drums, 2: bass, 3: other
+    bool stems_loaded;
+
+    AudioBuffer() : frames(0), channels(0), samplerate(0), position(0), native_bpm(145.0), loaded(false), stems_loaded(false) {}
 
     AudioBuffer& operator=(AudioBuffer&& other) noexcept {
         if (this != &other) {
@@ -93,7 +96,12 @@ struct AudioBuffer {
             track_id = std::move(other.track_id);
             native_bpm = other.native_bpm;
             loaded = other.loaded;
+            for (int i=0; i<4; ++i) {
+                data_stems[i] = std::move(other.data_stems[i]);
+            }
+            stems_loaded = other.stems_loaded;
             other.loaded = false;
+            other.stems_loaded = false;
         }
         return *this;
     }
@@ -143,6 +151,12 @@ private:
     std::atomic<bool> is_intensifying;
     std::atomic<double> intensify_progress;
     double intensify_duration_frames;
+
+    // Stem Mixing volumes (0.0 to 1.0)
+    std::atomic<float> vol_vocals;
+    std::atomic<float> vol_drums;
+    std::atomic<float> vol_bass;
+    std::atomic<float> vol_other;
 
     HighPassFilter hpf_l;
     HighPassFilter hpf_r;

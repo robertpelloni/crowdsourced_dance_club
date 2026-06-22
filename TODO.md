@@ -7,8 +7,8 @@
 - [x] Milestone 9: The Virtual MC
   - [x] Integrate local TTS engine or ElevenLabs API.
   - [x] Write logic to generate hype text based on crowd energy velocity.
-- [ ] Milestone 10: Stem-Level Mixing
-  - [ ] Evaluate `demucs` vs `spleeter` for background pre-processing.
+- [x] Milestone 10: Stem-Level Mixing
+  - [x] Evaluate `demucs` vs `spleeter` for background pre-processing.
 
 ## Phase 2: Global Expansion (Complete)
 - [x] Milestone 5: Hardware Integration

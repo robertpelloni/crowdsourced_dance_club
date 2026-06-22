@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.2.0] - 2026-06-19
+### Added
+- **Stem-Level Mixing:** Integrated `demucs` to automatically separate tracks into 4 stems (vocals, drums, bass, other) via asynchronous background processing.
+- **Algorithmic Mashups:** The C++ Audio Engine now supports dynamic stem volume balancing (e.g. dropping the bass stem from Track A during a `Bass Swap` transition) for live algorithmic mashups.
+
 ## [3.1.0] - 2026-06-19
 ### Added
 - **The Virtual MC:** Integrated `gTTS` in the AI Conductor to generate dynamic audio announcements when voting energy spikes.

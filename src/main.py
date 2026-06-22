@@ -23,6 +23,7 @@ from src.api.analytics import generate_vibe_performance_report
 from src.api.streaming import get_streaming_links
 from src.core.spotify_integration import get_track_metadata
 from src.core.virtual_mc import generate_hype_announcement, create_tts_audio
+from src.core.stem_separator import extract_stems
 
 monitor = SystemMonitor()
 from fastapi.responses import Response
@@ -442,12 +443,18 @@ async def playback_simulation_loop():
 
                 # Determine winning transition archetype
                 winner = max(dj_state.transition_votes, key=dj_state.transition_votes.get)
+                filepath = next_track.get("filepath", f"tracks/{next_track['id']}.flac")
+
+                # Perform stem separation for the upcoming track
+                # (Normally this would be kicked off earlier, but for demo we await here)
+                stems = await extract_stems(filepath)
 
                 sync_payload = {
                     "type": "TRACK_SYNC",
                     "data": {
                         "track_id": next_track["id"],
-                        "filepath": next_track.get("filepath", f"tracks/{next_track['id']}.flac"),
+                        "filepath": filepath,
+                        "stems": stems,
                         "bpm": next_track["bpm"],
                         "key": next_track["key"],
                         "energy": next_track["energy"],
@@ -456,6 +463,13 @@ async def playback_simulation_loop():
                         "archetype": winner
                     }
                 }
+
+                # If archetype is Bass Swap, send command to mute bass during transition
+                if winner == "bass_swap":
+                    for client in dj_state.active_connections:
+                        try: await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "MUTE_BASS", "enable": True}})
+                        except: pass
+
                 # Broadcast to all clients (including the future C++ Engine)
                 for client in dj_state.active_connections:
                     try:

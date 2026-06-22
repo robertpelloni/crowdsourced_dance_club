@@ -12,7 +12,8 @@ AudioEngine::AudioEngine() : stream(nullptr), running(false),
                              transition_timestamp(0.0),
                              is_intensifying(false), intensify_progress(0.0),
                              intensify_duration_frames(44100.0 * 10.0),
-                             target_bpm(145.0), last_state_time_ms(0) {
+                             target_bpm(145.0), last_state_time_ms(0),
+                             vol_vocals(1.0f), vol_drums(1.0f), vol_bass(1.0f), vol_other(1.0f) {
 
     st_current.setSampleRate(44100);
     st_current.setChannels(2);
@@ -105,19 +106,35 @@ void AudioEngine::update_tempo() {
 }
 
 void AudioEngine::handle_track_sync(const json& data) {
-    std::string path = data["filepath"];
     std::string id = data["track_id"];
     double bpm = data["bpm"];
     double timestamp = data["transition_timestamp"];
 
     std::lock_guard<std::mutex> lock(buffer_mutex);
-    if (load_audio_file(path, next_buffer)) {
-        next_buffer.track_id = id;
-        next_buffer.native_bpm = bpm;
-        transition_timestamp = timestamp;
-        update_tempo();
-        st_next.clear();
+
+    // Check if stem paths are provided instead of a single file
+    if (data.contains("stems")) {
+        AudioBuffer temp_buf;
+        if (load_audio_file(data["stems"]["vocals"], temp_buf)) next_buffer.data_stems[0] = std::move(temp_buf.data);
+        if (load_audio_file(data["stems"]["drums"], temp_buf)) next_buffer.data_stems[1] = std::move(temp_buf.data);
+        if (load_audio_file(data["stems"]["bass"], temp_buf)) next_buffer.data_stems[2] = std::move(temp_buf.data);
+        if (load_audio_file(data["stems"]["other"], temp_buf)) next_buffer.data_stems[3] = std::move(temp_buf.data);
+
+        next_buffer.frames = temp_buf.frames;
+        next_buffer.channels = temp_buf.channels;
+        next_buffer.samplerate = temp_buf.samplerate;
+        next_buffer.stems_loaded = true;
+        next_buffer.loaded = true;
+    } else {
+        std::string path = data.value("filepath", "");
+        if (!load_audio_file(path, next_buffer)) return;
     }
+
+    next_buffer.track_id = id;
+    next_buffer.native_bpm = bpm;
+    transition_timestamp = timestamp;
+    update_tempo();
+    st_next.clear();
 }
 
 void AudioEngine::handle_master_control(const json& data) {
@@ -146,6 +163,10 @@ void AudioEngine::handle_master_control(const json& data) {
         if (load_audio_file(filepath, sample_buffer)) {
             std::cout << "[AUDIO] >>> PLAYING MC SAMPLE: " << filepath << " <<<" << std::endl;
         }
+    }
+    if (data.contains("action") && data["action"] == "MUTE_BASS") {
+        vol_bass = data.value("enable", true) ? 0.0f : 1.0f;
+        std::cout << "[AUDIO] >>> BASS MUTE: " << (vol_bass == 0.0f ? "ON" : "OFF") << " <<<" << std::endl;
     }
 }
 
@@ -209,7 +230,34 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
     if (self->is_transitioning && self->next_buffer.loaded && self->next_buffer.position < self->next_buffer.frames) {
         if (self->st_next.numSamples() < framesPerBuffer) {
             int samples_to_feed = std::min((int)(self->next_buffer.frames - self->next_buffer.position), 512);
-            self->st_next.putSamples(&self->next_buffer.data[self->next_buffer.position * 2], samples_to_feed);
+
+            // If stems are loaded, we mix them into a temporary buffer before sending to SoundTouch
+            if (self->next_buffer.stems_loaded) {
+                float temp_mix[1024];
+                for (int s = 0; s < samples_to_feed * 2; s += 2) {
+                    float frame_l = 0, frame_r = 0;
+                    int p = self->next_buffer.position * 2 + s;
+
+                    frame_l += self->next_buffer.data_stems[0][p] * self->vol_vocals;
+                    frame_r += self->next_buffer.data_stems[0][p + 1] * self->vol_vocals;
+
+                    frame_l += self->next_buffer.data_stems[1][p] * self->vol_drums;
+                    frame_r += self->next_buffer.data_stems[1][p + 1] * self->vol_drums;
+
+                    frame_l += self->next_buffer.data_stems[2][p] * self->vol_bass;
+                    frame_r += self->next_buffer.data_stems[2][p + 1] * self->vol_bass;
+
+                    frame_l += self->next_buffer.data_stems[3][p] * self->vol_other;
+                    frame_r += self->next_buffer.data_stems[3][p + 1] * self->vol_other;
+
+                    temp_mix[s] = frame_l;
+                    temp_mix[s+1] = frame_r;
+                }
+                self->st_next.putSamples(temp_mix, samples_to_feed);
+            } else {
+                self->st_next.putSamples(&self->next_buffer.data[self->next_buffer.position * 2], samples_to_feed);
+            }
+
             self->next_buffer.position += samples_to_feed;
         }
         samples_received_next = self->st_next.receiveSamples(stretched_next, framesPerBuffer);
