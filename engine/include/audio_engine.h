@@ -123,6 +123,8 @@ public:
     void send_playback_state(void* wsi);
 
 private:
+    Compressor master_comp_l;
+    Compressor master_comp_r;
     static int audio_callback(const void *inputBuffer, void *outputBuffer,
                              unsigned long framesPerBuffer,
                              const PaStreamCallbackTimeInfo* timeInfo,
@@ -161,8 +163,7 @@ private:
     HighPassFilter hpf_l;
     HighPassFilter hpf_r;
 
-    Compressor master_comp_l;
-    Compressor master_comp_r;
+
 
     std::atomic<double> target_bpm;
 

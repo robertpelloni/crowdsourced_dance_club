@@ -294,6 +294,21 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
             }
         }
 
+        // Add one-shot sample (Virtual MC)
+        if (self->sample_buffer.loaded && self->sample_buffer.position < self->sample_buffer.frames) {
+            float sample_left = self->sample_buffer.data[self->sample_buffer.position * self->sample_buffer.channels];
+            float sample_right = self->sample_buffer.channels > 1
+                                 ? self->sample_buffer.data[self->sample_buffer.position * self->sample_buffer.channels + 1]
+                                 : sample_left; // Mono to stereo
+            left += sample_left * 0.8f; // Slightly attenuate sample
+            right += sample_right * 0.8f;
+            self->sample_buffer.position++;
+
+            if (self->sample_buffer.position >= self->sample_buffer.frames) {
+                self->sample_buffer.loaded = false; // Done playing
+            }
+        }
+
         // Apply HPF Sweep
         if (self->is_intensifying) {
             float phase = self->intensify_progress;

@@ -7,6 +7,7 @@ logger = logging.getLogger("ShadowPilot")
 class ShadowPilot:
     """
     A proactive background anomaly detector.
+    A proactive background anomaly detector.
     Monitors git diffs, submodule states, and attempts auto-remediation.
     """
     def __init__(self):
@@ -25,6 +26,7 @@ class ShadowPilot:
     def check_git_anomalies(self):
         """Checks for uncommitted changes or submodule detachments."""
         self.status_msg = "EVALUATING"
+
 
         diff_output = self._run_cmd("git diff --name-only")
         if diff_output:
@@ -63,5 +65,6 @@ class ShadowPilot:
             except Exception as e:
                 logger.error(f"[ShadowPilot] Loop Error: {e}")
             await asyncio.sleep(30) # Run every 30 seconds
+
 
 shadow_pilot_instance = ShadowPilot()
