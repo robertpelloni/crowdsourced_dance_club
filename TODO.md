@@ -1,33 +1,13 @@
 # TODO List
 
-## Phase 3: The Sentient Venue (Active)
-- [x] Milestone 8: Infinite Catalog
-  - [x] Investigate Spotify/SoundCloud API terms of service for DJ playback.
-  - [x] Implement on-the-fly audio analysis (BPM/Key) for external URLs.
-- [x] Milestone 9: The Virtual MC
-  - [x] Integrate local TTS engine or ElevenLabs API.
-  - [x] Write logic to generate hype text based on crowd energy velocity.
-- [x] Milestone 10: Stem-Level Mixing
-  - [x] Evaluate `demucs` vs `spleeter` for background pre-processing.
+## Immediate Tasks (Phase 4 Initialization)
+- [ ] Research and initialize a new microservice architecture in `src/telemetry/` for high-frequency biometric data ingestion.
+- [ ] Investigate `fastapi-websocket` optimizations or alternative pub/sub brokers (e.g., Redis or NATS) to handle extreme WebSocket load for telemetry data.
+- [ ] Define the GraphQL schema or REST endpoints required for the WearOS / Apple Watch companion apps.
+- [ ] Audit the `engine/` C++ DSP chain to extract feature arrays (RMS, transient peaks per stem) and expose them via UDP or websockets to feed into the future ComfyUI Generative Video node.
+- [ ] Set up a staging environment for the "Vibe Orb" WebXR visualization (explore Three.js / React Three Fiber integrations within the current frontend).
 
-## Phase 2: Global Expansion (Complete)
-- [x] Milestone 5: Hardware Integration
-  - [x] Implement `LIGHTING_CONTROL_DMX` protocol.
-  - [x] Integrate libftdi for USB-to-DMX hardware support.
-  - [x] Map crowd energy peaks to DMX strobe sequences.
-- [x] Milestone 6: Decentralized Networking
-  - [x] Implement multi-tenant venue database schema.
-  - [x] Add geographic service discovery for mobile clients.
-- [x] Milestone 7: Professional Audio Refinement
-  - [x] Finalize C++ SoundTouch integration for pitch-stable stretching.
-  - [x] Implement multi-band compression in the audio callback.
-
-## Completed (v2.3.0)
-- [x] Implement User profile bios and advanced account management.
-- [x] Expand qualitative feedback system (Song Likes/Transition Votes).
-- [x] Update Web Prototype with Profile Settings and feedback buttons.
-- [x] Random Forest ML model for transition prediction.
-- [x] Admin ML Management dashboard.
-- [x] User Vibe Impact metrics and professional analytics.
-- [x] 3-tier architecture verification (Mobile, Python, C++).
-- [x] Automated User Journey Simulation.
+## Backlog / Technical Debt
+- [ ] Evaluate porting the core `evaluate_track_fit` Random Forest logic to a faster, compiled language (like Rust) if multi-agent concurrent evaluation becomes a bottleneck.
+- [ ] Clean up redundant `spleeter` installation artifacts from early testing, ensuring only `demucs` dependencies are referenced in `requirements.txt`.
+- [ ] Expand the automated test suite to include load testing scripts (e.g., Locust) targeting the new multi-tenant `venue_states` dictionary under extreme concurrent voting conditions.
