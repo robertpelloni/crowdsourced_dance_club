@@ -25,6 +25,8 @@ from src.core.spotify_integration import get_track_metadata
 from src.core.virtual_mc import generate_hype_announcement, create_tts_audio
 from src.core.stem_separator import extract_stems
 from src.core.shadow_pilot import shadow_pilot_instance
+from src.telemetry.api import router as telemetry_router
+from src.telemetry.ingestion import get_venue_aggregator
 
 monitor = SystemMonitor()
 from fastapi.responses import Response
@@ -390,21 +392,27 @@ async def playback_simulation_loop():
         dj_state.vote_history = [t for t in dj_state.vote_history if now - t < 60]
         vote_velocity = len(dj_state.vote_history)
 
-        # 2. Trigger Energy Peak and DSP Intensify based on Derivative
+        # Biometric Sync Evaluation (Milestone 11)
+        biometrics = get_venue_aggregator(1) # Using default venue ID 1 for simulation
+
+        # 2. Trigger Energy Peak and DSP Intensify based on Derivative OR Biometric Spikes
         acceleration = vote_velocity - dj_state.last_velocity
         dj_state.last_velocity = vote_velocity
 
-        if acceleration > 2 and not dj_state.is_peak_mode:
+        trigger_peak = (vote_velocity >= 5) or biometrics.is_spiking
+        trigger_intensify = (acceleration > 2) or (biometrics.current_average_bpm > biometrics.baseline_bpm * 1.15)
+
+        if trigger_intensify and not dj_state.is_peak_mode:
              # Sudden surge detected
              for client in dj_state.active_connections:
                  try: await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "DSP_INTENSIFY", "duration": 10.0}})
                  except: pass
 
-        if vote_velocity >= 5 and not dj_state.is_peak_mode:
+        if trigger_peak and not dj_state.is_peak_mode:
             dj_state.is_peak_mode = True
             dj_state.energy_trend = "rising"
             dj_state.target_bpm += 2.0
-            print(f"[SYSTEM] ENERGY PEAK DETECTED! Velocity: {vote_velocity} votes/min. Ramping up.")
+            print(f"[SYSTEM] ENERGY PEAK DETECTED! Velocity: {vote_velocity} votes/min, HR Spike: {biometrics.is_spiking}. Ramping up.")
 
             # Generate MC Hype Audio
             hype_text = generate_hype_announcement(vote_velocity, "rising", "Peak")
@@ -418,10 +426,10 @@ async def playback_simulation_loop():
                          await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "PLAY_SAMPLE", "filepath": tts_filepath}})
                  except: pass
             await manager.broadcast_queue_update()
-        elif vote_velocity < 2 and dj_state.is_peak_mode:
+        elif not trigger_peak and dj_state.is_peak_mode:
             dj_state.is_peak_mode = False
             dj_state.energy_trend = "stable"
-            print(f"[SYSTEM] Peak energy subsiding. Velocity: {vote_velocity} votes/min.")
+            print(f"[SYSTEM] Peak energy subsiding. Velocity: {vote_velocity} votes/min, HR Spiking: {biometrics.is_spiking}.")
             await manager.broadcast_queue_update()
 
         # 3. Smooth BPM Ramping Logic
@@ -553,6 +561,7 @@ async def lifespan(app: FastAPI):
     sp_task.cancel()
 
 app = FastAPI(title="Algorithmic DJ Conductor Server", lifespan=lifespan)
+app.include_router(telemetry_router)
 
 # Serve static files for the client prototype
 app.mount("/static", StaticFiles(directory="src/static"), name="static")
