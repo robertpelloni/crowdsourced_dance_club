@@ -13,7 +13,8 @@ AudioEngine::AudioEngine() : stream(nullptr), running(false),
                              is_intensifying(false), intensify_progress(0.0),
                              intensify_duration_frames(44100.0 * 10.0),
                              target_bpm(145.0), last_state_time_ms(0),
-                             vol_vocals(1.0f), vol_drums(1.0f), vol_bass(1.0f), vol_other(1.0f) {
+                             vol_vocals(1.0f), vol_drums(1.0f), vol_bass(1.0f), vol_other(1.0f),
+                             current_rms(0.0f), current_peak(0.0f) {
 
     st_current.setSampleRate(44100);
     st_current.setChannels(2);
@@ -186,7 +187,9 @@ void AudioEngine::send_playback_state(void* wsi_ptr) {
             {"current_track_id", current_buffer.track_id},
             {"playback_position_seconds", (double)current_buffer.position / 44100.0},
             {"current_bpm", (double)target_bpm},
-            {"is_transitioning", (bool)is_transitioning}
+            {"is_transitioning", (bool)is_transitioning},
+            {"audio_rms", (float)current_rms},
+            {"audio_peak", (float)current_peak}
         }}
     };
 
@@ -204,6 +207,9 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
                                void *userData) {
     AudioEngine* self = (AudioEngine*)userData;
     float *out = (float*)outputBuffer;
+
+    float sum_sq = 0.0f;
+    float local_peak = 0.0f;
 
     auto now_s = (double)std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count() / 1000000.0;
@@ -339,8 +345,19 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
             return x;
         };
 
-        *out++ = soft_clip(left);
-        *out++ = soft_clip(right);
+        float final_l = soft_clip(left);
+        float final_r = soft_clip(right);
+
+        *out++ = final_l;
+        *out++ = final_r;
+
+        // Feature Extraction
+        float abs_l = std::abs(final_l);
+        float abs_r = std::abs(final_r);
+        float max_val = std::max(abs_l, abs_r);
+
+        sum_sq += final_l * final_l + final_r * final_r;
+        if (max_val > local_peak) local_peak = max_val;
 
         if (self->is_transitioning) {
             self->transition_progress = self->transition_progress + (1.0 / self->transition_duration_frames);
@@ -355,6 +372,11 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
             }
         }
     }
+
+    // Calculate RMS and store features
+    float rms = std::sqrt(sum_sq / (framesPerBuffer * 2.0f));
+    self->current_rms.store(rms);
+    self->current_peak.store(local_peak);
 
     return paContinue;
 }

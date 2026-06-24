@@ -160,6 +160,10 @@ private:
     std::atomic<float> vol_bass;
     std::atomic<float> vol_other;
 
+    // Extracted Features
+    std::atomic<float> current_rms;
+    std::atomic<float> current_peak;
+
     HighPassFilter hpf_l;
     HighPassFilter hpf_r;
 
