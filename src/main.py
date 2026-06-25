@@ -27,7 +27,9 @@ from src.core.stem_separator import extract_stems
 from src.core.shadow_pilot import shadow_pilot_instance
 from src.telemetry.api import router as telemetry_router
 from src.telemetry.ingestion import get_venue_aggregator
+from src.core.recommender import NeuralConductor
 
+neural_conductor = NeuralConductor()
 monitor = SystemMonitor()
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
@@ -308,76 +310,52 @@ def is_harmonically_compatible(key1: str, key2: str) -> bool:
 def get_random_compatible_track(current_track: Dict) -> Optional[Dict]:
     """Finds a random compatible track from the catalog as a fallback."""
     compatible = []
+    current_vel = len([t for t in dj_state.vote_history if time.time() - t < 60])
     for track in TRACK_CATALOG.values():
         if track["id"] == current_track["id"]:
             continue
-        fits, _ = evaluate_track_fit(track, current_track)
+        fits, _ = evaluate_track_fit(track, current_track, voting_velocity=current_vel)
         if fits:
             compatible.append(track)
 
     import random
     return random.choice(compatible) if compatible else None
 
-def calculate_vibe_score(track: Dict, current_track: Dict, energy_trend: str = "stable", user_vibe_pref: Optional[str] = None) -> float:
+def calculate_vibe_score(track: Dict, current_track: Dict, energy_trend: str = "stable", user_vibe_pref: Optional[str] = None, voting_velocity: float = 0.0) -> float:
     """
     Calculates a compatibility score (0.0 to 1.0) between two tracks.
-    Considers BPM, Energy, Key, Energy Ramping, and Genre Compatibility.
+    Utilizes the ML-driven Neural Conductor to predict vibe based on transition metrics and crowd voting velocity.
     """
-    # BPM Score
-    bpm_delta = abs(track["bpm"] - current_track["bpm"])
-    bpm_score = max(0, 1 - (bpm_delta / CONFIG["MAX_BPM_DELTA"]))
+    base_score = neural_conductor.predict_vibe_score(current_track, track, voting_velocity)
 
-    # Energy Score
-    energy_delta = abs(track["energy"] - current_track["energy"])
-    energy_score = max(0, 1 - (energy_delta / CONFIG["MAX_ENERGY_DELTA"]))
+    # Still apply user preference bonuses
+    if user_vibe_pref and track.get("genre") == user_vibe_pref:
+        base_score = min(1.0, base_score + 0.1)
 
-    # Energy Ramping Bonus/Penalty
-    ramping_score = 0.5
-    if dj_state.energy_trend == "rising":
-        if track["energy"] > current_track["energy"]: ramping_score = 1.0
-        elif track["energy"] < current_track["energy"]: ramping_score = 0.0
-    elif dj_state.energy_trend == "falling":
-        if track["energy"] < current_track["energy"]: ramping_score = 1.0
-        elif track["energy"] > current_track["energy"]: ramping_score = 0.0
+    return base_score
 
-    # Key Score
-    key_score = 1.0 if is_harmonically_compatible(track["key"], current_track["key"]) else 0.0
 
-    # Genre Score
-    genre1 = current_track.get("genre", "Psytrance")
-    genre2 = track.get("genre", "Psytrance")
-    genre_score = GENRE_COMPATIBILITY.get(genre1, {}).get(genre2, 0.5)
-
-    # Weighted Average
-    # 20% BPM, 20% Energy, 10% Ramping, 30% Key, 20% Genre
-    return (bpm_score * 0.20) + (energy_score * 0.20) + (ramping_score * 0.1) + (key_score * 0.3) + (genre_score * 0.2)
-
-def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool, str]:
+def evaluate_track_fit(requested_track: Dict, current_track: Dict, voting_velocity: float = 0.0) -> Tuple[bool, str]:
     """
     Algorithmic Vibe Check: Assesses if a requested song safely fits
-    the current energy matrix and tempo of the dancefloor.
+    the current energy matrix and tempo of the dancefloor using the ML Conductor.
     """
-    # Rule 1: Tempo Check
-    bpm_delta = abs(requested_track["bpm"] - current_track["bpm"])
-    if bpm_delta > CONFIG["MAX_BPM_DELTA"]:
-        return False, f"BPM clash too severe ({requested_track['bpm']} vs {current_track['bpm']}). Would cause audio warp distortion."
+    predicted_vibe = neural_conductor.predict_vibe_score(current_track, requested_track, voting_velocity)
 
-    # Rule 2: Energy Vibe Check
-    energy_delta = abs(requested_track["energy"] - current_track["energy"])
-    if energy_delta > CONFIG["MAX_ENERGY_DELTA"]:
-         return False, f"Energy delta clash ({requested_track['energy']} vs {current_track['energy']}): Transition is too abrupt for the current vibe."
+    # If the ML model predicts a highly negative outcome, reject the track
+    if predicted_vibe < 0.4:
+        return False, f"ML Prediction too low ({predicted_vibe:.2f}). Track clashes with current crowd energy matrix."
+
+    # Fallback Hard Rule: Extreme Tempo Check to prevent audio engine distortion
+    bpm_delta = abs(requested_track.get("bpm", 120) - current_track.get("bpm", 120))
+    if bpm_delta > CONFIG["MAX_BPM_DELTA"]:
+        return False, f"BPM clash too severe ({requested_track.get('bpm', 120)} vs {current_track.get('bpm', 120)}). Would cause C++ audio warp distortion."
 
     # Rule 3: Harmonic Check
-    if not is_harmonically_compatible(requested_track["key"], current_track["key"]):
-        return False, f"Harmonic clash: {requested_track['key']} is not compatible with current track's {current_track['key']}."
+    if not is_harmonically_compatible(requested_track.get("key", "1A"), current_track.get("key", "1A")):
+        return False, f"Harmonic clash: {requested_track.get('key')} is not compatible with current track's {current_track.get('key')}."
 
-    # Rule 4: Genre Check
-    genre1 = current_track.get("genre", "Psytrance")
-    genre2 = requested_track.get("genre", "Psytrance")
-    if GENRE_COMPATIBILITY.get(genre1, {}).get(genre2, 0.5) < 0.3:
-        return False, f"Genre clash: {genre2} is not compatible with current vibe ({genre1})."
-
-    return True, "Track perfectly fits the current vibe parameters."
+    return True, f"Track approved by Neural Conductor (Score: {predicted_vibe:.2f})."
 
 async def playback_simulation_loop():
     """
@@ -914,7 +892,8 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 track_id = message.get("track_id")
                 track = TRACK_CATALOG.get(track_id)
                 if track:
-                    score = calculate_vibe_score(track, dj_state.current_track)
+                    current_vel = len([t for t in dj_state.vote_history if time.time() - t < 60])
+                    score = calculate_vibe_score(track, dj_state.current_track, voting_velocity=current_vel)
                     await websocket.send_json({"type": "VIBE_SCORE", "track_id": track_id, "score": score})
                 else:
                     await websocket.send_json({"type": "ERROR", "message": "Track not found."})
@@ -944,9 +923,11 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 if not track:
                     await websocket.send_json({"type": "ERROR", "message": "Track not found or invalid external URL."})
                     continue
-                fits, reason = evaluate_track_fit(track, dj_state.current_track)
+
+                current_vel = len([t for t in dj_state.vote_history if time.time() - t < 60])
+                fits, reason = evaluate_track_fit(track, dj_state.current_track, voting_velocity=current_vel)
                 user_vibe_pref = dj_state.user_stats[user_id].get("vibe_preference", "Psytrance")
-                vibe_score = calculate_vibe_score(track, dj_state.current_track, dj_state.energy_trend, user_vibe_pref)
+                vibe_score = calculate_vibe_score(track, dj_state.current_track, dj_state.energy_trend, user_vibe_pref, voting_velocity=current_vel)
 
                 if fits:
                     # Append to queue and notify the entire room via real-time broadcast
@@ -1022,7 +1003,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                             INSERT INTO user_requests (id, user_id, track_id, timestamp, vibe_score, status)
                             VALUES (?, ?, ?, ?, ?, ?)
                         ''', ("req_" + str(uuid.uuid4()), user_id if user_id != "anonymous" else None,
-                              track_id, time.time(), calculate_vibe_score(track, dj_state.current_track), "DENIED"))
+                              track_id, time.time(), calculate_vibe_score(track, dj_state.current_track, voting_velocity=len([t for t in dj_state.vote_history if time.time() - t < 60])), "DENIED"))
                         conn.commit()
                         conn.close()
                     except Exception as e:
@@ -1064,8 +1045,9 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                         print(f"[ERROR] Failed to persist vote: {e}")
 
                     # Reorder queue based on weighted score of votes and vibe compatibility
+                    current_vel = len([t for t in dj_state.vote_history if time.time() - t < 60])
                     for item in dj_state.upcoming_queue:
-                        vibe = calculate_vibe_score(item["track"], dj_state.current_track)
+                        vibe = calculate_vibe_score(item["track"], dj_state.current_track, voting_velocity=current_vel)
                         # Normalize votes: 1 vote = 0.1, 10 votes = 1.0 (capped)
                         vote_score = min(1.0, item["votes"] * 0.1)
                         # Use CONFIG weight
