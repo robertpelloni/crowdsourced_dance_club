@@ -28,6 +28,7 @@ from src.core.shadow_pilot import shadow_pilot_instance
 from src.telemetry.api import router as telemetry_router
 from src.telemetry.ingestion import get_venue_aggregator
 from src.core.recommender import NeuralConductor
+from src.core.generative_visuals import comfy_bridge
 
 neural_conductor = NeuralConductor()
 monitor = SystemMonitor()
@@ -395,6 +396,9 @@ async def playback_simulation_loop():
             # Generate MC Hype Audio
             hype_text = generate_hype_announcement(vote_velocity, "rising", "Peak")
             tts_filepath = create_tts_audio(hype_text)
+
+            # Trigger Generative Video Synthesis framework for Peak Mode (Milestone 12)
+            asyncio.create_task(comfy_bridge.trigger_visual_synthesis(dj_state.energy_trend, dj_state.current_track.get("genre", "Psytrance"), rms=1.0))
 
             # Map crowd energy peak to DMX strobe sequence and trigger audio
             for client in dj_state.active_connections:
