@@ -1,5 +1,14 @@
 # Changelog
 
+## [v3.4.0] - Neural Conductor & Generative Immersion
+- **Milestone 4 (Scaling & Expansion):** Fully activated the ML-driven `NeuralConductor` (using `scikit-learn` RandomForestRegressor). The Conductor now predicts transition `vibe_score` dynamically based on historical DB tracking logs instead of static heuristics.
+- **Milestone 11 (Biometric Sync):** Initialized `src/telemetry/` microservice. Added `BiometricAggregator` to process high-frequency WearOS/Apple Watch HR data, actively modifying Peak Mode logic.
+- **Milestone 12 (Generative Immersion):**
+  - Extracted real-time `audio_rms` and `audio_peak` within the C++ `AudioEngine` `audio_callback`.
+  - Built `src/static/vibe_orb.html`, a Three.js WebXR visualization reactive to C++ feature extraction.
+  - Initialized `ComfyUIBridge` to dispatch dynamic text prompts based on audio properties for generative video synthesis.
+- Executed comprehensive Submodule Tracking and Intelligent Git Branch Merging protocols to resolve remote branch fragmentation.
+
 ## [v3.3.0] - Automated Repository Sync & Intelligent Merge
 - Synchronized with upstream parent repositories, recursively updating all submodules including `external/auto_dj_script` to track the latest head.
 - Intelligently resolved git branch conflicts combining `origin/main-12832833913319381157` changes representing autonomous auto-healing code for shadow pilots.
