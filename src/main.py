@@ -29,6 +29,7 @@ from src.telemetry.api import router as telemetry_router
 from src.telemetry.ingestion import get_venue_aggregator
 from src.core.recommender import NeuralConductor
 from src.core.generative_visuals import comfy_bridge
+from src.core.pubsub import pubsub_manager
 
 neural_conductor = NeuralConductor()
 monitor = SystemMonitor()
@@ -200,7 +201,11 @@ class ConnectionManager:
 
     async def broadcast_queue_update(self):
         payload = self.get_broadcast_payload()
-        # Create a copy of the list to avoid issues during iteration if a client disconnects
+        # Fast path using Redis Pub/Sub if available
+        if pubsub_manager.is_connected:
+            await pubsub_manager.publish("venue_1_queue", payload)
+
+        # Fallback to local memory iteration
         for connection in list(dj_state.active_connections):
             try:
                 await connection.send_json(payload)
@@ -535,10 +540,12 @@ async def playback_simulation_loop():
 async def lifespan(app: FastAPI):
     """Lifecycle manager for the FastAPI application."""
     # Startup: Initialize background tasks
+    await pubsub_manager.connect()
     loop_task = asyncio.create_task(playback_simulation_loop())
     sp_task = asyncio.create_task(shadow_pilot_instance.run_loop())
     yield
     # Shutdown: Clean up tasks
+    await pubsub_manager.disconnect()
     loop_task.cancel()
     sp_task.cancel()
 
