@@ -31,6 +31,7 @@ from src.core.recommender import NeuralConductor
 from src.core.generative_visuals import comfy_bridge
 from src.core.pubsub import pubsub_manager
 from src.api.governance import router as governance_router
+from src.core.agents import simulate_agent_battle
 
 neural_conductor = NeuralConductor()
 monitor = SystemMonitor()
@@ -334,6 +335,12 @@ def calculate_vibe_score(track: Dict, current_track: Dict, energy_trend: str = "
     Utilizes the ML-driven Neural Conductor to predict vibe based on transition metrics and crowd voting velocity.
     """
     base_score = neural_conductor.predict_vibe_score(current_track, track, voting_velocity)
+
+    # Expand Milestone 13: Simulate Multi-Agent DJ Battles
+    agent_scores = simulate_agent_battle(track, current_track, base_score)
+    # The crowd's final score is influenced slightly by the highest scoring secondary agent
+    max_agent_score = max(agent_scores.values()) if agent_scores else base_score
+    base_score = (base_score * 0.8) + (max_agent_score * 0.2)
 
     # Still apply user preference bonuses
     if user_vibe_pref and track.get("genre") == user_vibe_pref:
