@@ -30,6 +30,7 @@ from src.telemetry.ingestion import get_venue_aggregator
 from src.core.recommender import NeuralConductor
 from src.core.generative_visuals import comfy_bridge
 from src.core.pubsub import pubsub_manager
+from src.api.governance import router as governance_router
 
 neural_conductor = NeuralConductor()
 monitor = SystemMonitor()
@@ -551,6 +552,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Algorithmic DJ Conductor Server", lifespan=lifespan)
 app.include_router(telemetry_router)
+app.include_router(governance_router)
 
 # Serve static files for the client prototype
 app.mount("/static", StaticFiles(directory="src/static"), name="static")

@@ -172,6 +172,32 @@ def init_db():
     )
     ''')
 
+    # Create governance_proposals table for DAO macro-rules (v3.5.0)
+    cursor.execute('''
+    CREATE TABLE governance_proposals (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        rule_type TEXT NOT NULL,
+        rule_value TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at REAL NOT NULL
+    )
+    ''')
+
+    # Create governance_votes table for DAO macro-rules (v3.5.0)
+    cursor.execute('''
+    CREATE TABLE governance_votes (
+        proposal_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        vote_value INTEGER NOT NULL,
+        timestamp REAL NOT NULL,
+        PRIMARY KEY (proposal_id, user_id),
+        FOREIGN KEY (proposal_id) REFERENCES governance_proposals (id),
+        FOREIGN KEY (user_id) REFERENCES users (id)
+    )
+    ''')
+
     # Expanded catalog with diverse genres and energy levels
     tracks = [
         # Psytrance (Peak)
