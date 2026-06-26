@@ -19,3 +19,8 @@
 ## Integration Dependencies
 - **Submodules:** The `auto_dj_script` is essential for high-fidelity master renders. Ensure it is synced recursively.
 - **Networking:** Static IPs or dynamic IP detection (implemented in v1.7.0) are critical for QR-based venue synchronization.
+
+## Extreme Scaling & Phase 4 Observations
+- **Redis Pub/Sub:** As concurrent voting users crossed 1000+, pure async iteration over the WebSocket active connections created latency spikes. Introducing a Redis pub/sub broker (`src/core/pubsub.py`) safely offloads queue broadcasts from the main process thread.
+- **Biometric Truth vs Velocity:** Aggregate WearOS/Apple Watch data (`src/telemetry/ingestion.py`) provides a much more accurate representation of crowd energy than "Voting Velocity" alone. The `BiometricAggregator` is now the primary trigger for Peak Mode when average HR spikes >15% above baseline.
+- **Generative Synergy:** Audio feature extraction (RMS/Peak) works much faster when calculated natively inside the C++ callback (`audio_engine.cpp`) and broadcasted up, rather than having Python poll the buffer. This provides ultra-low latency reactivity for the WebXR `vibe_orb.html` visualization.
