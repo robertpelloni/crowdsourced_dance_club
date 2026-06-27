@@ -32,6 +32,7 @@ from src.core.generative_visuals import comfy_bridge
 from src.core.pubsub import pubsub_manager
 from src.api.governance import router as governance_router
 from src.core.agents import simulate_agent_battle
+from src.api.ml_endpoints import router as ml_router
 
 neural_conductor = NeuralConductor()
 monitor = SystemMonitor()
@@ -63,6 +64,7 @@ CONFIG = {
     "VIBE_WEIGHT_KEY": 0.30,
     "VIBE_WEIGHT_GENRE": 0.20,
     "VOTE_WEIGHT": 0.30,       # How much votes matter vs algorithmic fit
+    "NEURAL_CONDUCTOR_ENABLED": True # Feature flag to fallback to heuristics if false
 }
 
 # Genre Compatibility Matrix (1.0 = perfect, 0.0 = clash)
@@ -329,15 +331,31 @@ def get_random_compatible_track(current_track: Dict) -> Optional[Dict]:
     import random
     return random.choice(compatible) if compatible else None
 
+def calculate_heuristic_vibe_score(track: Dict, current_track: Dict, energy_trend: str = "stable") -> float:
+    """Fallback heuristic calculating a compatibility score (0.0 to 1.0)."""
+    bpm_delta = abs(track["bpm"] - current_track["bpm"])
+    bpm_score = max(0, 1 - (bpm_delta / CONFIG["MAX_BPM_DELTA"]))
+    energy_delta = abs(track["energy"] - current_track["energy"])
+    energy_score = max(0, 1 - (energy_delta / CONFIG["MAX_ENERGY_DELTA"]))
+    key_score = 1.0 if is_harmonically_compatible(track["key"], current_track["key"]) else 0.0
+    genre1 = current_track.get("genre", "Psytrance")
+    genre2 = track.get("genre", "Psytrance")
+    genre_score = GENRE_COMPATIBILITY.get(genre1, {}).get(genre2, 0.5)
+    return (bpm_score * 0.3) + (energy_score * 0.3) + (key_score * 0.2) + (genre_score * 0.2)
+
 def calculate_vibe_score(track: Dict, current_track: Dict, energy_trend: str = "stable", user_vibe_pref: Optional[str] = None, voting_velocity: float = 0.0) -> float:
     """
     Calculates a compatibility score (0.0 to 1.0) between two tracks.
     Utilizes the ML-driven Neural Conductor to predict vibe based on transition metrics and crowd voting velocity.
     """
-    base_score = neural_conductor.predict_vibe_score(current_track, track, voting_velocity)
+    if CONFIG.get("NEURAL_CONDUCTOR_ENABLED", True):
+        base_score = neural_conductor.predict_vibe_score(current_track, track, voting_velocity)
 
-    # Expand Milestone 13: Simulate Multi-Agent DJ Battles
-    agent_scores = simulate_agent_battle(track, current_track, base_score)
+        # Expand Milestone 13: Simulate Multi-Agent DJ Battles
+        agent_scores = simulate_agent_battle(track, current_track, base_score)
+    else:
+        base_score = calculate_heuristic_vibe_score(track, current_track, energy_trend)
+        agent_scores = {}
     # The crowd's final score is influenced slightly by the highest scoring secondary agent
     max_agent_score = max(agent_scores.values()) if agent_scores else base_score
     base_score = (base_score * 0.8) + (max_agent_score * 0.2)
@@ -354,11 +372,14 @@ def evaluate_track_fit(requested_track: Dict, current_track: Dict, voting_veloci
     Algorithmic Vibe Check: Assesses if a requested song safely fits
     the current energy matrix and tempo of the dancefloor using the ML Conductor.
     """
-    predicted_vibe = neural_conductor.predict_vibe_score(current_track, requested_track, voting_velocity)
+    if CONFIG.get("NEURAL_CONDUCTOR_ENABLED", True):
+        predicted_vibe = neural_conductor.predict_vibe_score(current_track, requested_track, voting_velocity)
 
-    # If the ML model predicts a highly negative outcome, reject the track
-    if predicted_vibe < 0.4:
-        return False, f"ML Prediction too low ({predicted_vibe:.2f}). Track clashes with current crowd energy matrix."
+        # If the ML model predicts a highly negative outcome, reject the track
+        if predicted_vibe < 0.4:
+            return False, f"ML Prediction too low ({predicted_vibe:.2f}). Track clashes with current crowd energy matrix."
+    else:
+        predicted_vibe = calculate_heuristic_vibe_score(requested_track, current_track)
 
     # Fallback Hard Rule: Extreme Tempo Check to prevent audio engine distortion
     bpm_delta = abs(requested_track.get("bpm", 120) - current_track.get("bpm", 120))
@@ -369,7 +390,7 @@ def evaluate_track_fit(requested_track: Dict, current_track: Dict, voting_veloci
     if not is_harmonically_compatible(requested_track.get("key", "1A"), current_track.get("key", "1A")):
         return False, f"Harmonic clash: {requested_track.get('key')} is not compatible with current track's {current_track.get('key')}."
 
-    return True, f"Track approved by Neural Conductor (Score: {predicted_vibe:.2f})."
+    return True, f"Track approved (Score: {predicted_vibe:.2f})."
 
 async def playback_simulation_loop():
     """
@@ -560,6 +581,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Algorithmic DJ Conductor Server", lifespan=lifespan)
 app.include_router(telemetry_router)
 app.include_router(governance_router)
+app.include_router(ml_router)
 
 # Serve static files for the client prototype
 app.mount("/static", StaticFiles(directory="src/static"), name="static")
