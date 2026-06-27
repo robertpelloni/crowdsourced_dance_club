@@ -13,9 +13,24 @@ DmxController::~DmxController() {
 }
 
 bool DmxController::initialize() {
-    // Phase 5 Decoupling: We simulate initialization here but log that an external proxy should be used.
-    std::cout << "[DMX] Note: Direct FTDI integration is deprecated per Phase 5 OLA Architecture." << std::endl;
-    std::cout << "[DMX] Hardware initializing in proxy-simulation mode." << std::endl;
+    ftdi = ftdi_new();
+    if (ftdi == nullptr) {
+        std::cerr << "[DMX] ftdi_new failed" << std::endl;
+        return false;
+    }
+
+    // Attempt to open Enttec USB DMX Pro (VID 0x0403, PID 0x6001)
+    if (ftdi_usb_open(ftdi, 0x0403, 0x6001) < 0) {
+        std::cerr << "[DMX] Unable to open FTDI device: " << ftdi->error_str << std::endl;
+        std::cerr << "[DMX] Continuing in mock mode..." << std::endl;
+        // Proceeding in mock mode for testing if device isn't present
+    } else {
+        // Configure FTDI for DMX (250000 baud, 8 data bits, 2 stop bits, no parity)
+        ftdi_set_baudrate(ftdi, 250000);
+        ftdi_set_line_property(ftdi, BITS_8, STOP_BIT_2, NONE);
+        is_initialized = true;
+        std::cout << "[DMX] Hardware initialized successfully." << std::endl;
+    }
 
     running = true;
     dmx_thread = std::thread(&DmxController::dmx_loop, this);
@@ -30,8 +45,8 @@ void DmxController::stop() {
         }
 
         if (is_initialized && ftdi) {
-            // ftdi_usb_close(ftdi);
-            // ftdi_free(ftdi);
+            ftdi_usb_close(ftdi);
+            ftdi_free(ftdi);
             ftdi = nullptr;
             is_initialized = false;
         }
@@ -46,7 +61,7 @@ void DmxController::trigger_sequence(const std::string& sequence, int intensity,
     auto now = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
     sequence_end_time_ms = now + duration_ms;
 
-    std::cout << "[DMX] Triggering sequence via internal queue: " << sequence << " (Intensity: " << intensity << ") for " << duration_ms << "ms" << std::endl;
+    std::cout << "[DMX] Triggering sequence: " << sequence << " (Intensity: " << intensity << ") for " << duration_ms << "ms" << std::endl;
 }
 
 void DmxController::dmx_loop() {
@@ -82,11 +97,22 @@ void DmxController::dmx_loop() {
 }
 
 void DmxController::send_dmx_packet() {
-    // In Phase 5, this method will be replaced entirely by a UDP socket dispatch
-    // pointing to localhost:9090 where the OLA Proxy listens.
+    if (!is_initialized) return;
 
-    // std::vector<unsigned char> packet;
-    // packet.push_back(0x7E); // Start of message
-    // ...
-    // ftdi_write_data(ftdi, packet.data(), packet.size());
+    std::vector<unsigned char> packet;
+    // Enttec DMX Pro Protocol
+    packet.push_back(0x7E); // Start of message
+    packet.push_back(6);    // Send DMX Packet Label
+    packet.push_back(dmx_data.size() + 1); // Length LSB
+    packet.push_back((dmx_data.size() + 1) >> 8); // Length MSB
+    packet.push_back(0); // Start code
+
+    {
+        std::lock_guard<std::mutex> lock(data_mutex);
+        packet.insert(packet.end(), dmx_data.begin(), dmx_data.end());
+    }
+
+    packet.push_back(0xE7); // End of message
+
+    ftdi_write_data(ftdi, packet.data(), packet.size());
 }
