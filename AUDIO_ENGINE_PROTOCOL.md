@@ -36,7 +36,10 @@ Sent periodically (e.g., every 100ms) by the engine to keep the conductor inform
     "current_track_id": "track_001",
     "playback_position_seconds": 124.5,
     "current_bpm": 145.0,
-    "cpu_load": 0.12
+    "is_transitioning": false,
+    "audio_rms": 0.35,
+    "audio_peak": 0.89
+
   }
 }
 ```
