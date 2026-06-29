@@ -76,3 +76,18 @@ Sent to coordinate DMX lighting with the audio playback, specifically reacting t
   }
 }
 ```
+
+### 5. Predictive Queuing (Server -> Engine)
+Sent to pre-load upcoming tracks into tertiary memory buffers to ensure zero-latency transitions during generative/high-energy sets.
+
+```json
+{
+  "type": "PREDICTIVE_QUEUE",
+  "data": {
+    "predicted_tracks": [
+      {"track_id": "track_004", "confidence": 0.95},
+      {"track_id": "track_007", "confidence": 0.82}
+    ]
+  }
+}
+```
