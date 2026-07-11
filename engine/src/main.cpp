@@ -36,6 +36,8 @@ static int callback_dj_conductor(struct lws *wsi, enum lws_callback_reasons reas
                     engine.handle_track_sync(data["data"]);
                 } else if (data["type"] == "MASTER_CONTROL") {
                     engine.handle_master_control(data["data"]);
+                } else if (data["type"] == "LIGHTING_CONTROL_DMX") {
+                    engine.handle_lighting_control(data["data"]);
                 }
             } catch (std::exception &e) {
                 lwsl_err("JSON Parse Error: %s\n", e.what());

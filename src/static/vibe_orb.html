@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibe Orb - WebXR Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+            color: #0f0;
+            font-family: 'Courier New', Courier, monospace;
+        }
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+        }
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+        }
+    </style>
+    <!-- Include Three.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+    <div id="hud">
+        <h2>Vibe Orb Status</h2>
+        <div id="status">Connecting...</div>
+        <div id="audio-stats">RMS: 0.00 | Peak: 0.00</div>
+    </div>
+    <div id="canvas-container"></div>
+
+    <script>
+        // --- 1. Three.js Scene Setup ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        container.appendChild(renderer.domElement);
+
+        // --- 2. Vibe Orb Geometry & Material ---
+        const geometry = new THREE.IcosahedronGeometry(2, 4); // High-poly sphere
+        const material = new THREE.MeshStandardMaterial({
+            color: 0x00ff00,
+            wireframe: true,
+            emissive: 0x004400,
+            emissiveIntensity: 0.5
+        });
+        const orb = new THREE.Mesh(geometry, material);
+        scene.add(orb);
+
+        // Lighting
+        const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+        pointLight.position.set(5, 5, 5);
+        scene.add(pointLight);
+
+        camera.position.z = 6;
+
+        // Base Scale Variables
+        let targetScale = 1.0;
+        let currentScale = 1.0;
+        let isPeakMode = false;
+
+        // --- 3. WebSocket Connection to Engine ---
+        // Note: The python conductor usually relays messages, but we will connect directly or via relay.
+        // Assuming the Python FastApi serves at ws://localhost:8000/ws/admin for now to listen to state
+        const ws = new WebSocket(`ws://${window.location.host}/ws/admin`);
+
+        ws.onopen = () => {
+            document.getElementById('status').innerText = 'Connected to Neural Conductor';
+        };
+
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+
+            // Check for Audio Features relay
+            if (msg.type === "PLAYBACK_STATE" && msg.data) {
+                const rms = msg.data.audio_rms || 0;
+                const peak = msg.data.audio_peak || 0;
+
+                document.getElementById('audio-stats').innerText = `RMS: ${rms.toFixed(3)} | Peak: ${peak.toFixed(3)}`;
+
+                // React to Audio Peak directly (bump scale based on peak amplitude)
+                targetScale = 1.0 + (peak * 0.5); // Increase scale by up to 50% based on audio peak
+
+                // Color mapping (Green to Red if RMS is very high)
+                if (rms > 0.4) {
+                    material.color.setHex(0xff0000); // Red
+                } else if (rms > 0.2) {
+                    material.color.setHex(0xffff00); // Yellow
+                } else {
+                    material.color.setHex(0x00ff00); // Green
+                }
+            } else if (msg.type === "SYNC" && msg.data) {
+                 isPeakMode = msg.data.is_peak_mode || false;
+                 if(isPeakMode) {
+                     material.wireframe = false;
+                     material.emissiveIntensity = 1.0;
+                 } else {
+                     material.wireframe = true;
+                     material.emissiveIntensity = 0.5;
+                 }
+            }
+        };
+
+        ws.onclose = () => {
+            document.getElementById('status').innerText = 'Disconnected';
+        };
+
+        // --- 4. Render Loop ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Rotate Orb
+            orb.rotation.x += 0.005;
+            orb.rotation.y += 0.01;
+
+            if (isPeakMode) {
+                 orb.rotation.y += 0.05; // Spin faster
+            }
+
+            // Smoothly interpolate scale
+            currentScale += (targetScale - currentScale) * 0.2;
+            orb.scale.set(currentScale, currentScale, currentScale);
+
+            // Decay target scale back to 1.0 over time if no audio drives it
+            targetScale += (1.0 - targetScale) * 0.1;
+
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Handle Resize
+        window.addEventListener('resize', onWindowResize, false);
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+    </script>
+</body>
+</html>

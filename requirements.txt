@@ -8,3 +8,7 @@ qrcode[pil]
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
+scikit-learn
+pandas
+redis
+locust

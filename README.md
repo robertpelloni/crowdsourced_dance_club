@@ -1,40 +1,18 @@
-# Crowdsourced Dance Club (CDC)
+# Crowdsourced Dance Club
 
-## Overview
-CDC is an algorithmic, crowdsourced DJ platform where the audience steers the musical direction in real-time. It combines a Python-based AI Conductor, a high-performance C++ Audio Engine, and a real-time mobile/web voting interface.
+Welcome to the **Crowdsourced Dance Club (CDC)**. A cybernetic, globally scalable, and ML-driven approach to real-time algorithmic DJing.
 
-## Architecture
-CDC follows a 3-tier architecture:
+The system leverages a complex 3-tiered architecture (React Native -> Python FastAPI -> C++ PortAudio Engine) to build "The Sentient Venue".
 
-1.  **Mobile/Web Client:** React Native and Web-based UI for users to browse catalogs, request tracks, and vote on the upcoming queue.
-2.  **AI Conductor (FastAPI):** The central brain that manages the room's state, calculates vibe scores, and coordinates playback between clients and the audio engine.
-3.  **Real-Time Audio Engine (C++):** A low-latency playback system using PortAudio, SoundTouch (for time-stretching), and WebSockets (for sync).
+## Current State: [v3.4.0]
+Phase 1, Phase 2, Phase 3, and **Phase 4** are officially complete and successfully tested via Playwright and Locust.
 
-## Features
-- **Vibe-Aware Fit Algorithm:** Weighted evaluation of BPM, Energy, Harmonic Key (Camelot Wheel), and Genre compatibility.
-- **Energy Peak Mode:** Automated detection of "voting velocity" surges that trigger intensified DSP effects (HPF sweeps) and BPM ramping.
-- **Genre Archetype Evolution:** The room's target vibe dynamically shifts based on the history of played and requested tracks.
-- **High-Fidelity Rendering:** Integration with the `auto_dj_script` submodule for rendering studio-quality master mixes of live sessions.
+### Notable Features:
+*   **Neural Conductor:** Uses `scikit-learn` Random Forest to predict track vibe transitions organically from database history.
+*   **Multi-Agent DJ Battles:** AI Personas fight for deck control.
+*   **Generative Immersion:** Natively extracts audio features in the C++ layer, broadcasting via WebSockets to drive a Three.js WebXR Vibe Orb and stable diffusion visuals.
+*   **Decentralized Governance:** Full CRUD routing for CDC DAO macro-rule proposals.
+*   **Biometric Sync:** Ingests WearOS heart-rate data to physically trigger peak energy states.
+*   **Stem Mixing & Virtual MCs:** Real-time 4-stem C++ mixing using Demucs. Generative gTTS hype tracking.
 
-## Getting Started
-
-### Conductor Server
-```bash
-pip install -r requirements.txt
-python src/init_db.py
-uvicorn src.main:app --reload
-```
-
-### Audio Engine
-```bash
-cd engine
-make
-./cdc_engine
-```
-
-## Documentation
-- [VISION.md](VISION.md) - Project goals and design philosophy.
-- [ROADMAP.md](ROADMAP.md) - Long-term project milestones.
-- [TODO.md](TODO.md) - Immediate tasks and bug fixes.
-- [DEPLOY.md](DEPLOY.md) - Deployment and environment setup.
-- [STRUCTURE.md](STRUCTURE.md) - Repository and submodule layout.
+Please review `HANDOFF.md` and `PROJECT_MEMORY.md` for specific architectural design choices made during development.

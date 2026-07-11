@@ -1,0 +1,66 @@
+--- engine/include/audio_engine.h
++++ engine/include/audio_engine.h
+@@ -9,6 +9,7 @@
+ #include <portaudio.h>
+ #include <sndfile.h>
+ #include <soundtouch/SoundTouch.h>
++#include "dmx_controller.h"
+
+ using json = nlohmann::json;
+
+@@ -111,6 +112,8 @@
+     std::atomic<double> target_bpm;
+
+     uint64_t last_state_time_ms;
++
++    DmxController dmx;
+ };
+
+ #endif
+--- engine/src/audio_engine.cpp
++++ engine/src/audio_engine.cpp
+@@ -4,6 +4,7 @@
+ #include <cmath>
+ #include <algorithm>
+ #include <chrono>
++#include "dmx_controller.h"
+
+ using namespace std::chrono;
+
+@@ -37,6 +38,10 @@
+     hpf_r.set_cutoff(20.0f, 44100.0f);
+
+     last_state_time_ms = duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
++
++    if (!dmx.initialize()) {
++        printf("[WARNING] DMX Hardware failed to initialize.\n");
++    }
+
+     return true;
+ }
+@@ -48,6 +53,7 @@
+         printf("PortAudio Stop Error: %s\n", Pa_GetErrorText(err));
+     }
+     Pa_Terminate();
++    dmx.stop();
+ }
+
+ void AudioEngine::start() {
+@@ -188,7 +194,7 @@
+     int intensity = data.value("intensity", 0);
+     int duration_ms = data.value("duration_ms", 0);
+
+-    // TODO: Forward to libftdi DMX controller
+     printf("[LIGHTING] Sequence: %s, Intensity: %d, Duration: %d ms\n", sequence.c_str(), intensity, duration_ms);
++    dmx.trigger_sequence(sequence, intensity, duration_ms);
+ }
+--- engine/Makefile
++++ engine/Makefile
+@@ -1,6 +1,6 @@
+ CXX = g++
+ CXXFLAGS = -std=c++11 -Iinclude -I/usr/include/nlohmann
+-LDFLAGS = -lportaudio -lwebsockets -lsndfile -lSoundTouch -lm
++LDFLAGS = -lportaudio -lwebsockets -lsndfile -lSoundTouch -lm -lftdi1
+
+ SRC_DIR = src
+ OBJ_DIR = obj

@@ -4,6 +4,7 @@
 #include <cmath>
 #include <algorithm>
 #include <chrono>
+#include "dmx_controller.h"
 
 AudioEngine::AudioEngine() : stream(nullptr), running(false),
                              is_transitioning(false), transition_progress(0.0),
@@ -11,7 +12,9 @@ AudioEngine::AudioEngine() : stream(nullptr), running(false),
                              transition_timestamp(0.0),
                              is_intensifying(false), intensify_progress(0.0),
                              intensify_duration_frames(44100.0 * 10.0),
-                             target_bpm(145.0), last_state_time_ms(0) {
+                             target_bpm(145.0), last_state_time_ms(0),
+                             vol_vocals(1.0f), vol_drums(1.0f), vol_bass(1.0f), vol_other(1.0f),
+                             current_rms(0.0f), current_peak(0.0f) {
 
     st_current.setSampleRate(44100);
     st_current.setChannels(2);
@@ -33,6 +36,11 @@ bool AudioEngine::initialize() {
 
     err = Pa_OpenDefaultStream(&stream, 0, 2, paFloat32, 44100, 256, audio_callback, this);
     if (err != paNoError) return false;
+
+    if (!dmx.initialize()) {
+        printf("[WARNING] DMX Hardware failed to initialize.\n");
+    }
+
     return true;
 }
 
@@ -52,6 +60,7 @@ void AudioEngine::stop() {
     }
     Pa_Terminate();
     running = false;
+    dmx.stop();
 }
 
 bool AudioEngine::load_audio_file(const std::string& path, AudioBuffer& buffer) {
@@ -77,30 +86,56 @@ bool AudioEngine::load_audio_file(const std::string& path, AudioBuffer& buffer) 
 }
 
 void AudioEngine::update_tempo() {
+    // SoundTouch setTempo changes tempo without affecting pitch.
+    // However, for high-fidelity DJing, a small amount of pitch drift is expected
+    // when BPM changes, but we want to constrain it using a combination of pitch and rate.
+    // For this refinement, we configure SoundTouch to explicitly preserve pitch
+    // using setTempo, and disable the quickseek algorithm for better quality.
+
     if (current_buffer.loaded) {
         double tempo = target_bpm / current_buffer.native_bpm;
+        st_current.setSetting(SETTING_USE_QUICKSEEK, 0); // High quality
+        st_current.setSetting(SETTING_USE_AA_FILTER, 1);
         st_current.setTempo(tempo);
     }
     if (next_buffer.loaded) {
         double tempo = target_bpm / next_buffer.native_bpm;
+        st_next.setSetting(SETTING_USE_QUICKSEEK, 0); // High quality
+        st_next.setSetting(SETTING_USE_AA_FILTER, 1);
         st_next.setTempo(tempo);
     }
 }
 
 void AudioEngine::handle_track_sync(const json& data) {
-    std::string path = data["filepath"];
     std::string id = data["track_id"];
     double bpm = data["bpm"];
     double timestamp = data["transition_timestamp"];
 
     std::lock_guard<std::mutex> lock(buffer_mutex);
-    if (load_audio_file(path, next_buffer)) {
-        next_buffer.track_id = id;
-        next_buffer.native_bpm = bpm;
-        transition_timestamp = timestamp;
-        update_tempo();
-        st_next.clear();
+
+    // Check if stem paths are provided instead of a single file
+    if (data.contains("stems")) {
+        AudioBuffer temp_buf;
+        if (load_audio_file(data["stems"]["vocals"], temp_buf)) next_buffer.data_stems[0] = std::move(temp_buf.data);
+        if (load_audio_file(data["stems"]["drums"], temp_buf)) next_buffer.data_stems[1] = std::move(temp_buf.data);
+        if (load_audio_file(data["stems"]["bass"], temp_buf)) next_buffer.data_stems[2] = std::move(temp_buf.data);
+        if (load_audio_file(data["stems"]["other"], temp_buf)) next_buffer.data_stems[3] = std::move(temp_buf.data);
+
+        next_buffer.frames = temp_buf.frames;
+        next_buffer.channels = temp_buf.channels;
+        next_buffer.samplerate = temp_buf.samplerate;
+        next_buffer.stems_loaded = true;
+        next_buffer.loaded = true;
+    } else {
+        std::string path = data.value("filepath", "");
+        if (!load_audio_file(path, next_buffer)) return;
     }
+
+    next_buffer.track_id = id;
+    next_buffer.native_bpm = bpm;
+    transition_timestamp = timestamp;
+    update_tempo();
+    st_next.clear();
 }
 
 void AudioEngine::handle_master_control(const json& data) {
@@ -123,6 +158,17 @@ void AudioEngine::handle_master_control(const json& data) {
         intensify_duration_frames = 44100.0 * duration;
         std::cout << "[AUDIO] >>> DSP INTENSIFY: HPF SWEEP START <<<" << std::endl;
     }
+    if (data.contains("action") && data["action"] == "PLAY_SAMPLE") {
+        std::string filepath = data.value("filepath", "");
+        std::lock_guard<std::mutex> lock(buffer_mutex);
+        if (load_audio_file(filepath, sample_buffer)) {
+            std::cout << "[AUDIO] >>> PLAYING MC SAMPLE: " << filepath << " <<<" << std::endl;
+        }
+    }
+    if (data.contains("action") && data["action"] == "MUTE_BASS") {
+        vol_bass = data.value("enable", true) ? 0.0f : 1.0f;
+        std::cout << "[AUDIO] >>> BASS MUTE: " << (vol_bass == 0.0f ? "ON" : "OFF") << " <<<" << std::endl;
+    }
 }
 
 void AudioEngine::send_playback_state(void* wsi_ptr) {
@@ -141,7 +187,9 @@ void AudioEngine::send_playback_state(void* wsi_ptr) {
             {"current_track_id", current_buffer.track_id},
             {"playback_position_seconds", (double)current_buffer.position / 44100.0},
             {"current_bpm", (double)target_bpm},
-            {"is_transitioning", (bool)is_transitioning}
+            {"is_transitioning", (bool)is_transitioning},
+            {"audio_rms", (float)current_rms},
+            {"audio_peak", (float)current_peak}
         }}
     };
 
@@ -159,6 +207,9 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
                                void *userData) {
     AudioEngine* self = (AudioEngine*)userData;
     float *out = (float*)outputBuffer;
+
+    float sum_sq = 0.0f;
+    float local_peak = 0.0f;
 
     auto now_s = (double)std::chrono::duration_cast<std::chrono::microseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count() / 1000000.0;
@@ -185,7 +236,34 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
     if (self->is_transitioning && self->next_buffer.loaded && self->next_buffer.position < self->next_buffer.frames) {
         if (self->st_next.numSamples() < framesPerBuffer) {
             int samples_to_feed = std::min((int)(self->next_buffer.frames - self->next_buffer.position), 512);
-            self->st_next.putSamples(&self->next_buffer.data[self->next_buffer.position * 2], samples_to_feed);
+
+            // If stems are loaded, we mix them into a temporary buffer before sending to SoundTouch
+            if (self->next_buffer.stems_loaded) {
+                float temp_mix[1024];
+                for (int s = 0; s < samples_to_feed * 2; s += 2) {
+                    float frame_l = 0, frame_r = 0;
+                    int p = self->next_buffer.position * 2 + s;
+
+                    frame_l += self->next_buffer.data_stems[0][p] * self->vol_vocals;
+                    frame_r += self->next_buffer.data_stems[0][p + 1] * self->vol_vocals;
+
+                    frame_l += self->next_buffer.data_stems[1][p] * self->vol_drums;
+                    frame_r += self->next_buffer.data_stems[1][p + 1] * self->vol_drums;
+
+                    frame_l += self->next_buffer.data_stems[2][p] * self->vol_bass;
+                    frame_r += self->next_buffer.data_stems[2][p + 1] * self->vol_bass;
+
+                    frame_l += self->next_buffer.data_stems[3][p] * self->vol_other;
+                    frame_r += self->next_buffer.data_stems[3][p + 1] * self->vol_other;
+
+                    temp_mix[s] = frame_l;
+                    temp_mix[s+1] = frame_r;
+                }
+                self->st_next.putSamples(temp_mix, samples_to_feed);
+            } else {
+                self->st_next.putSamples(&self->next_buffer.data[self->next_buffer.position * 2], samples_to_feed);
+            }
+
             self->next_buffer.position += samples_to_feed;
         }
         samples_received_next = self->st_next.receiveSamples(stretched_next, framesPerBuffer);
@@ -207,6 +285,36 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
             right += stretched_next[i * 2 + 1] * gain_next;
         }
 
+        // Add one-shot sample (Virtual MC)
+        if (self->sample_buffer.loaded && self->sample_buffer.position < self->sample_buffer.frames) {
+            float sample_left = self->sample_buffer.data[self->sample_buffer.position * self->sample_buffer.channels];
+            float sample_right = self->sample_buffer.channels > 1
+                                 ? self->sample_buffer.data[self->sample_buffer.position * self->sample_buffer.channels + 1]
+                                 : sample_left; // Mono to stereo
+            left += sample_left * 0.8f; // Slightly attenuate sample
+            right += sample_right * 0.8f;
+            self->sample_buffer.position++;
+
+            if (self->sample_buffer.position >= self->sample_buffer.frames) {
+                self->sample_buffer.loaded = false; // Done playing
+            }
+        }
+
+        // Add one-shot sample (Virtual MC)
+        if (self->sample_buffer.loaded && self->sample_buffer.position < self->sample_buffer.frames) {
+            float sample_left = self->sample_buffer.data[self->sample_buffer.position * self->sample_buffer.channels];
+            float sample_right = self->sample_buffer.channels > 1
+                                 ? self->sample_buffer.data[self->sample_buffer.position * self->sample_buffer.channels + 1]
+                                 : sample_left; // Mono to stereo
+            left += sample_left * 0.8f; // Slightly attenuate sample
+            right += sample_right * 0.8f;
+            self->sample_buffer.position++;
+
+            if (self->sample_buffer.position >= self->sample_buffer.frames) {
+                self->sample_buffer.loaded = false; // Done playing
+            }
+        }
+
         // Apply HPF Sweep
         if (self->is_intensifying) {
             float phase = self->intensify_progress;
@@ -226,15 +334,30 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
             }
         }
 
-        // 4. Peak Limiting (Simple Soft Clipper)
+        // 4. Master Bus Compression
+        left = self->master_comp_l.process(left, 44100.0f);
+        right = self->master_comp_r.process(right, 44100.0f);
+
+        // 5. Peak Limiting (Simple Soft Clipper)
         auto soft_clip = [](float x) {
             if (x > 1.0f) return 1.0f;
             if (x < -1.0f) return -1.0f;
             return x;
         };
 
-        *out++ = soft_clip(left);
-        *out++ = soft_clip(right);
+        float final_l = soft_clip(left);
+        float final_r = soft_clip(right);
+
+        *out++ = final_l;
+        *out++ = final_r;
+
+        // Feature Extraction
+        float abs_l = std::abs(final_l);
+        float abs_r = std::abs(final_r);
+        float max_val = std::max(abs_l, abs_r);
+
+        sum_sq += final_l * final_l + final_r * final_r;
+        if (max_val > local_peak) local_peak = max_val;
 
         if (self->is_transitioning) {
             self->transition_progress = self->transition_progress + (1.0 / self->transition_duration_frames);
@@ -250,5 +373,19 @@ int AudioEngine::audio_callback(const void *inputBuffer, void *outputBuffer,
         }
     }
 
+    // Calculate RMS and store features
+    float rms = std::sqrt(sum_sq / (framesPerBuffer * 2.0f));
+    self->current_rms.store(rms);
+    self->current_peak.store(local_peak);
+
     return paContinue;
+}
+
+void AudioEngine::handle_lighting_control(const json& data) {
+    std::string sequence = data.value("sequence", "");
+    int intensity = data.value("intensity", 0);
+    int duration_ms = data.value("duration_ms", 0);
+
+    printf("[LIGHTING] Sequence: %s, Intensity: %d, Duration: %d ms\n", sequence.c_str(), intensity, duration_ms);
+    dmx.trigger_sequence(sequence, intensity, duration_ms);
 }

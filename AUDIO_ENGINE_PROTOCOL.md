@@ -36,7 +36,10 @@ Sent periodically (e.g., every 100ms) by the engine to keep the conductor inform
     "current_track_id": "track_001",
     "playback_position_seconds": 124.5,
     "current_bpm": 145.0,
-    "cpu_load": 0.12
+    "is_transitioning": false,
+    "audio_rms": 0.35,
+    "audio_peak": 0.89
+
   }
 }
 ```
@@ -59,3 +62,17 @@ Immediate overrides from the Conductor/Admin.
 - The Audio Engine MUST maintain a high-priority audio thread.
 - WebSocket handling MUST be performed on a separate networking thread to avoid blocking the audio callback.
 - Jitter buffer management is required if streaming over a network rather than local Unix sockets.
+
+### 4. Lighting Control (Server -> Engine)
+Sent to coordinate DMX lighting with the audio playback, specifically reacting to crowd energy peaks.
+
+```json
+{
+  "type": "LIGHTING_CONTROL_DMX",
+  "data": {
+    "sequence": "strobe_fast",
+    "intensity": 255,
+    "duration_ms": 1000
+  }
+}
+```

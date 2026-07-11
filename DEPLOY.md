@@ -1,14 +1,11 @@
 # Deployment Guide: Crowdsourced Dance Club (CDC)
 
-## Conductor Server (Python)
-### Prerequisites
-- Python 3.12+
-- pip
+This document outlines the procedures for deploying CDC to staging and production environments up to Phase 5.
 
 ## Architecture Overview
-- **Brain (Python):** FastAPI orchestration, RBAC, and ML-ready vibe scoring.
-- **Body (C++):** Real-time audio engine with PortAudio, SoundTouch, and low-latency DSP.
-- **Interface (Web/Mobile):** React Native mobile client and PWA Admin dashboard.
+- **Brain (Python):** FastAPI orchestration, Neural Conductor (scikit-learn ML), and multi-tenant scaling via Redis Pub/Sub.
+- **Body (C++):** Real-time audio engine with PortAudio, SoundTouch, libftdi (for DMX hardware), and instantaneous RMS/Peak telemetry extraction.
+- **Interface (Web/Mobile):** React Native mobile client, PWA Admin dashboard, and Three.js WebXR ("Vibe Orb").
 
 ---
 
@@ -31,7 +28,7 @@ Use the production script for optimized performance and non-destructive DB handl
 ## 🛠 Manual Configuration
 
 ### 1. Conductor Server (Python)
-**Prerequisites:** Python 3.12+, `pip`, `sqlite3`.
+**Prerequisites:** Python 3.12+, `pip`, `sqlite3`, `redis-server`.
 
 **Environment Variables:**
 - `SECRET_KEY`: (Required) Cryptographic secret for JWT signing.
@@ -40,11 +37,13 @@ Use the production script for optimized performance and non-destructive DB handl
 
 **Run Production Command:**
 ```bash
+# Ensure Redis is running in the background for Pub/Sub scaling
+redis-server &
 uvicorn src.main:app --host 0.0.0.0 --port 80 --workers 4
 ```
 
 ### 2. Audio Engine (C++)
-**Prerequisites:** `g++` (C++20), `PortAudio`, `libwebsockets`, `libsndfile`, `SoundTouch`, `nlohmann-json-dev`.
+**Prerequisites:** `g++` (C++20), `PortAudio`, `libwebsockets`, `libsndfile`, `SoundTouch`, `libftdi1-dev`, `nlohmann-json-dev`.
 
 **Production Build:**
 ```bash
@@ -56,43 +55,18 @@ make CXXFLAGS="-O3 -std=c++20 -DNDEBUG"
 
 ---
 
-## 📱 Mobile App (Expo)
+## 📱 Mobile App (Expo) & WebXR
 1. **Configure API Endpoint:**
    - Scan the QR code from the server's `/sync-qr` endpoint to automatically configure the mobile client.
-2. **Build for Release:**
-   ```bash
-   git clone --recursive <repo-url>
-   ```
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   pip install -r external/auto_dj_script/requirements.txt
-   ```
-3. Initialize the database:
-   ```bash
-   python src/init_db.py
-   ```
-4. Run the server:
-   ```bash
-   uvicorn src.main:app --host 0.0.0.0 --port 8000
-   ```
+2. **Launch WebXR Visualizer:**
+   - Navigate to `/static/vibe_orb.html` on a connected display to render the real-time audio-reactive Three.js representation.
 
-## Audio Engine (C++)
-### Prerequisites
-- g++ (C++11 support)
-- PortAudio
-- libwebsockets
-- libsndfile
-- SoundTouch
-- nlohmann-json-dev
+## 🔒 Security Hardening
+- **JWT:** Ensure `SECRET_KEY` is rotated periodically.
+- **RBAC:** Admin privileges are restricted to the `admin` role in the `users` table.
+- **WebSocket:** Use `wss://` (Secure WebSockets) in production by terminating SSL at the load balancer or reverse proxy level (e.g., Nginx).
 
-### Build & Run
-```bash
-cd engine
-make
-./cdc_engine
-```
-
-## Web Client Prototype
-Accessible at `http://localhost:8000` once the Conductor Server is running.
-- **Admin Mode:** Tap the "CDC" header 5 times to enable.
+## 📊 Monitoring
+- **Crowd Stats:** Monitor `/api/live/crowd-stats` for engagement metrics.
+- **Shadow Pilot:** Review `/api/admin/shadow-pilot/status` to ensure background auto-healing processes are healthy.
+- **Vibe Logs:** Analyze `vibe_performance_logs` table in `tracks.db` for ML model training data.

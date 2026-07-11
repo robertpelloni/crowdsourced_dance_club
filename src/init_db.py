@@ -35,9 +35,25 @@ def init_db():
         points INTEGER DEFAULT 0,
         badges TEXT DEFAULT '[]',
         streak INTEGER DEFAULT 0,
+        role TEXT DEFAULT 'user',
+        bio TEXT,
         referral_code TEXT UNIQUE,
         referred_by_id TEXT,
+        vibe_preference TEXT DEFAULT 'Psytrance',
         FOREIGN KEY (referred_by_id) REFERENCES users (id)
+    )
+    ''')
+
+    # Create venues table for multi-venue support (v1.6.0)
+    cursor.execute('''
+    CREATE TABLE venues (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        location TEXT,
+        latitude REAL,
+        longitude REAL,
+        conductor_url TEXT,
+        capacity INTEGER
     )
     ''')
 
@@ -48,7 +64,8 @@ def init_db():
         title TEXT NOT NULL,
         description TEXT,
         start_time REAL NOT NULL,
-        venue_id TEXT DEFAULT 'CDC_MAIN'
+        venue_id TEXT DEFAULT 'CDC_MAIN',
+        FOREIGN KEY (venue_id) REFERENCES venues (id)
     )
     ''')
 
@@ -79,6 +96,18 @@ def init_db():
     )
     ''')
 
+    # Create vibe_performance_logs table for ML training (v1.3.0)
+    cursor.execute('''
+    CREATE TABLE vibe_performance_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        track_id TEXT,
+        vibe_score REAL,
+        energy_delta REAL,
+        success_metric REAL,
+        timestamp REAL
+    )
+    ''')
+
     # Create user_votes table for persistent voting history
     cursor.execute('''
     CREATE TABLE user_votes (
@@ -88,6 +117,84 @@ def init_db():
         timestamp REAL NOT NULL,
         FOREIGN KEY (user_id) REFERENCES users (id),
         FOREIGN KEY (track_id) REFERENCES tracks (id)
+    )
+    ''')
+
+    # Create clubs table for club management (v1.9.0)
+    cursor.execute('''
+    CREATE TABLE clubs (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        owner_id TEXT NOT NULL,
+        created_at REAL NOT NULL,
+        FOREIGN KEY (owner_id) REFERENCES users (id)
+    )
+    ''')
+
+    # Create club_members table for role-based access within clubs (v1.9.0)
+    cursor.execute('''
+    CREATE TABLE club_members (
+        club_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        role TEXT NOT NULL,
+        joined_at REAL NOT NULL,
+        PRIMARY KEY (club_id, user_id),
+        FOREIGN KEY (club_id) REFERENCES clubs (id),
+        FOREIGN KEY (user_id) REFERENCES users (id)
+    )
+    ''')
+
+    # Create transition_feedback table for granular analytics (v2.0.0)
+    cursor.execute('''
+    CREATE TABLE transition_feedback (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        track_id_from TEXT,
+        track_id_to TEXT,
+        archetype TEXT,
+        is_upvote BOOLEAN,
+        timestamp REAL NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id)
+    )
+    ''')
+
+    # Create song_feedback table for track popularity tracking (v2.0.0)
+    cursor.execute('''
+    CREATE TABLE song_feedback (
+        id TEXT PRIMARY KEY,
+        user_id TEXT,
+        track_id TEXT,
+        is_like BOOLEAN,
+        timestamp REAL NOT NULL,
+        FOREIGN KEY (user_id) REFERENCES users (id),
+        FOREIGN KEY (track_id) REFERENCES tracks (id)
+    )
+    ''')
+
+    # Create governance_proposals table for DAO macro-rules (v3.5.0)
+    cursor.execute('''
+    CREATE TABLE governance_proposals (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT NOT NULL,
+        rule_type TEXT NOT NULL,
+        rule_value TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at REAL NOT NULL
+    )
+    ''')
+
+    # Create governance_votes table for DAO macro-rules (v3.5.0)
+    cursor.execute('''
+    CREATE TABLE governance_votes (
+        proposal_id TEXT NOT NULL,
+        user_id TEXT NOT NULL,
+        vote_value INTEGER NOT NULL,
+        timestamp REAL NOT NULL,
+        PRIMARY KEY (proposal_id, user_id),
+        FOREIGN KEY (proposal_id) REFERENCES governance_proposals (id),
+        FOREIGN KEY (user_id) REFERENCES users (id)
     )
     ''')
 
@@ -117,8 +224,13 @@ def init_db():
 
     cursor.executemany('INSERT INTO tracks VALUES (?, ?, ?, ?, ?, ?, ?, ?)', tracks)
 
+    # Seed default venues
+    cursor.execute("INSERT INTO venues (id, name, location, latitude, longitude, conductor_url, capacity) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                   ("CDC_MAIN", "Virtual Arena", "Cloud Zone 1", 40.7128, -74.0060, "http://localhost:8000", 500))
+    cursor.execute("INSERT INTO venues (id, name, location, latitude, longitude, conductor_url, capacity) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                   ("CDC_BERLIN", "Berghain Simulation", "Berlin, DE", 52.5110, 13.4350, "http://localhost:8001", 1500))
+
     # Seed an example event starting in 10 minutes
-    import time
     example_event = ("event_001", "Neon Solstice", "Peak Psytrance Ritual", time.time() + 600, "CDC_MAIN")
     cursor.execute("INSERT INTO events VALUES (?, ?, ?, ?, ?)", example_event)
 

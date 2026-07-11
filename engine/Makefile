@@ -1,6 +1,6 @@
 CXX = g++
-CXXFLAGS = -std=c++11 -Iinclude -I/usr/include/nlohmann
-LDFLAGS = -lportaudio -lwebsockets -lsndfile -lSoundTouch -lm
+CXXFLAGS = -std=c++11 -Iinclude -I/usr/include/nlohmann -I/usr/include/libftdi1
+LDFLAGS = -lportaudio -lwebsockets -lsndfile -lSoundTouch -lm -lftdi1
 
 SRC_DIR = src
 OBJ_DIR = obj

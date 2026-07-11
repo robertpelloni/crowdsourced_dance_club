@@ -1,0 +1,38 @@
+--- engine/include/audio_engine.h
++++ engine/include/audio_engine.h
+@@ -43,6 +43,9 @@
+     std::string track_id;
+     double native_bpm;
+     bool loaded;
++
++    std::vector<float> data_stems[4]; // 0: vocals, 1: drums, 2: bass, 3: other
++    bool stems_loaded;
+
+     AudioBuffer() : frames(0), channels(0), samplerate(0), position(0), native_bpm(145.0), loaded(false) {}
+
+@@ -56,7 +59,12 @@
+             track_id = std::move(other.track_id);
+             native_bpm = other.native_bpm;
+             loaded = other.loaded;
++            for (int i=0; i<4; ++i) {
++                data_stems[i] = std::move(other.data_stems[i]);
++            }
++            stems_loaded = other.stems_loaded;
+             other.loaded = false;
++            other.stems_loaded = false;
+         }
+         return *this;
+     }
+@@ -109,6 +117,11 @@
+     std::atomic<bool> is_intensifying;
+     std::atomic<double> intensify_progress;
+     double intensify_duration_frames;
++
++    // Stem Mixing volumes (0.0 to 1.0)
++    std::atomic<float> vol_vocals;
++    std::atomic<float> vol_drums;
++    std::atomic<float> vol_bass;
++    std::atomic<float> vol_other;
+
+     HighPassFilter hpf_l;
+     HighPassFilter hpf_r;

@@ -1,28 +1,43 @@
 # Changelog
 
-## [0.5.2] - 2026-05-23
-### Added
-- **Staging Deployment Pipeline:** Operationalized `deploy_staging.sh` for automated environment setup, dependency management, and binary builds.
-- **Automated Validation Suite:** Implemented `tests/verify_staging.py` using Playwright to simulate end-to-end multi-user interactions in the staging environment.
-- **Staging Reports:** Introduced `STAGING_REPORT.md` to document validation results and integrate qualitative user feedback into the development cycle.
+## [v3.4.0] - Neural Conductor & Generative Immersion
+- **Milestone 4 (Scaling & Expansion):** Fully activated the ML-driven `NeuralConductor` (using `scikit-learn` RandomForestRegressor). The Conductor now predicts transition `vibe_score` dynamically based on historical DB tracking logs instead of static heuristics.
+- **Milestone 11 (Biometric Sync):** Initialized `src/telemetry/` microservice. Added `BiometricAggregator` to process high-frequency WearOS/Apple Watch HR data, actively modifying Peak Mode logic.
+- **Milestone 12 (Generative Immersion):**
+  - Extracted real-time `audio_rms` and `audio_peak` within the C++ `AudioEngine` `audio_callback`.
+  - Built `src/static/vibe_orb.html`, a Three.js WebXR visualization reactive to C++ feature extraction.
+  - Initialized `ComfyUIBridge` to dispatch dynamic text prompts based on audio properties for generative video synthesis.
+- Executed comprehensive Submodule Tracking and Intelligent Git Branch Merging protocols to resolve remote branch fragmentation.
 
-## [0.5.1] - 2026-05-23
-### Added
-- **Mobile Referral Support:** Ported the user referral program to the React Native mobile application. Users can now enter referral codes during mobile registration and view their own codes in the profile.
-- **Mobile UI Polishing:** Updated the mobile leaderboard to display display names (usernames) instead of internal UUIDs.
+## [v3.3.0] - Automated Repository Sync & Intelligent Merge
+- Synchronized with upstream parent repositories, recursively updating all submodules including `external/auto_dj_script` to track the latest head.
+- Intelligently resolved git branch conflicts combining `origin/main-12832833913319381157` changes representing autonomous auto-healing code for shadow pilots.
+- Merged the background anomaly detector `ShadowPilot` into the core engine lifecycle for proactive Git tracking and auto-healing features.
+- Updated `VERSION.md`, `ROADMAP.md`, `TODO.md`, `IDEAS.md`, and `HANDOFF.md` to reflect Phase 4 planning states.
 
-### Changed
-- **Mobile Auth Logic:** Refactored `handleAuth` in the mobile app to support both Form-Data (login) and JSON (registration) payloads as required by the Python Conductor API.
+## [v3.2.0] - Phase 3 Completion: The Sentient Venue
+- Stem-Level Mixing (Milestone 10): Replaced `spleeter` with `demucs` (Python 3.12 compatible) for asynchronous 4-stem separation.
+- Real-time stem mixing capabilities directly integrated into the C++ `AudioEngine` (vocals, drums, bass, other) controlled via WebSocket.
+- Finalized Spotify API integration for Infinite Catalog (Milestone 8) using `librosa` for BPM/Key extraction.
+- Generative TTS hype announcements via Virtual MC (Milestone 9) driven by `gTTS`.
 
-## [0.5.0] - 2026-05-23
-### Added
-- **User Referral Program:** Implemented a new growth-focused referral system. Users now receive a unique 8-character referral code upon registration, displayed in their profile.
-- **Referral Incentives:** New users registering with a valid referral code, along with their referrers, are automatically awarded 50 bonus Vibe Points.
-- **Web Auth Overlay:** Replaced the minimal auth placeholder with a fully functional login/registration overlay in the Web Prototype, including a field for referral codes.
+## [v2.6.0] - Audio Precision Update
+- Stabilized SoundTouch C++ pitch-shifting logic (disabled quick-seek, enabled AA filtering).
+- Added Master Bus digital compression via C++ implementation.
 
-### Changed
-- **Database Schema:** Updated the `users` table in SQLite to support `referral_code` and `referred_by_id`.
-- **API Enhancements:** Updated the `/api/register` and `/api/me` endpoints to support referral data.
+## [v2.5.0] - Decentralization & Multitenancy
+- Re-architected SQLite connection to strictly utilize `PRAGMA journal_mode=WAL` and `PRAGMA synchronous=NORMAL` preventing multi-venue locking.
+- Introduced a multi-tenant `venue_states` dictionary replacing the old `dj_state` singleton.
 
-## [0.4.3] - 2026-05-23
-... [rest of file]
+## [v2.4.0] - Hardware Ecosystem
+- Integrated USB-to-DMX protocol via `libftdi` directly in the C++ Audio Engine, enabling automated strobe lights synced to algorithmically detected crowd energy peaks.
+
+## [v2.3.0] - Personalization & Granular Feedback
+- Implemented user profiles with bio traits for identity tracking.
+- Split explicit track requests/likes from algorithmic transition feedback, improving machine learning accuracy.
+
+## [v2.0.0] - The Neural Conductor
+- Introduced Random Forest modeling for predicting track "Vibe Fit" based on historical transition metrics.
+
+## [v1.0.0] - Cybernetic MVP
+- Basic WebSocket audio control, track requests, and initial DSP crossfading.

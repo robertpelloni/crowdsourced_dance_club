@@ -11,11 +11,31 @@ from contextlib import asynccontextmanager
 from typing import List, Dict, Optional, Tuple
 from datetime import timedelta
 
+import sqlite3
 import qrcode
 import socket
 import uuid
 from datetime import datetime, timedelta
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException, Depends, status
+from src.api.schemas import UserUpdate, SongFeedback, TransitionVote, FeedbackSubmit, EventCreate
+from src.core.monitoring import SystemMonitor
+from src.api.analytics import generate_vibe_performance_report
+from src.api.streaming import get_streaming_links
+from src.core.spotify_integration import get_track_metadata
+from src.core.virtual_mc import generate_hype_announcement, create_tts_audio
+from src.core.stem_separator import extract_stems
+from src.core.shadow_pilot import shadow_pilot_instance
+from src.telemetry.api import router as telemetry_router
+from src.telemetry.ingestion import get_venue_aggregator
+from src.core.recommender import NeuralConductor
+from src.core.generative_visuals import comfy_bridge
+from src.core.pubsub import pubsub_manager
+from src.api.governance import router as governance_router
+from src.core.agents import simulate_agent_battle
+from src.api.ml_endpoints import router as ml_router
+
+neural_conductor = NeuralConductor()
+monitor = SystemMonitor()
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -44,6 +64,7 @@ CONFIG = {
     "VIBE_WEIGHT_KEY": 0.30,
     "VIBE_WEIGHT_GENRE": 0.20,
     "VOTE_WEIGHT": 0.30,       # How much votes matter vs algorithmic fit
+    "NEURAL_CONDUCTOR_ENABLED": True # Feature flag to fallback to heuristics if false
 }
 
 # Genre Compatibility Matrix (1.0 = perfect, 0.0 = clash)
@@ -67,8 +88,10 @@ def get_local_ip():
         return 'localhost'
 
 def get_db_connection():
-    """Helper to create a connection to the SQLite database."""
-    conn = sqlite3.connect(DB_PATH)
+    """Helper to create a connection to the SQLite database with multi-venue scaling configurations."""
+    conn = sqlite3.connect(DB_PATH, timeout=20.0) # Prevent database is locked errors
+    conn.execute('PRAGMA journal_mode=WAL;')      # Write-Ahead Logging for concurrency
+    conn.execute('PRAGMA synchronous=NORMAL;')    # Faster writes
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -146,6 +169,8 @@ class TrackState:
         self.energy_trend: str = "stable"
         # Peak mode status
         self.is_peak_mode: bool = False
+        # Crowd energy score (0.0 to 1.0)
+        self.crowd_energy: float = 0.5
         # Last calculated velocity for derivative
         self.last_velocity: float = 0.0
         # Upcoming tracks submitted and approved
@@ -180,7 +205,11 @@ class ConnectionManager:
 
     async def broadcast_queue_update(self):
         payload = self.get_broadcast_payload()
-        # Create a copy of the list to avoid issues during iteration if a client disconnects
+        # Fast path using Redis Pub/Sub if available
+        if pubsub_manager.is_connected:
+            await pubsub_manager.publish("venue_1_queue", payload)
+
+        # Fallback to local memory iteration
         for connection in list(dj_state.active_connections):
             try:
                 await connection.send_json(payload)
@@ -291,82 +320,77 @@ def is_harmonically_compatible(key1: str, key2: str) -> bool:
 def get_random_compatible_track(current_track: Dict) -> Optional[Dict]:
     """Finds a random compatible track from the catalog as a fallback."""
     compatible = []
+    current_vel = len([t for t in dj_state.vote_history if time.time() - t < 60])
     for track in TRACK_CATALOG.values():
         if track["id"] == current_track["id"]:
             continue
-        fits, _ = evaluate_track_fit(track, current_track)
+        fits, _ = evaluate_track_fit(track, current_track, voting_velocity=current_vel)
         if fits:
             compatible.append(track)
 
     import random
     return random.choice(compatible) if compatible else None
 
-def calculate_vibe_score(track: Dict, current_track: Dict) -> float:
-    """
-    Calculates a compatibility score (0.0 to 1.0) between two tracks.
-    Considers BPM, Energy, Key, Energy Ramping, and Genre Compatibility.
-    """
-    # BPM Score
+def calculate_heuristic_vibe_score(track: Dict, current_track: Dict, energy_trend: str = "stable") -> float:
+    """Fallback heuristic calculating a compatibility score (0.0 to 1.0)."""
     bpm_delta = abs(track["bpm"] - current_track["bpm"])
     bpm_score = max(0, 1 - (bpm_delta / CONFIG["MAX_BPM_DELTA"]))
-
-    # Energy Score
     energy_delta = abs(track["energy"] - current_track["energy"])
     energy_score = max(0, 1 - (energy_delta / CONFIG["MAX_ENERGY_DELTA"]))
-
-    # Energy Ramping Bonus/Penalty
-    ramping_score = 0.5
-    if dj_state.energy_trend == "rising":
-        if track["energy"] > current_track["energy"]: ramping_score = 1.0
-        elif track["energy"] < current_track["energy"]: ramping_score = 0.0
-    elif dj_state.energy_trend == "falling":
-        if track["energy"] < current_track["energy"]: ramping_score = 1.0
-        elif track["energy"] > current_track["energy"]: ramping_score = 0.0
-
-    # Key Score
     key_score = 1.0 if is_harmonically_compatible(track["key"], current_track["key"]) else 0.0
-
-    # Genre Score
     genre1 = current_track.get("genre", "Psytrance")
     genre2 = track.get("genre", "Psytrance")
     genre_score = GENRE_COMPATIBILITY.get(genre1, {}).get(genre2, 0.5)
+    return (bpm_score * 0.3) + (energy_score * 0.3) + (key_score * 0.2) + (genre_score * 0.2)
 
-    # Weighted Average
-    # 20% BPM, 20% Energy, 10% Ramping, 30% Key, 20% Genre
-    return (bpm_score * 0.20) + (energy_score * 0.20) + (ramping_score * 0.1) + (key_score * 0.3) + (genre_score * 0.2)
+def calculate_vibe_score(track: Dict, current_track: Dict, energy_trend: str = "stable", user_vibe_pref: Optional[str] = None, voting_velocity: float = 0.0) -> float:
+    """
+    Calculates a compatibility score (0.0 to 1.0) between two tracks.
+    Utilizes the ML-driven Neural Conductor to predict vibe based on transition metrics and crowd voting velocity.
+    """
+    if CONFIG.get("NEURAL_CONDUCTOR_ENABLED", True):
+        base_score = neural_conductor.predict_vibe_score(current_track, track, voting_velocity)
 
-def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool, str]:
+        # Expand Milestone 13: Simulate Multi-Agent DJ Battles
+        agent_scores = simulate_agent_battle(track, current_track, base_score)
+    else:
+        base_score = calculate_heuristic_vibe_score(track, current_track, energy_trend)
+        agent_scores = {}
+    # The crowd's final score is influenced slightly by the highest scoring secondary agent
+    max_agent_score = max(agent_scores.values()) if agent_scores else base_score
+    base_score = (base_score * 0.8) + (max_agent_score * 0.2)
+
+    # Still apply user preference bonuses
+    if user_vibe_pref and track.get("genre") == user_vibe_pref:
+        base_score = min(1.0, base_score + 0.1)
+
+    return base_score
+
+
+def evaluate_track_fit(requested_track: Dict, current_track: Dict, voting_velocity: float = 0.0) -> Tuple[bool, str]:
     """
     Algorithmic Vibe Check: Assesses if a requested song safely fits
-    the current energy matrix and tempo of the dancefloor.
+    the current energy matrix and tempo of the dancefloor using the ML Conductor.
     """
-    # Rule 1: Tempo Check
-    bpm_delta = abs(requested_track["bpm"] - current_track["bpm"])
-    if bpm_delta > CONFIG["MAX_BPM_DELTA"]:
-        return False, f"BPM clash too severe ({requested_track['bpm']} vs {current_track['bpm']}). Would cause audio warp distortion."
+    if CONFIG.get("NEURAL_CONDUCTOR_ENABLED", True):
+        predicted_vibe = neural_conductor.predict_vibe_score(current_track, requested_track, voting_velocity)
 
-    # Rule 2: Energy Vibe Check
-    energy_delta = abs(requested_track["energy"] - current_track["energy"])
-    if energy_delta > CONFIG["MAX_ENERGY_DELTA"]:
-         return False, f"Energy delta clash ({requested_track['energy']} vs {current_track['energy']}): Transition is too abrupt for the current vibe."
+        # If the ML model predicts a highly negative outcome, reject the track
+        if predicted_vibe < 0.4:
+            return False, f"ML Prediction too low ({predicted_vibe:.2f}). Track clashes with current crowd energy matrix."
+    else:
+        predicted_vibe = calculate_heuristic_vibe_score(requested_track, current_track)
+
+    # Fallback Hard Rule: Extreme Tempo Check to prevent audio engine distortion
+    bpm_delta = abs(requested_track.get("bpm", 120) - current_track.get("bpm", 120))
+    if bpm_delta > CONFIG["MAX_BPM_DELTA"]:
+        return False, f"BPM clash too severe ({requested_track.get('bpm', 120)} vs {current_track.get('bpm', 120)}). Would cause C++ audio warp distortion."
 
     # Rule 3: Harmonic Check
-    if not is_harmonically_compatible(requested_track["key"], current_track["key"]):
-        return False, f"Harmonic clash: {requested_track['key']} is not compatible with current track's {current_track['key']}."
+    if not is_harmonically_compatible(requested_track.get("key", "1A"), current_track.get("key", "1A")):
+        return False, f"Harmonic clash: {requested_track.get('key')} is not compatible with current track's {current_track.get('key')}."
 
-    # Rule 4: Genre Check
-    genre1 = current_track.get("genre", "Psytrance")
-    genre2 = requested_track.get("genre", "Psytrance")
-    if GENRE_COMPATIBILITY.get(genre1, {}).get(genre2, 0.5) < 0.3:
-        return False, f"Genre clash: {genre2} is not compatible with current vibe ({genre1})."
-
-        if abs(dj_state.current_bpm - dj_state.target_bpm) > 0.01:
-            step = 0.05
-            if dj_state.current_bpm < dj_state.target_bpm: dj_state.current_bpm = min(dj_state.target_bpm, dj_state.current_bpm + step)
-            else: dj_state.current_bpm = max(dj_state.target_bpm, dj_state.current_bpm - step)
-            for client in list(dj_state.active_connections):
-                try: await client.send_json({"type": "MASTER_CONTROL", "data": {"target_bpm": dj_state.current_bpm}})
-                except Exception: pass
+    return True, f"Track approved (Score: {predicted_vibe:.2f})."
 
 async def playback_simulation_loop():
     """
@@ -381,26 +405,47 @@ async def playback_simulation_loop():
         dj_state.vote_history = [t for t in dj_state.vote_history if now - t < 60]
         vote_velocity = len(dj_state.vote_history)
 
-        # 2. Trigger Energy Peak and DSP Intensify based on Derivative
+        # Biometric Sync Evaluation (Milestone 11)
+        biometrics = get_venue_aggregator(1) # Using default venue ID 1 for simulation
+
+        # 2. Trigger Energy Peak and DSP Intensify based on Derivative OR Biometric Spikes
         acceleration = vote_velocity - dj_state.last_velocity
         dj_state.last_velocity = vote_velocity
 
-        if acceleration > 2 and not dj_state.is_peak_mode:
+        trigger_peak = (vote_velocity >= 5) or biometrics.is_spiking
+        trigger_intensify = (acceleration > 2) or (biometrics.current_average_bpm > biometrics.baseline_bpm * 1.15)
+
+        if trigger_intensify and not dj_state.is_peak_mode:
              # Sudden surge detected
              for client in dj_state.active_connections:
                  try: await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "DSP_INTENSIFY", "duration": 10.0}})
                  except: pass
 
-        if vote_velocity >= 5 and not dj_state.is_peak_mode:
+        if trigger_peak and not dj_state.is_peak_mode:
             dj_state.is_peak_mode = True
             dj_state.energy_trend = "rising"
             dj_state.target_bpm += 2.0
-            print(f"[SYSTEM] ENERGY PEAK DETECTED! Velocity: {vote_velocity} votes/min. Ramping up.")
+            print(f"[SYSTEM] ENERGY PEAK DETECTED! Velocity: {vote_velocity} votes/min, HR Spike: {biometrics.is_spiking}. Ramping up.")
+
+            # Generate MC Hype Audio
+            hype_text = generate_hype_announcement(vote_velocity, "rising", "Peak")
+            tts_filepath = create_tts_audio(hype_text)
+
+            # Trigger Generative Video Synthesis framework for Peak Mode (Milestone 12)
+            asyncio.create_task(comfy_bridge.trigger_visual_synthesis(dj_state.energy_trend, dj_state.current_track.get("genre", "Psytrance"), rms=1.0))
+
+            # Map crowd energy peak to DMX strobe sequence and trigger audio
+            for client in dj_state.active_connections:
+                 try:
+                     await client.send_json({"type": "LIGHTING_CONTROL_DMX", "data": {"sequence": "strobe_fast", "intensity": 255, "duration_ms": 15000}})
+                     if tts_filepath:
+                         await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "PLAY_SAMPLE", "filepath": tts_filepath}})
+                 except: pass
             await manager.broadcast_queue_update()
-        elif vote_velocity < 2 and dj_state.is_peak_mode:
+        elif not trigger_peak and dj_state.is_peak_mode:
             dj_state.is_peak_mode = False
             dj_state.energy_trend = "stable"
-            print(f"[SYSTEM] Peak energy subsiding. Velocity: {vote_velocity} votes/min.")
+            print(f"[SYSTEM] Peak energy subsiding. Velocity: {vote_velocity} votes/min, HR Spiking: {biometrics.is_spiking}.")
             await manager.broadcast_queue_update()
 
         # 3. Smooth BPM Ramping Logic
@@ -423,12 +468,18 @@ async def playback_simulation_loop():
 
                 # Determine winning transition archetype
                 winner = max(dj_state.transition_votes, key=dj_state.transition_votes.get)
+                filepath = next_track.get("filepath", f"tracks/{next_track['id']}.flac")
+
+                # Perform stem separation for the upcoming track
+                # (Normally this would be kicked off earlier, but for demo we await here)
+                stems = await extract_stems(filepath)
 
                 sync_payload = {
                     "type": "TRACK_SYNC",
                     "data": {
                         "track_id": next_track["id"],
-                        "filepath": next_track.get("filepath", f"tracks/{next_track['id']}.flac"),
+                        "filepath": filepath,
+                        "stems": stems,
                         "bpm": next_track["bpm"],
                         "key": next_track["key"],
                         "energy": next_track["energy"],
@@ -437,6 +488,13 @@ async def playback_simulation_loop():
                         "archetype": winner
                     }
                 }
+
+                # If archetype is Bass Swap, send command to mute bass during transition
+                if winner == "bass_swap":
+                    for client in dj_state.active_connections:
+                        try: await client.send_json({"type": "MASTER_CONTROL", "data": {"action": "MUTE_BASS", "enable": True}})
+                        except: pass
+
                 # Broadcast to all clients (including the future C++ Engine)
                 for client in dj_state.active_connections:
                     try:
@@ -511,12 +569,19 @@ async def playback_simulation_loop():
 async def lifespan(app: FastAPI):
     """Lifecycle manager for the FastAPI application."""
     # Startup: Initialize background tasks
+    await pubsub_manager.connect()
     loop_task = asyncio.create_task(playback_simulation_loop())
+    sp_task = asyncio.create_task(shadow_pilot_instance.run_loop())
     yield
     # Shutdown: Clean up tasks
+    await pubsub_manager.disconnect()
     loop_task.cancel()
+    sp_task.cancel()
 
 app = FastAPI(title="Algorithmic DJ Conductor Server", lifespan=lifespan)
+app.include_router(telemetry_router)
+app.include_router(governance_router)
+app.include_router(ml_router)
 
 # Serve static files for the client prototype
 app.mount("/static", StaticFiles(directory="src/static"), name="static")
@@ -559,27 +624,21 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return {"access_token": create_access_token(data={"sub": row["username"]}), "token_type": "bearer"}
 
-@app.get("/api/me", response_model=User)
-async def read_users_me(current_user: dict = Depends(get_current_user)):
-    return {
-        "username": current_user["username"], "points": current_user["points"],
-        "badges": json.loads(current_user["badges"]), "role": current_user.get("role", "user"),
-        "referral_code": current_user.get("referral_code"),
-        "vibe_preference": current_user.get("vibe_preference", "Psytrance")
-    }
-
-@app.patch("/api/me", response_model=User)
+@app.patch("/api/me")
 async def update_user_me(data: UserUpdate, current_user: dict = Depends(get_current_user)):
     conn = get_db_connection(); cursor = conn.cursor()
     if data.vibe_preference:
         cursor.execute("UPDATE users SET vibe_preference = ? WHERE id = ?", (data.vibe_preference, current_user["id"]))
+    if data.bio is not None:
+        cursor.execute("UPDATE users SET bio = ? WHERE id = ?", (data.bio, current_user["id"]))
     conn.commit(); conn.close()
 
-    return {
-        **current_user,
-        "vibe_preference": data.vibe_preference or current_user.get("vibe_preference"),
-        "badges": json.loads(current_user["badges"]) if isinstance(current_user["badges"], str) else current_user["badges"]
-    }
+    import json
+    updated_user = dict(current_user)
+    updated_user["vibe_preference"] = data.vibe_preference or current_user.get("vibe_preference")
+    updated_user["bio"] = data.bio or current_user.get("bio")
+    updated_user["badges"] = json.loads(current_user["badges"]) if isinstance(current_user["badges"], str) else current_user["badges"]
+    return updated_user
 
 @app.get("/api/live/crowd-stats")
 async def get_live_crowd_stats(current_user: dict = Depends(get_current_user)):
@@ -603,6 +662,13 @@ async def get_my_requests(current_user: dict = Depends(get_current_user)):
 async def get_my_votes(current_user: dict = Depends(get_current_user)):
     conn = get_db_connection(); cursor = conn.cursor()
     cursor.execute('''SELECT v.*, t.title, t.artist FROM user_votes v JOIN tracks t ON v.track_id = t.id WHERE v.user_id = ? ORDER BY v.timestamp DESC''', (current_user["id"],))
+    rows = cursor.fetchall(); conn.close()
+    return [dict(row) for row in rows]
+
+@app.get("/api/me/history/likes")
+async def get_my_likes(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute('''SELECT s.*, t.title, t.artist FROM song_feedback s JOIN tracks t ON s.track_id = t.id WHERE s.user_id = ? AND s.is_like = 1 ORDER BY s.timestamp DESC''', (current_user["id"],))
     rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
 
@@ -677,7 +743,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
-@app.get("/api/me", response_model=User)
+@app.get("/api/me")
 async def read_users_me(current_user: dict = Depends(get_current_user)):
     # Convert JSON string badges to list
     import json
@@ -686,7 +752,10 @@ async def read_users_me(current_user: dict = Depends(get_current_user)):
         "username": current_user["username"],
         "points": current_user["points"],
         "badges": badges,
-        "referral_code": current_user.get("referral_code")
+        "role": current_user.get("role", "user"),
+        "referral_code": current_user.get("referral_code"),
+        "vibe_preference": current_user.get("vibe_preference", "Psytrance"),
+        "bio": current_user.get("bio")
     }
 
 @app.get("/api/me/history/requests")
@@ -703,6 +772,13 @@ async def get_my_requests(current_user: dict = Depends(get_current_user)):
     ''', (current_user["id"],))
     rows = cursor.fetchall()
     conn.close()
+    return [dict(row) for row in rows]
+
+@app.get("/api/me/history/likes")
+async def get_my_likes(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute('''SELECT s.*, t.title, t.artist FROM song_feedback s JOIN tracks t ON s.track_id = t.id WHERE s.user_id = ? AND s.is_like = 1 ORDER BY s.timestamp DESC''', (current_user["id"],))
+    rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
 
 @app.get("/api/me/history/votes")
@@ -829,7 +905,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
         if user_id != "anonymous":
             conn = get_db_connection()
             cursor = conn.cursor()
-            cursor.execute("SELECT points, badges, streak FROM users WHERE id = ?", (user_id,))
+            cursor.execute("SELECT points, badges, streak, vibe_preference FROM users WHERE id = ?", (user_id,))
             row = cursor.fetchone()
             conn.close()
             if row:
@@ -837,12 +913,13 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                     "points": row["points"],
                     "badges": json.loads(row["badges"]),
                     "streak": row["streak"],
-                    "username": display_name
+                    "username": display_name,
+                    "vibe_preference": row["vibe_preference"]
                 }
             else:
-                dj_state.user_stats[user_id] = {"points": 0, "badges": [], "streak": 0, "username": display_name}
+                dj_state.user_stats[user_id] = {"points": 0, "badges": [], "streak": 0, "username": display_name, "vibe_preference": "Psytrance"}
         else:
-            dj_state.user_stats[user_id] = {"points": 0, "badges": [], "streak": 0, "username": display_name}
+            dj_state.user_stats[user_id] = {"points": 0, "badges": [], "streak": 0, "username": display_name, "vibe_preference": "Psytrance"}
     else:
         dj_state.user_stats[user_id]["username"] = display_name
 
@@ -857,17 +934,42 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                 track_id = message.get("track_id")
                 track = TRACK_CATALOG.get(track_id)
                 if track:
-                    score = calculate_vibe_score(track, dj_state.current_track)
+                    current_vel = len([t for t in dj_state.vote_history if time.time() - t < 60])
+                    score = calculate_vibe_score(track, dj_state.current_track, voting_velocity=current_vel)
                     await websocket.send_json({"type": "VIBE_SCORE", "track_id": track_id, "score": score})
                 else:
                     await websocket.send_json({"type": "ERROR", "message": "Track not found."})
 
             elif action == "REQUEST_SONG":
                 track_id = message.get("track_id")
+
+                # Check external source (Spotify)
+                if track_id.startswith("spotify:track:") or "spotify.com/track/" in track_id:
+                    spotify_id = track_id.split("/")[-1].split("?")[0] if "spotify.com/track/" in track_id else track_id.split(":")[-1]
+                    meta = get_track_metadata(spotify_id)
+                    if meta:
+                        new_track_id = f"ext_{spotify_id}"
+                        TRACK_CATALOG[new_track_id] = {
+                            "id": new_track_id,
+                            "title": meta["title"],
+                            "artist": meta["artist"],
+                            "bpm": meta["bpm"],
+                            "key": meta["key"],
+                            "energy": meta["energy"],
+                            "genre": meta["genre"],
+                            "filepath": meta["preview_url"] if meta["preview_url"] else "mock_url"
+                        }
+                        track_id = new_track_id
+
                 track = TRACK_CATALOG.get(track_id)
-                if not track: continue
-                fits, reason = evaluate_track_fit(track, dj_state.current_track)
-                vibe_score = calculate_vibe_score(track, dj_state.current_track, dj_state.energy_trend, user_vibe_pref)
+                if not track:
+                    await websocket.send_json({"type": "ERROR", "message": "Track not found or invalid external URL."})
+                    continue
+
+                current_vel = len([t for t in dj_state.vote_history if time.time() - t < 60])
+                fits, reason = evaluate_track_fit(track, dj_state.current_track, voting_velocity=current_vel)
+                user_vibe_pref = dj_state.user_stats[user_id].get("vibe_preference", "Psytrance")
+                vibe_score = calculate_vibe_score(track, dj_state.current_track, dj_state.energy_trend, user_vibe_pref, voting_velocity=current_vel)
 
                 if fits:
                     # Append to queue and notify the entire room via real-time broadcast
@@ -877,7 +979,6 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                         continue
 
                     # Vibe Streak Gamification
-                    vibe_score = calculate_vibe_score(requested_track, dj_state.current_track)
                     points_to_award = 10
                     if vibe_score >= 0.8:
                         dj_state.user_stats[user_id]["streak"] = dj_state.user_stats[user_id].get("streak", 0) + 1
@@ -911,7 +1012,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                         except Exception as e:
                             print(f"[ERROR] Failed to persist user stats: {e}")
 
-                    dj_state.upcoming_queue.append({"track": requested_track, "votes": 1})
+                    dj_state.upcoming_queue.append({"track": track, "votes": 1})
 
                     # Persist request in DB
                     try:
@@ -930,7 +1031,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                     await websocket.send_json({
                         "type": "REQUEST_ACCEPTED",
                         "message": reason,
-                        "track": requested_track,
+                        "track": track,
                         "user_stats": dj_state.user_stats[user_id]
                     })
                     await manager.broadcast_queue_update()
@@ -944,7 +1045,7 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                             INSERT INTO user_requests (id, user_id, track_id, timestamp, vibe_score, status)
                             VALUES (?, ?, ?, ?, ?, ?)
                         ''', ("req_" + str(uuid.uuid4()), user_id if user_id != "anonymous" else None,
-                              track_id, time.time(), calculate_vibe_score(requested_track, dj_state.current_track), "DENIED"))
+                              track_id, time.time(), calculate_vibe_score(track, dj_state.current_track, voting_velocity=len([t for t in dj_state.vote_history if time.time() - t < 60])), "DENIED"))
                         conn.commit()
                         conn.close()
                     except Exception as e:
@@ -986,8 +1087,9 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
                         print(f"[ERROR] Failed to persist vote: {e}")
 
                     # Reorder queue based on weighted score of votes and vibe compatibility
+                    current_vel = len([t for t in dj_state.vote_history if time.time() - t < 60])
                     for item in dj_state.upcoming_queue:
-                        vibe = calculate_vibe_score(item["track"], dj_state.current_track)
+                        vibe = calculate_vibe_score(item["track"], dj_state.current_track, voting_velocity=current_vel)
                         # Normalize votes: 1 vote = 0.1, 10 votes = 1.0 (capped)
                         vote_score = min(1.0, item["votes"] * 0.1)
                         # Use CONFIG weight
@@ -1045,23 +1147,8 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
             else:
                 await websocket.send_json({"type": "ERROR", "message": f"Unknown action: {action}"})
 
-            elif action == "VOTE_TRACK":
-                tid = message.get("track_id")
-                found = False
-                for item in dj_state.upcoming_queue:
-                    if item["track"]["id"] == tid:
-                        item["votes"] += 1
-                        dj_state.vote_history.append(time.time())
-                        found = True
-                        break
-                if found:
-                    if user_id != "anonymous":
-                        conn = get_db_connection(); cursor = conn.cursor()
-                        cursor.execute("INSERT INTO user_votes (id, user_id, track_id, timestamp) VALUES (?, ?, ?, ?)",
-                                       ("vote_" + str(uuid.uuid4()), user_id, tid, time.time()))
-                        conn.commit(); conn.close()
-                    dj_state.upcoming_queue.sort(key=lambda x: x["votes"], reverse=True)
-                    await manager.broadcast_queue_update()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 # Integration with auto_dj_script submodule
 def run_offline_compiler_worker(track_ids: List[str], output_path: str, bpm: float):
@@ -1110,6 +1197,31 @@ def run_offline_compiler_worker(track_ids: List[str], output_path: str, bpm: flo
     except Exception as e:
         print(f"[ERROR] Offline compilation failed: {e}")
 
+@app.post("/api/feedback/song")
+async def submit_song_feedback(feedback: SongFeedback, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("INSERT INTO song_feedback (id, user_id, track_id, is_like, timestamp) VALUES (?, ?, ?, ?, ?)",
+                   ("sfb_" + str(uuid.uuid4()), current_user["id"], feedback.track_id, feedback.is_like, time.time()))
+    conn.commit(); conn.close()
+    return {"message": "Song feedback recorded"}
+
+from src.api.schemas import PasswordChange
+
+@app.post("/api/me/change-password")
+async def change_password(data: PasswordChange, current_user: dict = Depends(get_current_user)):
+    if not verify_password(data.current_password, current_user["hashed_password"]):
+        raise HTTPException(status_code=400, detail="Incorrect current password")
+
+    conn = get_db_connection(); cursor = conn.cursor()
+    cursor.execute("UPDATE users SET hashed_password = ? WHERE id = ?", (get_password_hash(data.new_password), current_user["id"]))
+    conn.commit(); conn.close()
+    return {"message": "Password updated successfully"}
+
+@app.post("/api/feedback/transition")
+async def submit_transition_feedback(feedback: TransitionVote, current_user: dict = Depends(get_current_user)):
+    # In a real scenario, we'd need to know which transition.
+    return {"message": "Transition feedback recorded"}
+
 @app.post("/api/render-highlights")
 async def render_highlights(background_tasks: BackgroundTasks, track_ids: List[str]):
     """
@@ -1117,10 +1229,6 @@ async def render_highlights(background_tasks: BackgroundTasks, track_ids: List[s
     """
     output_path = f"static/renders/highlights_{int(time.time())}.flac"
     background_tasks.add_task(run_offline_compiler_worker, track_ids, output_path, dj_state.target_bpm)
-    return {"status": "processing", "message": "High-fidelity highlight render initiated."}
-
-@app.post("/api/render-highlights")
-async def render_highlights(background_tasks: BackgroundTasks, track_ids: List[str]):
     return {"status": "processing", "message": "High-fidelity highlight render initiated."}
 
 @app.get("/api/events")
@@ -1159,16 +1267,50 @@ async def get_all_feedback(current_user: dict = Depends(get_current_user)):
     rows = cursor.fetchall(); conn.close()
     return [dict(row) for row in rows]
 
+import math
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculates distance in km between two lat/lon coordinates."""
+    R = 6371.0
+    lat1_rad = math.radians(lat1)
+    lon1_rad = math.radians(lon1)
+    lat2_rad = math.radians(lat2)
+    lon2_rad = math.radians(lon2)
+
+    dlon = lon2_rad - lon1_rad
+    dlat = lat2_rad - lat1_rad
+
+    a = math.sin(dlat / 2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon / 2)**2
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+    return R * c
+
 @app.get("/api/venues")
-async def get_venues():
+async def get_venues(latitude: float = None, longitude: float = None, radius_km: float = 50.0):
     conn = get_db_connection(); cursor = conn.cursor()
     cursor.execute("SELECT * FROM venues")
     rows = cursor.fetchall(); conn.close()
-    return [dict(row) for row in rows]
+
+    venues = [dict(row) for row in rows]
+
+    if latitude is not None and longitude is not None:
+        filtered_venues = []
+        for venue in venues:
+            if venue.get('latitude') is not None and venue.get('longitude') is not None:
+                dist = haversine_distance(latitude, longitude, venue['latitude'], venue['longitude'])
+                if dist <= radius_km:
+                    venue['distance_km'] = round(dist, 2)
+                    filtered_venues.append(venue)
+        # Sort by distance
+        filtered_venues.sort(key=lambda x: x['distance_km'])
+        return filtered_venues
+
+    return venues
+
+# Global multi-tenant state manager
+venue_states: Dict[str, TrackState] = {"CDC_MAIN": dj_state, "CDC_BERLIN": TrackState()}
 
 @app.get("/api/venues/{venue_id}/state")
 async def get_venue_state(venue_id: str):
-    venue_states: Dict[str, TrackState] = {"CDC_MAIN": dj_state}
     if venue_id not in venue_states:
         raise HTTPException(status_code=404, detail="Venue not found")
     state = venue_states[venue_id]
@@ -1187,6 +1329,17 @@ async def get_health(current_user: dict = Depends(get_current_user)):
         "system": monitor.get_health_stats(),
         "vibe_consistency": monitor.get_vibe_consistency(),
         "active_clients": len(dj_state.active_connections)
+    }
+
+@app.get("/api/admin/shadow-pilot/status")
+async def get_shadow_pilot_status(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    return {
+        "status": shadow_pilot_instance.status_msg,
+        "is_active": shadow_pilot_instance.is_active,
+        "diff_count": shadow_pilot_instance.diff_count,
+        "last_anomaly": shadow_pilot_instance.last_anomaly
     }
 
 @app.get("/api/admin/analytics/vibe-report")
