@@ -1,55 +1,73 @@
-import logging
-from typing import List, Dict, Optional
-import time
+import os
+import joblib
+import pandas as pd
+from typing import Dict, Optional, Tuple
+from sklearn.ensemble import RandomForestRegressor
 
-logger = logging.getLogger("NeuralConductor")
+# Milestone 4: Neural Conductor
+# Wraps the core heuristic vibe score with an ML prediction layer
 
-class VibePredictor:
-    """
-    ML-driven vibe analysis and predictive track queuing.
-    Consumes FastAPI event streams to rank upcoming tracks.
-    """
-    def __init__(self):
-        self.is_trained = False
-        # TODO: Load actual model weights here (e.g. scikit-learn or ONNX)
+class NeuralConductor:
+    def __init__(self, model_path: str = "models/neural_conductor_v1.joblib"):
+        self.model_path = model_path
+        self.enabled = os.getenv("NEURAL_CONDUCTOR_ENABLED", "True").lower() == "true"
+        self.model = None
+        self._load_model()
 
-    def train(self, training_data: List[Dict]):
+    def _load_model(self):
+        """Loads the pre-trained ML model if enabled."""
+        if self.enabled:
+            try:
+                if os.path.exists(self.model_path):
+                    self.model = joblib.load(self.model_path)
+                    print(f"Neural Conductor ML Model loaded from {self.model_path}")
+                else:
+                    print(f"Warning: Neural model {self.model_path} not found. Operating in fallback mode.")
+                    self.enabled = False
+            except Exception as e:
+                print(f"Error loading Neural Conductor model: {e}")
+                self.enabled = False
+
+    def predict_vibe_score(self,
+                           track: Dict,
+                           current_track: Dict,
+                           energy_trend: str,
+                           heuristic_score: float,
+                           voting_velocity: float) -> Tuple[float, bool]:
         """
-        Stub for training the model using historical signals
-        (vote velocity, energy peaks, transition outcomes).
+        Calculates a hybrid score. If the ML model is loaded and enabled, it predicts the
+        true vibe fit based on contextual features and blends it with the heuristic score.
+        Returns the final score and a boolean indicating if ML was used.
         """
-        logger.info("Training VibePredictor...")
-        self.is_trained = True
-        pass
+        if not self.enabled or self.model is None:
+            return heuristic_score, False
 
-    def predict(self, current_state: Dict, candidates: List[Dict]) -> List[Dict]:
-        """
-        Predicts the vibe score for candidate tracks and returns a ranked list.
-        Must respect the 15-second proactive sync constraint.
+        try:
+            # Build feature vector mapping what the model expects
+            bpm_delta = track.get("bpm", 120) - current_track.get("bpm", 120)
+            energy_delta = track.get("energy", 0.5) - current_track.get("energy", 0.5)
+            trend_val = 1 if energy_trend == "rising" else (-1 if energy_trend == "falling" else 0)
 
-        Args:
-            current_state: Dict containing current BPM, energy, voting_velocity
-            candidates: List of track dicts to evaluate
+            features = pd.DataFrame([{
+                "bpm_delta": bpm_delta,
+                "energy_delta": energy_delta,
+                "trend": trend_val,
+                "heuristic_base": heuristic_score,
+                "voting_velocity": voting_velocity
+            }])
 
-        Returns:
-            Ranked list of candidate tracks (highest score first)
-        """
-        # TODO: Implement actual model inference
-        # For now, return a heuristic mock ranking
-        ranked = sorted(candidates, key=lambda x: x.get('energy', 0), reverse=True)
-        return ranked
+            # Predict the pure ML score
+            ml_prediction = float(self.model.predict(features)[0])
 
-    def generate_predictive_queue_payload(self, ranked_candidates: List[Dict]) -> Dict:
-        """
-        Formats the ranked candidates for the AUDIO_ENGINE_PROTOCOL.md PREDICTIVE_QUEUE message.
-        """
-        payload = {
-            "type": "PREDICTIVE_QUEUE",
-            "data": {
-                "predicted_tracks": [
-                    {"track_id": track.get("id", track.get("track_id", "unknown")), "confidence": 1.0 - (i * 0.1)}
-                    for i, track in enumerate(ranked_candidates[:3])
-                ]
-            }
-        }
-        return payload
+            # Blend the models (60% ML / 40% Heuristic safeguard)
+            hybrid_score = (ml_prediction * 0.6) + (heuristic_score * 0.4)
+
+            # Clamp result between 0 and 1
+            return max(0.0, min(1.0, hybrid_score)), True
+
+        except Exception as e:
+            print(f"Neural prediction failed, falling back to heuristic: {e}")
+            return heuristic_score, False
+
+# Global Singleton instance
+neural_conductor_instance = NeuralConductor()
