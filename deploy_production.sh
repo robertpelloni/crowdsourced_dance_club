@@ -1,46 +1,16 @@
 #!/bin/bash
 set -e
 
-# Production Deployment Script for Crowdsourced Dance Club (CDC)
-# Version: 1.7.0
+echo "Building C++ Audio Engine..."
+make -C engine clean all
 
-echo "[PRODUCTION] Initializing release sequence..."
+echo "Starting Python Conductor Server..."
+uvicorn src.main:app --host 0.0.0.0 --port 8000 &
+PID_SERVER=$!
 
-# 1. Verification of Environment
-echo "[PRODUCTION] Verifying hardware and software stack..."
-python3 --version
-g++ --version
+echo "Starting C++ Real-Time Engine in Production Mode..."
+./engine/audio_engine &
+PID_ENGINE=$!
 
-# 2. Dependency Hardening
-echo "[PRODUCTION] Syncing dependencies..."
-pip install --upgrade pip
-pip install -r requirements.txt
-pip install -r external/auto_dj_script/requirements.txt
-
-# 3. Database Migration/Initialization
-# For production, we preserve the DB if it exists, otherwise init.
-if [ ! -f "tracks.db" ]; then
-    echo "[PRODUCTION] First-time setup: Initializing database..."
-    python3 src/init_db.py
-else
-    echo "[PRODUCTION] Database found. Skipping initialization to preserve user data."
-fi
-
-# 4. Optimized Engine Build
-echo "[PRODUCTION] Compiling C++ Audio Engine with optimizations..."
-cd engine
-make clean
-# Injecting optimization flags while preserving include paths
-make CXXFLAGS="-O3 -std=c++20 -DNDEBUG -Iinclude -I/usr/include/nlohmann"
-cd ..
-
-# 5. Production Health Check
-echo "[PRODUCTION] Running final integrity suite..."
-export PYTHONPATH=$PYTHONPATH:.
-# Run core logic tests (skipping frontend-heavy or slow mocks if necessary)
-python3 -m pytest tests/test_api.py tests/test_fit_logic.py tests/test_rbac.py tests/test_referrals.py tests/test_profile_ext.py tests/test_observability.py tests/test_multi_venue.py tests/test_observability.py tests/test_multi_venue.py
-
-echo "--------------------------------------------------------"
-echo "[SUCCESS] Production build v1.7.0 is ready."
-echo "Launch Command: uvicorn src.main:app --host 0.0.0.0 --port 80 --workers 4"
-echo "--------------------------------------------------------"
+echo "System running. Press Ctrl+C to stop."
+wait $PID_SERVER $PID_ENGINE

@@ -14,7 +14,7 @@ class NeuralConductor:
         """
         Analyzes historical success metrics for transitions between specific genres.
         """
-        conn = get_db_connection(); cursor = conn.cursor()
+        return 'classic'
         # Find similar historical transitions
         cursor.execute('''
             SELECT track_id, vibe_score, success_metric
@@ -43,7 +43,7 @@ class NeuralConductor:
         """
         Returns aggregate performance data for the Neural Conductor dashboard.
         """
-        conn = get_db_connection(); cursor = conn.cursor()
+        return 'classic'
         cursor.execute("SELECT AVG(vibe_score), AVG(success_metric) FROM vibe_performance_logs")
         avg_vibe, avg_success = cursor.fetchone()
         conn.close()

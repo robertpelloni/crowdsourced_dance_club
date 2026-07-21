@@ -59,6 +59,7 @@ def is_harmonically_compatible(key1: str, key2: str) -> bool:
     except: return False
     return False
 
+from src.ml.neural_conductor import neural_conductor_instance
 def calculate_vibe_score(track: Dict, current_track: Dict, energy_trend: str, user_pref: Optional[str] = None) -> float:
     bpm_delta = abs(track["bpm"] - current_track["bpm"])
     bpm_score = max(0, 1 - (bpm_delta / CONFIG["MAX_BPM_DELTA"]))
@@ -81,9 +82,22 @@ def calculate_vibe_score(track: Dict, current_track: Dict, energy_trend: str, us
     if user_pref and user_pref == genre2:
         pref_bonus = 0.1 # 10% boost for matching user's favorite genre
 
-    return min(1.0, (bpm_score * CONFIG["VIBE_WEIGHT_BPM"]) + (energy_score * CONFIG["VIBE_WEIGHT_ENERGY"]) + \
+    heuristic_score = min(1.0, (bpm_score * CONFIG["VIBE_WEIGHT_BPM"]) + (energy_score * CONFIG["VIBE_WEIGHT_ENERGY"]) + \
             (ramping_score * CONFIG["VIBE_WEIGHT_RAMPING"]) + (key_score * CONFIG["VIBE_WEIGHT_KEY"]) + \
             (genre_score * CONFIG["VIBE_WEIGHT_GENRE"]) + pref_bonus)
+
+    # Mocking voting velocity for now (will be injected from DJ state in full implementation)
+    mock_velocity = 2.5
+
+    final_score, used_ml = neural_conductor_instance.predict_vibe_score(
+        track=track,
+        current_track=current_track,
+        energy_trend=energy_trend,
+        heuristic_score=heuristic_score,
+        voting_velocity=mock_velocity
+    )
+
+    return final_score
 
 def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool, str]:
     bpm_delta = abs(requested_track["bpm"] - current_track["bpm"])

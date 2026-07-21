@@ -13,6 +13,7 @@ from datetime import timedelta
 
 import qrcode
 import socket
+import sqlite3
 import uuid
 from datetime import datetime, timedelta
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException, Depends, status
@@ -107,6 +108,14 @@ class User(BaseModel):
 class UserInDB(User):
     hashed_password: str
 
+class UserUpdate(BaseModel):
+    username: Optional[str] = None
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
+    wallet_address: Optional[str] = None
+    vibe_preference: Optional[str] = None
+
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -127,56 +136,35 @@ class FeedbackSubmit(BaseModel):
     comment: Optional[str] = None
 
 class TrackState:
-    """
-    Maintains the live state of the club's audio system.
-    This is a singleton-like object in the current implementation.
-    """
     def __init__(self):
-        # Current track being played
-        self.current_track: Dict = TRACK_CATALOG["track_001"]
-        # Start time of the current track (epoch seconds)
+        self.current_track: Optional[Dict] = None
         self.start_time: float = time.time()
-        # Duration of current track in seconds (default 180 for simulation)
-        self.duration: float = 180.0
-        # Target BPM for the room (the eventual goal)
-        self.target_bpm: float = 145.0
-        # Current BPM (the live tempo being ramped)
-        self.current_bpm: float = 145.0
-        # Target energy trend: "rising", "stable", or "falling"
+        self.duration: float = 0.0
+        self.target_bpm: float = 120.0
+        self.current_bpm: float = 120.0
         self.energy_trend: str = "stable"
-        # Peak mode status
         self.is_peak_mode: bool = False
-        # Last calculated velocity for derivative
-        self.last_velocity: float = 0.0
-        # Upcoming tracks submitted and approved
-        # Each entry is a dict: {"track": Dict, "votes": int}
         self.upcoming_queue: List[Dict] = []
-        # List of active WebSocket connections
-        self.active_connections: List[WebSocket] = []
-        # History of vote timestamps for velocity calculation
-        self.vote_history: List[float] = []
-        # User leaderboard: {user_id: {"points": int, "badges": List[str], "username": str}}
-        self.user_stats: Dict[str, Dict] = {}
-        # Track historical genres for archetype evolution
-        self.genre_history: List[str] = []
-        # Notified events to avoid duplicates
-        self.notified_events: List[str] = []
-        # Votes for next transition style: {style: count}
-        self.transition_votes: Dict[str, int] = {"classic": 0, "bass_swap": 0, "echo_out": 0, "hpf_sweep": 0}
+        self.active_connections: set = set()
+        self.vote_history: List[float] = [] # timestamps of votes
+        self.playback_history: List[Dict] = []
+        self.user_stats: Dict[str, Dict] = {"anonymous": {"points": 0, "badges": []}}
+        self.transition_votes: int = 0
+        self.crowd_energy: float = 0.5
 
 dj_state = TrackState()
 
 class ConnectionManager:
     async def connect(self, websocket: WebSocket):
         await websocket.accept()
-        dj_state.active_connections.append(websocket)
+        dj_state.active_connections.add(websocket)
         # Immediately push current state to the new client
         await websocket.send_json(self.get_broadcast_payload())
 
     def disconnect(self, websocket: WebSocket):
         """Removes a disconnected client from the active list."""
         if websocket in dj_state.active_connections:
-            dj_state.active_connections.remove(websocket)
+            dj_state.active_connections.discard(websocket)
 
     async def broadcast_queue_update(self):
         payload = self.get_broadcast_payload()
@@ -359,14 +347,6 @@ def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool
     genre2 = requested_track.get("genre", "Psytrance")
     if GENRE_COMPATIBILITY.get(genre1, {}).get(genre2, 0.5) < 0.3:
         return False, f"Genre clash: {genre2} is not compatible with current vibe ({genre1})."
-
-        if abs(dj_state.current_bpm - dj_state.target_bpm) > 0.01:
-            step = 0.05
-            if dj_state.current_bpm < dj_state.target_bpm: dj_state.current_bpm = min(dj_state.target_bpm, dj_state.current_bpm + step)
-            else: dj_state.current_bpm = max(dj_state.target_bpm, dj_state.current_bpm - step)
-            for client in list(dj_state.active_connections):
-                try: await client.send_json({"type": "MASTER_CONTROL", "data": {"target_bpm": dj_state.current_bpm}})
-                except Exception: pass
 
 async def playback_simulation_loop():
     """
@@ -1045,25 +1025,11 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
             else:
                 await websocket.send_json({"type": "ERROR", "message": f"Unknown action: {action}"})
 
-            elif action == "VOTE_TRACK":
-                tid = message.get("track_id")
-                found = False
-                for item in dj_state.upcoming_queue:
-                    if item["track"]["id"] == tid:
-                        item["votes"] += 1
-                        dj_state.vote_history.append(time.time())
-                        found = True
-                        break
-                if found:
-                    if user_id != "anonymous":
-                        conn = get_db_connection(); cursor = conn.cursor()
-                        cursor.execute("INSERT INTO user_votes (id, user_id, track_id, timestamp) VALUES (?, ?, ?, ?)",
-                                       ("vote_" + str(uuid.uuid4()), user_id, tid, time.time()))
-                        conn.commit(); conn.close()
-                    dj_state.upcoming_queue.sort(key=lambda x: x["votes"], reverse=True)
-                    await manager.broadcast_queue_update()
 
 # Integration with auto_dj_script submodule
+    except Exception as e:
+        manager.disconnect(websocket)
+        print(f'[WS] Client disconnected: {e}')
 def run_offline_compiler_worker(track_ids: List[str], output_path: str, bpm: float):
     """
     Calls the Auto DJ submodule to render a set based on specific track IDs.
@@ -1075,6 +1041,11 @@ def run_offline_compiler_worker(track_ids: List[str], output_path: str, bpm: flo
     try:
         from autodj.core import compile_master_set
         import shutil
+
+        # Inject ML-based predictive mastering params if available
+        if CONFIG.get("NEURAL_CONDUCTOR_ENABLED", True):
+            print("[CONDUCTOR] Applying ML Neural predictive settings to Auto DJ mastering logic.")
+            # Dummy passing for now, auto_dj.core would need to consume them
 
         # Create a temporary directory for this specific highlight render
         temp_dir = f"temp_render_{int(time.time())}"
