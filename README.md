@@ -2,7 +2,7 @@
 
 Welcome to the **Crowdsourced Dance Club (CDC)**. A cybernetic, globally scalable, and ML-driven approach to real-time algorithmic DJing.
 
-The system leverages a complex 3-tiered architecture (React Native -> Python FastAPI -> C++ PortAudio Engine) to build "The Sentient Venue".
+The system leverages a complex 3-tiered architecture (React Native -> Python FastAPI -> C++ PortAudio Engine) to build "The Sentient Venue". This system acts as a "Cybernetic DJ", taking crowd sentiment via live WebSockets and using an advanced ML-driven "Neural Conductor" to predict vibe trends, proactively syncing tracks to a C++ real-time audio engine.
 
 ## Current State: [v3.4.0]
 Phase 1, Phase 2, Phase 3, and **Phase 4** are officially complete and successfully tested via Playwright and Locust.
@@ -16,3 +16,16 @@ Phase 1, Phase 2, Phase 3, and **Phase 4** are officially complete and successfu
 *   **Stem Mixing & Virtual MCs:** Real-time 4-stem C++ mixing using Demucs. Generative gTTS hype tracking.
 
 Please review `HANDOFF.md` and `PROJECT_MEMORY.md` for specific architectural design choices made during development.
+
+## Getting Started
+
+1. Set up a Python virtual environment and `pip install -r requirements.txt`.
+2. Initialize DB using `python src/main.py`.
+3. To build the engine, run `make -C engine` (requires portaudio, libsndfile, nlohmann-json3, libwebsocket).
+4. Run `deploy_production.sh` to start the ecosystem.
+
+## Milestones Status
+- [x] Milestone 1: Python MVP & Mobile Voting
+- [x] Milestone 2: C++ Audio Engine
+- [x] Milestone 3: 3-Tier Integration
+- [x] Milestone 4: Neural Conductor & UI Overhaul

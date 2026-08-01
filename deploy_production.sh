@@ -38,9 +38,25 @@ cd ..
 echo "[PRODUCTION] Running final integrity suite..."
 export PYTHONPATH=$PYTHONPATH:.
 # Run core logic tests (skipping frontend-heavy or slow mocks if necessary)
-python3 -m pytest tests/test_api.py tests/test_fit_logic.py tests/test_rbac.py tests/test_referrals.py tests/test_profile_ext.py tests/test_observability.py tests/test_multi_venue.py tests/test_observability.py tests/test_multi_venue.py
+python3 -m pytest tests/test_api.py tests/test_fit_logic.py tests/test_rbac.py tests/test_referrals.py tests/test_profile_ext.py tests/test_observability.py tests/test_multi_venue.py
 
 echo "--------------------------------------------------------"
 echo "[SUCCESS] Production build v3.4.0 is ready."
 echo "Launch Command: uvicorn src.main:app --host 0.0.0.0 --port 80 --workers 4"
 echo "--------------------------------------------------------"
+
+# 6. Launch Production Services
+echo "[PRODUCTION] Launching services..."
+echo "Building C++ Audio Engine..."
+make -C engine clean all
+
+echo "Starting Python Conductor Server..."
+uvicorn src.main:app --host 0.0.0.0 --port 8000 &
+PID_SERVER=$!
+
+echo "Starting C++ Real-Time Engine in Production Mode..."
+./engine/audio_engine &
+PID_ENGINE=$!
+
+echo "System running. Press Ctrl+C to stop."
+wait $PID_SERVER $PID_ENGINE
