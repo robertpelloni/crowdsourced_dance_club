@@ -1,3 +1,4 @@
+from src.core.agents import simulate_agent_battle, AGENTS
 import asyncio
 import io
 import json
@@ -672,6 +673,36 @@ async def get_my_likes(current_user: dict = Depends(get_current_user)):
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
+
+
+class AgentBattleRequest(BaseModel):
+    track_id: Optional[str] = None
+    track: Optional[Dict] = None
+
+@app.post("/api/agents/battle")
+async def run_agent_battle(req: AgentBattleRequest):
+    """
+    Simulates a battle between secondary AI DJ personas (The Purist, The Mashup King, The Goa Trance Shaman).
+    """
+    candidate = None
+    if req.track:
+        candidate = req.track
+    elif req.track_id and req.track_id in TRACK_CATALOG:
+        candidate = TRACK_CATALOG[req.track_id]
+    else:
+        candidate = TRACK_CATALOG.get("track_002")
+
+    current = dj_state.current_track or TRACK_CATALOG.get("track_001")
+    base_vibe = calculate_vibe_score(candidate, current)
+    battle_results = simulate_agent_battle(candidate, current, base_vibe)
+
+    return {
+        "status": "success",
+        "candidate_track": candidate,
+        "current_track": current,
+        "base_vibe_score": base_vibe,
+        "agent_scores": battle_results
+    }
 
 @app.websocket("/ws/clubgoer")
 async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):

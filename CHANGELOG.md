@@ -1,5 +1,10 @@
 # Changelog
 
+## [v3.5.1] - Secondary AI DJ Battle Arena Integration
+- **Secondary AI DJ Battle Arena (`src/core/agents.py`, `src/static/index.html`):** Integrated the Secondary AI DJ personas ("The Purist", "The Mashup King", "The Goa Trance Shaman") into the unified single-page dashboard. Users can trigger AI agent battles for candidate tracks to view distinct style-biased vibe scores, risk thresholds, and commentary before queuing.
+- **Battle Simulation Endpoint (`/api/agents/battle`):** Implemented REST endpoint in `src/main.py` accepting track metadata and ML baseline scores, calculating multi-agent compatibility, and returning the winning persona and commentary.
+- **Unit & Integration Testing (`tests/test_agents.py`):** Added comprehensive automated test suite covering SecondaryDJAgent methods, agent battle simulations, and endpoint validation.
+
 ## [v3.5.0] - Unified Single-Page Command Dashboard, System Tray & Router Deduplication
 - **Unified Single-Page Command Dashboard (`src/static/index.html`):** Redesigned and consolidated all venue operations into a single-page responsive command center prioritized by high-value features (Live Floor & Now Playing dynamics, real-time Queue & Transition voting, Telemetry/Wearables, ML Neural Conductor retraining/prediction, DAO Governance proposals/voting, Master Highlight rendering, and Clubgoer Profiles with helpful tooltip markers throughout).
 - **Desktop System Tray Controller (`src/tray.py`):** Added a system tray manager application providing server status inspection, background start/stop/restart, real-time log viewing, direct launching of the Dashboard and 3D Vibe Orb WebXR visualizer, and headless terminal CLI fallback.

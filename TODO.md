@@ -5,6 +5,7 @@
 - [x] Consolidate multi-page dashboard UI into unified single-page layout (`src/static/index.html`) with interactive tooltips and high-value feature prioritization.
 - [x] Implement desktop System Tray controller application (`src/tray.py`) with process management, log viewing, and headless fallback.
 - [x] Align `VibePredictor` interface with test specifications and pass all 36 test suite unit/integration tests.
+- [x] Wire Secondary AI DJ Agent Battle Arena into the dashboard UI and expose `/api/agents/battle` endpoint (`v3.5.1`).
 - [ ] Connect WebSocket audio state directly to WebRTC audio stream for real-time clubgoer audio monitoring in browser.
 
 ## Backlog / Technical Debt

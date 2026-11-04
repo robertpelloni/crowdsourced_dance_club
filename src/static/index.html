@@ -437,7 +437,7 @@
         <div class="brand">
             <span style="font-size: 1.6rem;">🎧</span>
             <div>
-                <h1>CDC AI Conductor <span class="version-tag">v3.4.0</span></h1>
+                <h1>CDC AI Conductor <span class="version-tag">v3.5.1</span></h1>
             </div>
         </div>
 
@@ -695,6 +695,49 @@
             </div>
         </section>
 
+
+        <!-- SECTION 7: SECONDARY AI DJ BATTLE ARENA -->
+        <section class="card col-12">
+            <div class="card-header">
+                <div class="card-title">
+                    <span>⚔️ Secondary AI DJ Battle Arena</span>
+                    <span class="tooltip-marker" data-tooltip="Autonomous AI DJ personas (The Purist, The Mashup King, The Goa Trance Shaman) battle for deck control using style bias and risk profiles.">?</span>
+                </div>
+                <span class="card-priority priority-macro">AI DJ Battle</span>
+            </div>
+
+            <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 16px;">
+                <select id="battle-track-select" style="max-width: 380px;">
+                    <option value="track_002">Alienatic - Universal Frequencies (Psytrance, 145 BPM)</option>
+                    <option value="track_003">Infected Mushroom - Spitfire (Psytrance, 144 BPM)</option>
+                    <option value="track_004">Charlotte de Witte - Doppler (Techno, 138 BPM)</option>
+                </select>
+                <button class="btn btn-magenta" onclick="runDJBattle()">Simulate DJ Battle</button>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">Compare how distinct AI DJ personas rate the proposed track.</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;" id="agent-cards-container">
+                <div class="stat-box" style="text-align: left; padding: 16px; border-left: 3px solid var(--accent-green);">
+                    <div style="font-weight: 700; color: #fff;">The Purist</div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px;">Style: Techno | Risk: 10% (Conservative)</div>
+                    <div style="font-size: 1.4rem; font-weight: 800; color: var(--accent-green);" id="score-purist">--%</div>
+                    <div style="font-size: 0.72rem; color: #8b9bb4;" id="verdict-purist">Awaiting battle evaluation...</div>
+                </div>
+                <div class="stat-box" style="text-align: left; padding: 16px; border-left: 3px solid var(--accent-cyan);">
+                    <div style="font-weight: 700; color: #fff;">The Mashup King</div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px;">Style: Progressive | Risk: 90% (Wild)</div>
+                    <div style="font-size: 1.4rem; font-weight: 800; color: var(--accent-cyan);" id="score-mashup">--%</div>
+                    <div style="font-size: 0.72rem; color: #8b9bb4;" id="verdict-mashup">Awaiting battle evaluation...</div>
+                </div>
+                <div class="stat-box" style="text-align: left; padding: 16px; border-left: 3px solid var(--accent-magenta);">
+                    <div style="font-weight: 700; color: #fff;">The Goa Trance Shaman</div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 8px;">Style: Psytrance | Risk: 40% (Harmonic)</div>
+                    <div style="font-size: 1.4rem; font-weight: 800; color: var(--accent-magenta);" id="score-shaman">--%</div>
+                    <div style="font-size: 0.72rem; color: #8b9bb4;" id="verdict-shaman">Awaiting battle evaluation...</div>
+                </div>
+            </div>
+        </section>
+
     </main>
 
     <script>
@@ -944,7 +987,36 @@
             }
         }
 
+
+        async function runDJBattle() {
+            const trackId = document.getElementById('battle-track-select').value;
+            try {
+                const res = await fetch('/api/agents/battle', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ track_id: trackId })
+                });
+                const data = await res.json();
+                if (data.status === 'success' && data.agent_scores) {
+                    const purist = (data.agent_scores['The Purist'] * 100).toFixed(1);
+                    const mashup = (data.agent_scores['The Mashup King'] * 100).toFixed(1);
+                    const shaman = (data.agent_scores['The Goa Trance Shaman'] * 100).toFixed(1);
+
+                    document.getElementById('score-purist').innerText = purist + '%';
+                    document.getElementById('score-mashup').innerText = mashup + '%';
+                    document.getElementById('score-shaman').innerText = shaman + '%';
+
+                    document.getElementById('verdict-purist').innerText = purist >= 70 ? 'Approves set mix!' : 'Rejects harmonic clash.';
+                    document.getElementById('verdict-mashup').innerText = mashup >= 70 ? 'High energy mashup candidate!' : 'Not daring enough.';
+                    document.getElementById('verdict-shaman').innerText = shaman >= 70 ? 'Sacred flow aligned!' : 'Disrupts dancefloor trance.';
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
         // Initialize on load
+        runDJBattle();
         loadProposals();
     </script>
 </body>
