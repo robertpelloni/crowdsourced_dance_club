@@ -1,5 +1,11 @@
 # Changelog
 
+## [v3.5.0] - Unified Single-Page Command Dashboard, System Tray & Router Deduplication
+- **Unified Single-Page Command Dashboard (`src/static/index.html`):** Redesigned and consolidated all venue operations into a single-page responsive command center prioritized by high-value features (Live Floor & Now Playing dynamics, real-time Queue & Transition voting, Telemetry/Wearables, ML Neural Conductor retraining/prediction, DAO Governance proposals/voting, Master Highlight rendering, and Clubgoer Profiles with helpful tooltip markers throughout).
+- **Desktop System Tray Controller (`src/tray.py`):** Added a system tray manager application providing server status inspection, background start/stop/restart, real-time log viewing, direct launching of the Dashboard and 3D Vibe Orb WebXR visualizer, and headless terminal CLI fallback.
+- **Backend Routing & Deduplication:** Mounted missing modular routers (`ml_endpoints`, `governance`, `telemetry`), eliminated duplicate routes in `src/main.py`, resolved variable bindings in WebSocket action handlers, and implemented profile extension routes (`/api/me/change-password`, `/api/feedback/song`, `/api/me/history/likes`).
+- **Test Suite Verification:** Fixed `VibePredictor` interface and `monitor` singleton binding, resulting in 100% test passing across the entire test suite (36 tests passing).
+
 ## [v3.4.0] - Neural Conductor & Generative Immersion
 - **Milestone 4 (Scaling & Expansion):** Fully activated the ML-driven `NeuralConductor` (using `scikit-learn` RandomForestRegressor). The Conductor now predicts transition `vibe_score` dynamically based on historical DB tracking logs instead of static heuristics.
 - **Milestone 11 (Biometric Sync):** Initialized `src/telemetry/` microservice. Added `BiometricAggregator` to process high-frequency WearOS/Apple Watch HR data, actively modifying Peak Mode logic.

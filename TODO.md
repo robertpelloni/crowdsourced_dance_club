@@ -1,7 +1,15 @@
 # TODO List
 
+## Immediate / Short-Term Tasks
+- [x] Deduplicate route definitions in `src/main.py` and mount all modular routers (`ml_endpoints`, `governance`, `telemetry`).
+- [x] Consolidate multi-page dashboard UI into unified single-page layout (`src/static/index.html`) with interactive tooltips and high-value feature prioritization.
+- [x] Implement desktop System Tray controller application (`src/tray.py`) with process management, log viewing, and headless fallback.
+- [x] Align `VibePredictor` interface with test specifications and pass all 36 test suite unit/integration tests.
+- [ ] Connect WebSocket audio state directly to WebRTC audio stream for real-time clubgoer audio monitoring in browser.
+
 ## Backlog / Technical Debt
-- [ ] Evaluate porting the core `evaluate_track_fit` Random Forest logic to a faster, compiled language (like Rust) if multi-agent concurrent evaluation becomes a bottleneck.
+- [ ] Evaluate porting the core `evaluate_track_fit` Random Forest logic to a faster, compiled language (like Rust / C++ ONNX Runtime) if multi-agent concurrent evaluation becomes a bottleneck.
+- [ ] Add Redis caching layer for `/api/governance/proposals` and active venue states during massive load peaks.
 
 ## Phase 5 Ideation
 - [ ] Draft an architecture diagram for real-time mobile AR visualizers running on iOS/Android clients tracking native spatial position against the DMX venue grid.

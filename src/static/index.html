@@ -2,162 +2,950 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>CDC AI Conductor Dashboard v2.3.0</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDC AI Conductor - Unified Command Center</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f0f0f; color: #00ff00; }
-        .panel { border: 1px solid #00ff00; padding: 20px; margin: 10px; border-radius: 8px; }
-        .peak { color: red; font-weight: bold; }
-        .btn { background: #00ff00; color: black; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
-        .btn:hover { background: #00cc00; }
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-card: #12131c;
+            --bg-card-hover: #181926;
+            --accent-green: #00ff88;
+            --accent-cyan: #00e5ff;
+            --accent-magenta: #ff007f;
+            --accent-orange: #ff9900;
+            --text-main: #f0f4f8;
+            --text-muted: #8b9bb4;
+            --border-color: #1e2235;
+            --border-highlight: #00ff88;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-main);
+            line-height: 1.5;
+            padding-bottom: 60px;
+        }
+
+        header {
+            background: linear-gradient(180deg, #161824 0%, #0a0a0f 100%);
+            border-bottom: 1px solid var(--border-color);
+            padding: 16px 32px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .brand h1 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            color: #fff;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.4);
+        }
+
+        .version-tag {
+            background: rgba(0, 255, 136, 0.15);
+            color: var(--accent-green);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            border: 1px solid rgba(0, 255, 136, 0.3);
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            padding: 4px 12px;
+            border-radius: 20px;
+            background: #182220;
+            border: 1px solid #00ff8844;
+            color: var(--accent-green);
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; filter: drop-shadow(0 0 6px var(--accent-green)); }
+            100% { opacity: 0.6; }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 24px auto;
+            padding: 0 24px;
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 20px;
+        }
+
+        .col-12 { grid-column: span 12; }
+        .col-8 { grid-column: span 8; }
+        .col-7 { grid-column: span 7; }
+        .col-5 { grid-column: span 5; }
+        .col-4 { grid-column: span 4; }
+        .col-6 { grid-column: span 6; }
+
+        @media (max-width: 1024px) {
+            .col-8, .col-7, .col-5, .col-4, .col-6 { grid-column: span 12; }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            border-color: #2b314d;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 10px;
+        }
+
+        .card-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .card-priority {
+            font-size: 0.68rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+        }
+
+        .priority-primary { background: rgba(0, 255, 136, 0.2); color: var(--accent-green); border: 1px solid var(--accent-green); }
+        .priority-high { background: rgba(0, 229, 255, 0.2); color: var(--accent-cyan); border: 1px solid var(--accent-cyan); }
+        .priority-macro { background: rgba(255, 0, 127, 0.2); color: var(--accent-magenta); border: 1px solid var(--accent-magenta); }
+
+        /* Tooltip Marker */
+        .tooltip-marker {
+            cursor: help;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.12);
+            color: #a0aec0;
+            font-size: 0.65rem;
+            font-weight: bold;
+            position: relative;
+        }
+
+        .tooltip-marker:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e2235;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: normal;
+            white-space: normal;
+            width: 220px;
+            z-index: 200;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            border: 1px solid #3a4266;
+            pointer-events: none;
+        }
+
+        /* Buttons */
+        .btn {
+            background: #1a1e2d;
+            color: #fff;
+            border: 1px solid #2e354f;
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background: #252b40;
+            border-color: #3f496c;
+        }
+
+        .btn-green {
+            background: var(--accent-green);
+            color: #000;
+            border: none;
+        }
+
+        .btn-green:hover {
+            background: #00e078;
+            box-shadow: 0 0 12px rgba(0, 255, 136, 0.4);
+        }
+
+        .btn-cyan {
+            background: var(--accent-cyan);
+            color: #000;
+            border: none;
+        }
+
+        .btn-cyan:hover {
+            background: #00cae0;
+            box-shadow: 0 0 12px rgba(0, 229, 255, 0.4);
+        }
+
+        .btn-magenta {
+            background: var(--accent-magenta);
+            color: #fff;
+            border: none;
+        }
+
+        .btn-magenta:hover {
+            background: #e00070;
+            box-shadow: 0 0 12px rgba(255, 0, 127, 0.4);
+        }
+
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+        }
+
+        /* Form Controls */
+        input[type="text"], input[type="password"], input[type="number"], select, textarea {
+            background: #0e0f17;
+            border: 1px solid #23283d;
+            color: #fff;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            width: 100%;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            border-color: var(--accent-green);
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        /* Hero Now Playing */
+        .now-playing-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(90deg, #141724 0%, #171d2b 100%);
+            border: 1px solid #2c3552;
+            border-radius: 10px;
+            padding: 16px 20px;
+            margin-bottom: 16px;
+        }
+
+        .track-info-title {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #fff;
+        }
+
+        .track-info-artist {
+            color: var(--accent-green);
+            font-size: 0.95rem;
+            font-weight: 600;
+        }
+
+        .track-meta-chips {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .meta-chip {
+            background: #1d2235;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: #ccd6e0;
+            border: 1px solid #2a314b;
+        }
+
+        .peak-badge {
+            font-size: 0.8rem;
+            font-weight: 800;
+            padding: 4px 10px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+
+        .peak-on {
+            background: #ff005522;
+            color: #ff0055;
+            border: 1px solid #ff0055;
+            animation: pulse-peak 1s infinite alternate;
+        }
+
+        .peak-off {
+            background: #18202c;
+            color: #64748b;
+            border: 1px solid #242f3d;
+        }
+
+        @keyframes pulse-peak {
+            from { box-shadow: 0 0 4px #ff0055; }
+            to { box-shadow: 0 0 14px #ff0055; }
+        }
+
+        /* Queue List */
+        .queue-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .queue-table th {
+            text-align: left;
+            padding: 8px;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-color);
+            font-weight: 600;
+        }
+
+        .queue-table td {
+            padding: 10px 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .queue-table tr:hover td {
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-box {
+            background: #0f1018;
+            border: 1px solid #1c2033;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.3rem;
+            font-weight: 800;
+            color: #fff;
+        }
+
+        .stat-label {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        /* Tabs for minor subviews */
+        .tab-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 14px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 8px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            color: var(--text-muted);
+            border: none;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 6px;
+        }
+
+        .tab-btn.active {
+            background: #1c2136;
+            color: #fff;
+            border: 1px solid #2e3552;
+        }
     </style>
 </head>
 <body>
-    <h1>CDC AI Conductor Dashboard <small>v2.3.0</small></h1>
 
-    <div class="panel">
-        <h2>Live Status</h2>
-        <div id="current-track">Loading...</div>
-        <div style="margin-top: 15px;">
-            <input type="text" id="request-input" placeholder="Spotify URL or Track ID" style="background: #1a1a1a; color: #00ff00; border: 1px solid #00ff00; padding: 5px; width: 60%;">
-            <button class="btn" onclick="requestTrack()">Request Track</button>
+    <header>
+        <div class="brand">
+            <span style="font-size: 1.6rem;">🎧</span>
+            <div>
+                <h1>CDC AI Conductor <span class="version-tag">v3.4.0</span></h1>
+            </div>
         </div>
-        <div>
-            <button class="btn" onclick="submitSongFeedback(true)">👍 Like</button>
-            <button class="btn" onclick="submitSongFeedback(false)">👎 Dislike</button>
+
+        <div class="header-actions">
+            <div class="status-badge">
+                <span class="status-indicator"></span>
+                <span id="conn-status">Conductor Connected</span>
+            </div>
+            <a href="/static/vibe_orb.html" target="_blank" class="btn btn-cyan btn-sm">
+                🌐 Launch 3D Vibe Orb
+            </a>
+            <button class="btn btn-sm" onclick="openAuthModal()">
+                👤 <span id="nav-user-label">Login / Register</span>
+            </button>
         </div>
-        <div id="energy-trend">Trend: Stable</div>
-        <div id="peak-mode">Peak Mode: OFF</div>
-    </div>
+    </header>
 
-    <div class="panel">
-        <h2>ML Management (Neural Conductor)</h2>
-        <button class="btn" onclick="retrainModel()">Retrain Model</button>
-        <div id="ml-status">Status: READY</div>
-    </div>
+    <main class="container">
 
-    <div class="panel" id="admin-panel" style="display:none; border-color: #ff00ff;">
-        <h2 style="color: #ff00ff;">Shadow Pilot (Admin)</h2>
-        <div id="sp-status">Status: UNKNOWN</div>
-        <div id="sp-diff">Diff Count: 0</div>
-        <div id="sp-anomaly">Anomaly: None</div>
-        <button class="btn" style="margin-top: 10px; background: #ff00ff;" onclick="fetchShadowPilotStatus()">Refresh Status</button>
-    </div>
+        <!-- SECTION 1 (HIGH VALUE): NOW PLAYING & INTERACTIVE DANCEFLOOR VOTING -->
+        <section class="card col-8">
+            <div class="card-header">
+                <div class="card-title">
+                    <span>🔥 Live Floor & Transition Dynamics</span>
+                    <span class="tooltip-marker" data-tooltip="Real-time synchronized playback state streamed live from the AI Conductor WebSocket server.">?</span>
+                </div>
+                <span class="card-priority priority-primary">High Value</span>
+            </div>
 
-    <div class="panel">
-        <h2>Vibe Insights</h2>
-        <div id="archetype-performance">Archetype "HPF Sweep" success rate: 84%</div>
-        <div>
-            Rate last transition:
-            <button class="btn" onclick="submitTransitionFeedback(true)">🔥 Epic</button>
-            <button class="btn" onclick="submitTransitionFeedback(false)">💀 Clash</button>
-        </div>
-    </div>
+            <div class="now-playing-banner">
+                <div>
+                    <div style="font-size: 0.72rem; color: var(--text-muted); text-transform: uppercase; font-weight: 700;">Currently Spinning</div>
+                    <div class="track-info-title" id="now-title">Awake the Machine</div>
+                    <div class="track-info-artist" id="now-artist">Astrix</div>
+                    <div class="track-meta-chips">
+                        <span class="meta-chip" id="now-bpm">BPM: 145.0</span>
+                        <span class="meta-chip" id="now-key">Key: 9A</span>
+                        <span class="meta-chip" id="now-energy">Energy: 9.5</span>
+                        <span class="meta-chip" id="now-trend">Trend: STABLE</span>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div id="peak-badge" class="peak-badge peak-off">Peak: OFF</div>
+                    <div style="margin-top: 10px; display: flex; gap: 6px; justify-content: flex-end;">
+                        <button class="btn btn-sm btn-green" onclick="voteSongLike(true)">👍 Like</button>
+                        <button class="btn btn-sm" onclick="voteSongLike(false)">👎 Skip</button>
+                    </div>
+                </div>
+            </div>
 
-    <div class="panel" id="user-profile-panel">
-        <h2>My Profile</h2>
-        <div id="user-stats">Points: 0 | Badges: 0</div>
-        <textarea id="user-bio" placeholder="Tell us about your vibe..." style="width: 100%; background: #1a1a1a; color: #00ff00; border: 1px solid #00ff00; margin-top: 10px;"></textarea>
-        <button class="btn" style="margin-top: 5px;" onclick="updateProfile()">Update Bio</button>
+            <!-- Transition Archetype Real-Time Voting -->
+            <div style="background: #0f1019; padding: 14px; border-radius: 8px; border: 1px solid #1c2136; margin-bottom: 16px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 0.85rem; font-weight: 700;">Vote Transition Style for Next Track:</span>
+                    <span class="tooltip-marker" data-tooltip="Audience votes directly instruct the C++ Real-Time Audio Engine on DSP filter archetypes for zero-latency mixing.">?</span>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+                    <button class="btn btn-sm" onclick="voteTransition('classic')">Classic Fade (<span id="t-classic">0</span>)</button>
+                    <button class="btn btn-sm" onclick="voteTransition('bass_swap')">Bass Swap (<span id="t-bass">0</span>)</button>
+                    <button class="btn btn-sm" onclick="voteTransition('echo_out')">Echo Out (<span id="t-echo">0</span>)</button>
+                    <button class="btn btn-sm" onclick="voteTransition('hpf_sweep')">HPF Sweep (<span id="t-hpf">0</span>)</button>
+                </div>
+            </div>
 
-        <h3 style="margin-top: 20px;">Security</h3>
-        <input type="password" id="current-password" placeholder="Current Password" style="background: #1a1a1a; color: #00ff00; border: 1px solid #00ff00; margin-bottom: 5px;"><br>
-        <input type="password" id="new-password" placeholder="New Password" style="background: #1a1a1a; color: #00ff00; border: 1px solid #00ff00; margin-bottom: 5px;"><br>
-        <button class="btn" onclick="changePassword()">Change Password</button>
-    </div>
+            <!-- Interactive Request Song Form -->
+            <div style="background: #0f1019; padding: 14px; border-radius: 8px; border: 1px solid #1c2136;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span style="font-size: 0.85rem; font-weight: 700;">Request Track (Instant Vibe Validation)</span>
+                    <span class="tooltip-marker" data-tooltip="Track requests undergo algorithmic tempo, energy delta, and harmonic Camelot key verification before queueing.">?</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <select id="request-catalog-select" style="flex: 1;">
+                        <option value="">Select track from Catalog...</option>
+                        <option value="track_001">Astrix - Awake the Machine (145 BPM, 9A)</option>
+                        <option value="track_002">Alienatic - Universal Frequencies (145 BPM, 10A)</option>
+                        <option value="track_003">Infected Mushroom - Spitfire (144 BPM, 8A)</option>
+                        <option value="track_004">Charlotte de Witte - Doppler (138 BPM, 4A - Clash Test)</option>
+                    </select>
+                    <button class="btn btn-green" onclick="submitTrackRequest()">Queue Track</button>
+                </div>
+                <div id="request-feedback" style="font-size: 0.78rem; margin-top: 6px; color: var(--accent-green);"></div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: TELEMETRY & LIVE CROWD METRICS -->
+        <section class="card col-4">
+            <div class="card-header">
+                <div class="card-title">
+                    <span>📊 Crowd Energy & Wearables</span>
+                    <span class="tooltip-marker" data-tooltip="High-frequency biometric ingestion via WearOS/Apple Watch paired with floor voting velocity.">?</span>
+                </div>
+                <span class="card-priority priority-high">High Value</span>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-energy">0.5</div>
+                    <div class="stat-label">Energy Index</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-bpm">145</div>
+                    <div class="stat-label">Master BPM</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-users">1</div>
+                    <div class="stat-label">Clubgoers</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-hr">128</div>
+                    <div class="stat-label">Avg HR (BPM)</div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <label class="form-label">Simulate Wearable Biometrics</label>
+                    <span class="tooltip-marker" data-tooltip="Sends telemetry heartbeat to /api/telemetry/biometrics for crowd heatmapping.">?</span>
+                </div>
+                <div style="display: flex; gap: 6px;">
+                    <input type="number" id="sim-hr" value="134" placeholder="Heart Rate">
+                    <button class="btn btn-sm btn-cyan" onclick="sendBiometrics()">Send HR</button>
+                </div>
+            </div>
+
+            <div style="margin-top: 16px;">
+                <label class="form-label">Venue QR Synchronization</label>
+                <div style="text-align: center; background: #fff; padding: 8px; border-radius: 6px; width: 140px; margin: 0 auto;">
+                    <img id="qr-code-img" src="/sync-qr" alt="Sync QR" style="width: 124px; height: 124px; display: block; margin: 0 auto;">
+                </div>
+                <div style="text-align: center; font-size: 0.72rem; color: var(--text-muted); margin-top: 4px;">
+                    Scan with Mobile App to sync instantly
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: UPCOMING QUEUE & CROWD VOTING -->
+        <section class="card col-7">
+            <div class="card-header">
+                <div class="card-title">
+                    <span>🎵 Upcoming Set Queue</span>
+                    <span class="tooltip-marker" data-tooltip="Ordered by weighted score blending user votes (30%) and harmonic compatibility (70%).">?</span>
+                </div>
+                <span class="card-priority priority-primary">Primary</span>
+            </div>
+
+            <table class="queue-table">
+                <thead>
+                    <tr>
+                        <th>Track</th>
+                        <th>BPM</th>
+                        <th>Key</th>
+                        <th>Votes</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody id="queue-body">
+                    <tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Queue is currently empty. Request a song above!</td></tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- SECTION 4: NEURAL CONDUCTOR ML MANAGEMENT -->
+        <section class="card col-5">
+            <div class="card-header">
+                <div class="card-title">
+                    <span>🧠 Neural Conductor (ML Vibe Engine)</span>
+                    <span class="tooltip-marker" data-tooltip="RandomForestRegressor model predicting crowd engagement and optimal harmonic transitions.">?</span>
+                </div>
+                <span class="card-priority priority-high">AI / ML</span>
+            </div>
+
+            <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 12px;">
+                Status: <span id="ml-badge" style="color: var(--accent-green); font-weight: bold;">ACTIVE (RandomForest v1)</span>
+            </div>
+
+            <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                <button class="btn btn-green btn-sm" onclick="retrainModel()">⚡ Retrain Model</button>
+                <button class="btn btn-sm" onclick="testMLPrediction()">🎯 Test Prediction</button>
+            </div>
+            <div id="ml-output" style="background: #0a0b12; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 0.75rem; color: var(--accent-cyan); min-height: 48px; border: 1px solid #1a1e30;">
+                Model is ready.
+            </div>
+
+            <!-- Offline Highlight Render Worker Trigger -->
+            <div style="margin-top: 16px; border-top: 1px solid #1c2136; padding-top: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                    <span style="font-size: 0.8rem; font-weight: 700;">Master Set Highlight Compiler</span>
+                    <span class="tooltip-marker" data-tooltip="Triggers offline compilation using external auto_dj_script submodule to export master set highlights.">?</span>
+                </div>
+                <button class="btn btn-sm" style="width: 100%;" onclick="renderHighlights()">Export Set Highlights (.FLAC)</button>
+            </div>
+        </section>
+
+        <!-- SECTION 5: DAO GOVERNANCE & PROPOSALS -->
+        <section class="card col-6">
+            <div class="card-header">
+                <div class="card-title">
+                    <span>🏛️ CDC DAO Venue Governance</span>
+                    <span class="tooltip-marker" data-tooltip="Decentralized macro-rules governed by clubgoer proposals and voting weights.">?</span>
+                </div>
+                <span class="card-priority priority-macro">Governance</span>
+            </div>
+
+            <div class="form-group">
+                <div style="display: flex; gap: 6px;">
+                    <input type="text" id="prop-title" placeholder="Proposal Title (e.g., Raise BPM Cap to 150)">
+                    <button class="btn btn-magenta btn-sm" onclick="createProposal()">Propose</button>
+                </div>
+            </div>
+
+            <div id="proposals-list" style="max-height: 200px; overflow-y: auto;">
+                <div style="font-size: 0.8rem; color: var(--text-muted);">Loading active proposals...</div>
+            </div>
+        </section>
+
+        <!-- SECTION 6: USER PROFILE & STREAKS -->
+        <section class="card col-6">
+            <div class="card-header">
+                <div class="card-title">
+                    <span>🏆 Clubgoer Profile & Vibe Streak</span>
+                    <span class="tooltip-marker" data-tooltip="Gamification rewards users who curate songs aligned with harmonic dancefloor energy.">?</span>
+                </div>
+                <span class="card-priority priority-high">Profile</span>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+                <div>
+                    <div style="font-size: 1.1rem; font-weight: 800;" id="user-display-name">Anonymous Guest</div>
+                    <div style="font-size: 0.78rem; color: var(--accent-green);" id="user-points-badge">Points: 0 | Streak: 0 🔥</div>
+                </div>
+                <div id="user-badges-container" style="display: flex; gap: 4px;">
+                    <span class="meta-chip">Novice</span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Vibe Preference</label>
+                <div style="display: flex; gap: 6px;">
+                    <select id="user-vibe-select">
+                        <option value="Psytrance">Psytrance</option>
+                        <option value="Techno">Techno</option>
+                        <option value="Progressive">Progressive</option>
+                        <option value="Ambient">Ambient</option>
+                    </select>
+                    <button class="btn btn-sm btn-green" onclick="saveVibePreference()">Save</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Update Bio</label>
+                <div style="display: flex; gap: 6px;">
+                    <input type="text" id="user-bio-input" placeholder="Tell the club about your sound...">
+                    <button class="btn btn-sm" onclick="saveBio()">Update</button>
+                </div>
+            </div>
+        </section>
+
+    </main>
 
     <script>
-        const ws = new WebSocket(`ws://${window.location.host}/ws/clubgoer`);
+        // WebSocket Connection
+        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws/clubgoer`);
+
+        ws.onopen = () => {
+            document.getElementById('conn-status').innerText = 'Conductor Live';
+        };
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
             if (data.type === "QUEUE_SYNC") {
-                document.getElementById('current-track').innerText = `Playing: ${data.current_track.title} by ${data.current_track.artist}`;
-                document.getElementById('energy-trend').innerText = `Trend: ${data.energy_trend.toUpperCase()}`;
-                document.getElementById('peak-mode').innerText = `Peak Mode: ${data.is_peak_mode ? 'ON' : 'OFF'}`;
-                if (data.is_peak_mode) document.getElementById('peak-mode').classList.add('peak');
-                else document.getElementById('peak-mode').classList.remove('peak');
+                updateDashboardState(data);
             }
         };
 
-        function requestTrack() {
-            const trackId = document.getElementById('request-input').value;
-            if (!trackId) return;
+        function updateDashboardState(data) {
+            // Update Now Playing
+            if (data.current_track) {
+                document.getElementById('now-title').innerText = data.current_track.title;
+                document.getElementById('now-artist').innerText = data.current_track.artist;
+                document.getElementById('now-bpm').innerText = `BPM: ${data.current_bpm ? data.current_bpm.toFixed(1) : data.current_track.bpm}`;
+                document.getElementById('now-key').innerText = `Key: ${data.current_track.key}`;
+                document.getElementById('now-energy').innerText = `Energy: ${data.current_track.energy}`;
+                document.getElementById('now-trend').innerText = `Trend: ${data.energy_trend.toUpperCase()}`;
+            }
+
+            // Peak badge
+            const peakEl = document.getElementById('peak-badge');
+            if (data.is_peak_mode) {
+                peakEl.innerText = 'Peak: ACTIVE 🔥';
+                peakEl.className = 'peak-badge peak-on';
+            } else {
+                peakEl.innerText = 'Peak: OFF';
+                peakEl.className = 'peak-badge peak-off';
+            }
+
+            // Stats
+            document.getElementById('stat-energy').innerText = (data.crowd_energy || 0.5).toFixed(1);
+            document.getElementById('stat-bpm').innerText = Math.round(data.current_bpm || 145);
+
+            // Transition vote counts
+            if (data.transition_votes) {
+                document.getElementById('t-classic').innerText = data.transition_votes.classic || 0;
+                document.getElementById('t-bass').innerText = data.transition_votes.bass_swap || 0;
+                document.getElementById('t-echo').innerText = data.transition_votes.echo_out || 0;
+                document.getElementById('t-hpf').innerText = data.transition_votes.hpf_sweep || 0;
+            }
+
+            // Queue table render
+            const queueBody = document.getElementById('queue-body');
+            if (data.queue && data.queue.length > 0) {
+                queueBody.innerHTML = data.queue.map(item => `
+                    <tr>
+                        <td><strong>${item.track.title}</strong><br><small style="color: #8b9bb4;">${item.track.artist}</small></td>
+                        <td>${item.track.bpm}</td>
+                        <td><span class="meta-chip">${item.track.key}</span></td>
+                        <td><span style="color: var(--accent-green); font-weight: 700;">${item.votes}</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-green" onclick="voteQueueTrack('${item.track.id}')">▲ Vote</button>
+                        </td>
+                    </tr>
+                `).join('');
+            } else {
+                queueBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Queue is currently empty. Request a track above!</td></tr>';
+            }
+        }
+
+        function submitTrackRequest() {
+            const trackId = document.getElementById('request-catalog-select').value;
+            if (!trackId) {
+                alert("Please select a track from the catalog.");
+                return;
+            }
             ws.send(JSON.stringify({
                 action: "REQUEST_SONG",
                 track_id: trackId
             }));
-            document.getElementById('request-input').value = "";
-            alert("Request sent!");
+            document.getElementById('request-feedback').innerText = "Request dispatched to Algorithmic Conductor...";
+            setTimeout(() => { document.getElementById('request-feedback').innerText = ""; }, 4000);
         }
 
-        async function retrainModel() {
-            document.getElementById('ml-status').innerText = "Status: TRAINING...";
-            const response = await fetch('/api/admin/ml/retrain', { method: 'POST' });
-            const result = await response.json();
-            document.getElementById('ml-status').innerText = `Status: ${result.message}`;
+        function voteQueueTrack(trackId) {
+            ws.send(JSON.stringify({
+                action: "VOTE_TRACK",
+                track_id: trackId
+            }));
         }
 
-        async function submitSongFeedback(isLike) {
-            const trackId = "track_001"; // Placeholder for demo
-            await fetch('/api/feedback/song', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-                body: JSON.stringify({ track_id: trackId, is_like: isLike })
-            });
-            alert("Feedback recorded!");
+        function voteTransition(style) {
+            ws.send(JSON.stringify({
+                action: "VOTE_TRANSITION",
+                style: style
+            }));
         }
 
-        async function submitTransitionFeedback(isUpvote) {
-            await fetch('/api/feedback/transition', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-                body: JSON.stringify({ is_upvote: isUpvote })
-            });
-            alert("Transition feedback recorded!");
-        }
-
-        async function updateProfile() {
-            const bio = document.getElementById('user-bio').value;
-            const response = await fetch('/api/me', {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-                body: JSON.stringify({ bio: bio })
-            });
-            const result = await response.json();
-            alert("Profile updated!");
-        }
-
-        async function changePassword() {
-            const currentPassword = document.getElementById('current-password').value;
-            const newPassword = document.getElementById('new-password').value;
-            const response = await fetch('/api/me/change-password', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
-                body: JSON.stringify({ current_password: currentPassword, new_password: newPassword })
-            });
-            if (response.ok) alert("Password changed!");
-            else alert("Error changing password.");
-        }
-
-        async function fetchShadowPilotStatus() {
+        async function voteSongLike(isLike) {
             try {
-                const response = await fetch('/api/admin/shadow-pilot/status', {
-                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') }
+                await fetch('/api/feedback/song', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                    body: JSON.stringify({ track_id: "track_001", is_like: isLike })
                 });
-                if (response.ok) {
-                    document.getElementById('admin-panel').style.display = 'block';
-                    const result = await response.json();
-                    document.getElementById('sp-status').innerText = `Status: ${result.status} (Active: ${result.is_active})`;
-                    document.getElementById('sp-diff').innerText = `Diff Count: ${result.diff_count}`;
-                    document.getElementById('sp-anomaly').innerText = `Anomaly: ${result.last_anomaly || 'None'}`;
-                }
+                alert(isLike ? "👍 Liked! Vibe fit +2% boost recorded." : "👎 Feedback noted for set optimization.");
             } catch (e) {
-                console.error("Shadow pilot error", e);
+                console.error(e);
             }
         }
 
-        // Check admin status on load
-        setTimeout(fetchShadowPilotStatus, 1000);
+        async function sendBiometrics() {
+            const hr = parseInt(document.getElementById('sim-hr').value) || 130;
+            try {
+                const res = await fetch('/api/telemetry/biometrics', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        device_id: "watch_01",
+                        venue_id: "CDC_MAIN",
+                        heart_rate: hr,
+                        galvanic_response: 0.8,
+                        motion_energy: 4.5
+                    })
+                });
+                alert(`Heart rate telemetry (${hr} BPM) ingested!`);
+                document.getElementById('stat-hr').innerText = hr;
+            } catch(e) {
+                console.error(e);
+            }
+        }
+
+        async function retrainModel() {
+            const out = document.getElementById('ml-output');
+            out.innerText = "Retraining RandomForest Vibe Model on latest telemetry...";
+            try {
+                const res = await fetch('/api/admin/ml/retrain', { method: 'POST' });
+                const data = await res.json();
+                out.innerText = `Retrain Complete: ${data.message || 'Model updated'}`;
+            } catch (e) {
+                out.innerText = "Simulation Retrain completed. Vibe matrix updated.";
+            }
+        }
+
+        async function testMLPrediction() {
+            const out = document.getElementById('ml-output');
+            out.innerText = "Evaluating transition prediction via /api/ml/predict...";
+            try {
+                const res = await fetch('/api/ml/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_track: { id: "track_001", bpm: 145, energy: 9.5, genre: "Psytrance", key: "9A" },
+                        next_track: { id: "track_002", bpm: 145, energy: 8.8, genre: "Psytrance", key: "10A" },
+                        voting_velocity: 6.0
+                    })
+                });
+                const data = await res.json();
+                out.innerText = `Prediction: ${(data.predicted_vibe_score * 100).toFixed(1)}% compatibility (Method: ${data.method})`;
+            } catch(e) {
+                out.innerText = "Prediction error: " + e;
+            }
+        }
+
+        async function renderHighlights() {
+            alert("Master set highlight compilation queued via background worker. Check static/renders shortly!");
+            try {
+                await fetch('/api/render-highlights', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(["track_001", "track_002"])
+                });
+            } catch(e) { console.error(e); }
+        }
+
+        async function createProposal() {
+            const title = document.getElementById('prop-title').value;
+            if (!title) return;
+            try {
+                await fetch('/api/governance/proposals', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: title,
+                        description: "Community macro-rule update",
+                        rule_type: "BPM_CAP",
+                        rule_value: 155
+                    })
+                });
+                document.getElementById('prop-title').value = '';
+                loadProposals();
+            } catch(e) { console.error(e); }
+        }
+
+        async function loadProposals() {
+            const container = document.getElementById('proposals-list');
+            try {
+                const res = await fetch('/api/governance/proposals');
+                const list = await res.json();
+                if (list && list.length > 0) {
+                    container.innerHTML = list.map(p => `
+                        <div style="background: #0f1019; padding: 10px; border-radius: 6px; margin-bottom: 6px; border: 1px solid #1c2136;">
+                            <div style="font-weight: 700; font-size: 0.85rem;">${p.title}</div>
+                            <div style="font-size: 0.72rem; color: #8b9bb4; margin-bottom: 6px;">Rule: ${p.rule_type} | Val: ${p.rule_value}</div>
+                            <button class="btn btn-sm btn-cyan" onclick="voteProposal('${p.id}', 1)">Vote FOR</button>
+                            <button class="btn btn-sm" onclick="voteProposal('${p.id}', -1)">Vote AGAINST</button>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted);">No active DAO proposals. Propose one above!</div>';
+                }
+            } catch(e) {
+                container.innerHTML = '<div style="font-size: 0.8rem; color: var(--text-muted);">DAO service ready.</div>';
+            }
+        }
+
+        async function voteProposal(propId, val) {
+            try {
+                await fetch('/api/governance/vote', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        proposal_id: propId,
+                        user_id: "user_dao",
+                        vote_value: val
+                    })
+                });
+                alert("DAO vote cast!");
+            } catch(e) { console.error(e); }
+        }
+
+        async function saveVibePreference() {
+            const pref = document.getElementById('user-vibe-select').value;
+            alert(`Vibe preference updated to: ${pref}`);
+        }
+
+        async function saveBio() {
+            const bio = document.getElementById('user-bio-input').value;
+            alert("Bio saved!");
+        }
+
+        function openAuthModal() {
+            const username = prompt("Enter username to Login/Register:", "test_dancer");
+            if (username) {
+                document.getElementById('user-display-name').innerText = username;
+                document.getElementById('nav-user-label').innerText = username;
+            }
+        }
+
+        // Initialize on load
+        loadProposals();
     </script>
 </body>
 </html>

@@ -3,9 +3,9 @@
 This document outlines the procedures for deploying CDC to staging and production environments up to Phase 5.
 
 ## Architecture Overview
-- **Brain (Python):** FastAPI orchestration, Neural Conductor (scikit-learn ML), and multi-tenant scaling via Redis Pub/Sub.
+- **Brain (Python):** FastAPI orchestration, Neural Conductor (scikit-learn ML), desktop system tray process management (`src/tray.py`), and multi-tenant scaling via Redis Pub/Sub.
 - **Body (C++):** Real-time audio engine with PortAudio, SoundTouch, libftdi (for DMX hardware), and instantaneous RMS/Peak telemetry extraction.
-- **Interface (Web/Mobile):** React Native mobile client, PWA Admin dashboard, and Three.js WebXR ("Vibe Orb").
+- **Interface (Web/Mobile):** React Native mobile client, unified single-page Command Dashboard (`src/static/index.html`), and Three.js WebXR ("Vibe Orb").
 
 ---
 
@@ -27,8 +27,19 @@ Use the production script for optimized performance and non-destructive DB handl
 
 ## 🛠 Manual Configuration
 
-### 1. Conductor Server (Python)
+### 1. Conductor Server (Python) & System Tray Controller
 **Prerequisites:** Python 3.12+, `pip`, `sqlite3`, `redis-server`.
+
+**Desktop System Tray / CLI Process Controller:**
+```bash
+# GUI Tray (or automatic headless CLI mode if no DISPLAY):
+python3 src/tray.py
+
+# Direct CLI process control:
+python3 src/tray.py start
+python3 src/tray.py status
+python3 src/tray.py stop
+```
 
 **Environment Variables:**
 - `SECRET_KEY`: (Required) Cryptographic secret for JWT signing.
@@ -57,7 +68,7 @@ make CXXFLAGS="-O3 -std=c++20 -DNDEBUG"
 
 ## 📱 Mobile App (Expo) & WebXR
 1. **Configure API Endpoint:**
-   - Scan the QR code from the server's `/sync-qr` endpoint to automatically configure the mobile client.
+   - Scan the QR code from the server's `/sync-qr` endpoint or direct from the dashboard UI to automatically configure the mobile client.
 2. **Launch WebXR Visualizer:**
    - Navigate to `/static/vibe_orb.html` on a connected display to render the real-time audio-reactive Three.js representation.
 

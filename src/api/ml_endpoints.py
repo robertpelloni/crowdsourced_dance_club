@@ -1,13 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Dict, List, Optional
-from src.core.recommender import NeuralConductor
+import src.main
 
 router = APIRouter(prefix="/api/ml", tags=["Neural Conductor"])
-
-# Placeholder instance for endpoint routing
-# In a real setup, this would be injected or import the global instance
-import src.main
 
 class PredictionRequest(BaseModel):
     current_track: Dict
@@ -21,10 +17,17 @@ async def predict_transition_vibe(req: PredictionRequest):
     Falls back to heuristic if ML is disabled via CONFIG.
     """
     if src.main.CONFIG.get("NEURAL_CONDUCTOR_ENABLED", True):
-        score = src.main.neural_conductor.predict_vibe_score(req.current_track, req.next_track, req.voting_velocity)
+        base_heuristic = src.main.calculate_vibe_score(req.next_track, req.current_track)
+        score, _ = src.main.neural_conductor.predict_vibe_score(
+            track=req.next_track,
+            current_track=req.current_track,
+            energy_trend="stable",
+            heuristic_score=base_heuristic,
+            voting_velocity=req.voting_velocity
+        )
         method = "ml_random_forest"
     else:
-        score = src.main.calculate_heuristic_vibe_score(req.next_track, req.current_track)
+        score = src.main.calculate_vibe_score(req.next_track, req.current_track)
         method = "heuristic_fallback"
 
     return {
