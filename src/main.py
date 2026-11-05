@@ -1,4 +1,5 @@
 from src.core.agents import simulate_agent_battle, AGENTS
+from src.core.spotify_integration import search_spotify_tracks, get_track_metadata
 import asyncio
 import io
 import json
@@ -533,6 +534,64 @@ async def root():
 
 @app.get("/catalog")
 async def get_catalog(): return list(TRACK_CATALOG.values())
+
+@app.get("/api/catalog/search")
+async def catalog_search(q: str = "", limit: int = 5):
+    """
+    Searches both local database catalog and external Spotify Infinite Catalog.
+    Returns matched local tracks along with external discovery options.
+    """
+    q_clean = q.strip().lower()
+    local_matches = [
+        t for t in TRACK_CATALOG.values()
+        if q_clean in t.get("title", "").lower() or q_clean in t.get("artist", "").lower() or q_clean in t.get("genre", "").lower()
+    ]
+    external_matches = search_spotify_tracks(q, limit=limit)
+    return {
+        "query": q,
+        "local": local_matches[:limit],
+        "external": external_matches
+    }
+
+class SpotifyImportRequest(BaseModel):
+    id: str
+    title: str
+    artist: str
+    bpm: float
+    key: str
+    energy: float
+    genre: Optional[str] = "Dance"
+
+@app.post("/api/catalog/spotify-import")
+async def spotify_import(track_in: SpotifyImportRequest):
+    """
+    Imports a track from the external catalog into local tracks database and in-memory TRACK_CATALOG.
+    """
+    track_id = track_in.id
+    if not track_id.startswith("track_"):
+        track_id = f"sp_{track_id}"
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT OR REPLACE INTO tracks (id, title, artist, bpm, key, energy, genre, filepath)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (track_id, track_in.title, track_in.artist, track_in.bpm, track_in.key, track_in.energy, track_in.genre, f"tracks/{track_id}.flac"))
+    conn.commit()
+    conn.close()
+
+    new_track_data = {
+        "id": track_id,
+        "title": track_in.title,
+        "artist": track_in.artist,
+        "bpm": track_in.bpm,
+        "key": track_in.key,
+        "energy": track_in.energy,
+        "genre": track_in.genre,
+        "filepath": f"tracks/{track_id}.flac"
+    }
+    TRACK_CATALOG[track_id] = new_track_data
+    return {"status": "imported", "track": new_track_data}
 
 @app.post("/api/register")
 async def register(user: UserCreate):

@@ -1,5 +1,10 @@
 # Changelog
 
+## [v3.5.2] - Dynamic Infinite Catalog Search & Import Integration
+- **Infinite Catalog Search & Import (`src/core/spotify_integration.py`, `src/main.py`, `src/static/index.html`):** Integrated Spotify / external catalog searching with fallback mock pool and dynamic fallback generation. Users can search tracks directly in the unified command dashboard, view metadata (BPM, Camelot Key, Energy), and import & queue them into the live Conductor engine with one click.
+- **REST Endpoints (`GET /api/catalog/search`, `POST /api/catalog/spotify-import`):** Search returns unified local and external results; import dynamically persists tracks into SQLite `tracks` and in-memory `TRACK_CATALOG`.
+- **Automated Test Suite (`tests/test_spotify.py`):** Added tests covering search matching, dynamic fallback, search endpoint responses, and database catalog import persistence.
+
 ## [v3.5.1] - Secondary AI DJ Battle Arena Integration
 - **Secondary AI DJ Battle Arena (`src/core/agents.py`, `src/static/index.html`):** Integrated the Secondary AI DJ personas ("The Purist", "The Mashup King", "The Goa Trance Shaman") into the unified single-page dashboard. Users can trigger AI agent battles for candidate tracks to view distinct style-biased vibe scores, risk thresholds, and commentary before queuing.
 - **Battle Simulation Endpoint (`/api/agents/battle`):** Implemented REST endpoint in `src/main.py` accepting track metadata and ML baseline scores, calculating multi-agent compatibility, and returning the winning persona and commentary.

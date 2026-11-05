@@ -1,21 +1,21 @@
-# HANDOFF.md - v3.5.1 (Secondary AI DJ Battle Arena Integration)
+# HANDOFF.md - v3.5.2 (Infinite Catalog Dynamic Search & Import Integration)
 
 ## Summary of Progress
-- **Secondary AI DJ Battle Arena (`src/core/agents.py`, `src/static/index.html`):** Integrated secondary AI DJ agent personas ("The Purist", "The Mashup King", "The Goa Trance Shaman") directly into the unified dashboard command center. Clubgoers and venue operators can pit AI personas against candidate tracks to inspect calculated vibe compatibility scores, style biases, and qualitative commentary.
-- **Battle Simulation API (`POST /api/agents/battle`):** Exposed `/api/agents/battle` on the FastAPI backend, receiving track metadata and computing baseline ML scores via `NeuralConductor` and persona evaluation dynamics via `simulate_agent_battle`.
-- **Unit & Integration Tests (`tests/test_agents.py`):** Created automated test suite covering secondary DJ agents and API battle simulation, bringing test suite count to 39 passing tests (100% pass rate).
-- **Unified Single-Page Command Dashboard (`src/static/index.html`):** Fully overhauled the dashboard UI into a consolidated, intuitive single-page interface. Organizes high-value features prominently (Now Playing with real-time floor metrics, live transition archetype voting, instant track request validation, Wearable biometrics simulation, venue sync QR, upcoming queue with crowd voting, Neural Conductor ML controls & highlight compilation, CDC DAO Governance proposals/voting, Secondary AI DJ Battle Arena, and clubgoer profiles with streak badges and detailed tooltips).
-- **System Tray Icon & Server Controller (`src/tray.py`):** Added desktop system tray controller with GUI tray support (via `pystray`) and headless CLI mode. Allows checking server status, starting/stopping/restarting Conductor servers, inspecting logs, and directly launching the Dashboard and WebXR 3D Vibe Orb visualizer.
-- **Backend Deduplication & Routing:** Resolved duplicate route definitions in `src/main.py`. Mounted `ml_endpoints`, `governance`, and `telemetry` modular routers. Implemented missing profile endpoints (`/api/me/change-password`, `/api/feedback/song`, `/api/me/history/likes`).
-- **Frontend Verification:** Validated via automated Playwright test, capturing `/home/jules/verification/dashboard_dj_battle.png`.
+- **Dynamic Infinite Catalog Search & Import (`src/core/spotify_integration.py`, `src/main.py`, `src/static/index.html`):** Integrated full external track search capabilities with Spotify API and resilient fallback pools. Users can search tracks directly in the unified command dashboard, view Camelot key/BPM/energy, and click "Import & Queue" to dynamically register into SQLite `tracks` and queue the track for immediate harmonic playback.
+- **REST Catalog Endpoints:** Added `GET /api/catalog/search` (merging local SQLite matches with external discovery) and `POST /api/catalog/spotify-import`.
+- **Secondary AI DJ Battle Arena (`src/core/agents.py`, `src/static/index.html`):** Integrated secondary AI DJ agent personas ("The Purist", "The Mashup King", "The Goa Trance Shaman") directly into the unified dashboard command center with live battle simulation (`POST /api/agents/battle`).
+- **Unified Single-Page Command Dashboard (`src/static/index.html`):** Overhauled dashboard UI into a consolidated single-page interface with prominent high-value feature layout, dynamic search, live floor metrics, real-time queue, biometrics simulation, and contextual tooltips (`?`).
+- **Desktop System Tray Controller (`src/tray.py`):** Added a system tray management application providing server status inspection, background start/stop/restart, real-time log viewing, direct launching of the Dashboard and 3D Vibe Orb WebXR visualizer, and headless terminal CLI fallback.
+- **Test Suite Verification:** Added `tests/test_spotify.py` and `tests/test_agents.py`. All 43 tests pass with 100% success rate.
+- **Frontend Verification:** Validated via automated Playwright test, capturing `/home/jules/verification/dashboard_infinite_catalog.png`.
 
 ## Technical State
 - **Backend:** Python/FastAPI with SQLite (WAL mode). Uses `scikit-learn`, `pandas`, `pystray`, `websockets`, `qrcode`. Modular routers mounted under `/api/ml`, `/api/governance`, `/api/telemetry`, and `/api/agents`.
 - **Engine:** C++20 with PortAudio, SoundTouch, libwebsockets, and libftdi1. Supports 4-channel stem mixing and secondary sample buffers. Extracts native RMS/Peak amplitude values in real-time.
-- **Tests:** 39 passing tests covering API endpoints, neural conductor, agent battles, fit logic, crowd metrics, observability, RBAC, referrals, multi-venue state, and profile extensions.
+- **Tests:** 43 passing tests across the entire codebase.
 
 ## Immediate Next Steps for Successor
-- The repo is currently clean, tested, verified, and tagged at v3.5.1.
+- The repo is currently clean, tested, verified, and tagged at v3.5.2.
 - Next steps from `ROADMAP.md` and `TODO.md`:
   1. Implement WebRTC audio streaming to allow direct in-browser audio monitoring alongside the 3D Vibe Orb WebXR visualizer.
-  2. Connect Spotify external API track search into the dynamic catalog request dropdown in the dashboard.
+  2. Implement an Open Lighting Architecture (OLA) WebSocket proxy for `dmx_controller.cpp` to decouple hardware I/O from the core audio rendering thread.
