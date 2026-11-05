@@ -1174,6 +1174,14 @@ async def get_vibe_report(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin only")
     return generate_vibe_performance_report()
 
+@app.get("/api/analytics/vibe-summary")
+async def get_vibe_summary():
+    """
+    Public endpoint exposing aggregated vibe performance, ratings, and genre metrics
+    for the unified dashboard.
+    """
+    return generate_vibe_performance_report()
+
 @app.get("/api/tracks/{track_id}/streaming")
 async def get_track_streaming_links(track_id: str):
     track = TRACK_CATALOG.get(track_id)

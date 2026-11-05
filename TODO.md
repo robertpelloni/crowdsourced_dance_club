@@ -9,6 +9,7 @@
 - [x] Connect Infinite Catalog Spotify dynamic search and import into dashboard UI (`v3.5.2`).
 - [x] Connect In-Browser Live Club Audio Stream (`GET /api/audio/stream` chunked WAV stream + HTML5 audio monitor widget) (`v3.5.3`).
 - [x] Integrate Generative Visuals Studio card & ComfyUI Prompt Bridge into Dashboard (`v3.5.4`).
+- [x] Integrate Conductor Vibe Performance & Genre Effectiveness analytics reporting (`v3.5.5`).
 - [ ] Connect WebSocket audio state directly to WebRTC audio stream for ultra-low latency sub-50ms clubgoer audio monitoring.
 
 ## Backlog / Technical Debt
