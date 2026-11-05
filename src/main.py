@@ -1,3 +1,5 @@
+from src.core.agents import simulate_agent_battle, AGENTS
+from src.core.spotify_integration import search_spotify_tracks, get_track_metadata
 import asyncio
 import io
 import json
@@ -17,13 +19,19 @@ import sqlite3
 import uuid
 from datetime import datetime, timedelta
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException, Depends, status
-from fastapi.responses import Response
+from fastapi.responses import Response, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
+from src.api.ml_endpoints import router as ml_router
+from src.api.governance import router as governance_router
+from src.telemetry.api import router as telemetry_router
+from src.ml.neural_conductor import neural_conductor_instance as neural_conductor
+from src.api.streaming import get_streaming_links
+from src.api.analytics import generate_vibe_performance_report
+from src.core.monitoring import monitor
 
 DB_PATH = "tracks.db"
 
@@ -103,7 +111,13 @@ class User(BaseModel):
     username: str
     points: int = 0
     badges: List[str] = []
+    role: str = "user"
     referral_code: Optional[str] = None
+    vibe_preference: Optional[str] = "Psytrance"
+    bio: Optional[str] = None
+    display_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    wallet_address: Optional[str] = None
 
 class UserInDB(User):
     hashed_password: str
@@ -137,20 +151,24 @@ class FeedbackSubmit(BaseModel):
 
 class TrackState:
     def __init__(self):
-        self.current_track: Optional[Dict] = None
+        self.current_track: Optional[Dict] = TRACK_CATALOG.get("track_001") if TRACK_CATALOG else None
         self.start_time: float = time.time()
-        self.duration: float = 0.0
-        self.target_bpm: float = 120.0
-        self.current_bpm: float = 120.0
+        self.duration: float = 180.0
+        self.target_bpm: float = 145.0
+        self.current_bpm: float = 145.0
         self.energy_trend: str = "stable"
         self.is_peak_mode: bool = False
+        self.last_velocity: float = 0.0
         self.upcoming_queue: List[Dict] = []
         self.active_connections: set = set()
         self.vote_history: List[float] = [] # timestamps of votes
         self.playback_history: List[Dict] = []
         self.user_stats: Dict[str, Dict] = {"anonymous": {"points": 0, "badges": []}}
-        self.transition_votes: int = 0
+        self.genre_history: List[str] = []
+        self.notified_events: List[str] = []
+        self.transition_votes: Dict[str, int] = {"classic": 0, "bass_swap": 0, "echo_out": 0, "hpf_sweep": 0}
         self.crowd_energy: float = 0.5
+        self.recent_activities: List[Dict] = []
 
 dj_state = TrackState()
 
@@ -348,6 +366,8 @@ def evaluate_track_fit(requested_track: Dict, current_track: Dict) -> Tuple[bool
     if GENRE_COMPATIBILITY.get(genre1, {}).get(genre2, 0.5) < 0.3:
         return False, f"Genre clash: {genre2} is not compatible with current vibe ({genre1})."
 
+    return True, "Track approved: fits the vibe and tempo perfectly."
+
 async def playback_simulation_loop():
     """
     Background task that simulates track progress and transitions.
@@ -498,6 +518,11 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Algorithmic DJ Conductor Server", lifespan=lifespan)
 
+# Mount Modular Routers
+app.include_router(ml_router)
+app.include_router(governance_router)
+app.include_router(telemetry_router)
+
 # Serve static files for the client prototype
 app.mount("/static", StaticFiles(directory="src/static"), name="static")
 
@@ -508,6 +533,64 @@ async def root():
 
 @app.get("/catalog")
 async def get_catalog(): return list(TRACK_CATALOG.values())
+
+@app.get("/api/catalog/search")
+async def catalog_search(q: str = "", limit: int = 5):
+    """
+    Searches both local database catalog and external Spotify Infinite Catalog.
+    Returns matched local tracks along with external discovery options.
+    """
+    q_clean = q.strip().lower()
+    local_matches = [
+        t for t in TRACK_CATALOG.values()
+        if q_clean in t.get("title", "").lower() or q_clean in t.get("artist", "").lower() or q_clean in t.get("genre", "").lower()
+    ]
+    external_matches = search_spotify_tracks(q, limit=limit)
+    return {
+        "query": q,
+        "local": local_matches[:limit],
+        "external": external_matches
+    }
+
+class SpotifyImportRequest(BaseModel):
+    id: str
+    title: str
+    artist: str
+    bpm: float
+    key: str
+    energy: float
+    genre: Optional[str] = "Dance"
+
+@app.post("/api/catalog/spotify-import")
+async def spotify_import(track_in: SpotifyImportRequest):
+    """
+    Imports a track from the external catalog into local tracks database and in-memory TRACK_CATALOG.
+    """
+    track_id = track_in.id
+    if not track_id.startswith("track_"):
+        track_id = f"sp_{track_id}"
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT OR REPLACE INTO tracks (id, title, artist, bpm, key, energy, genre, filepath)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (track_id, track_in.title, track_in.artist, track_in.bpm, track_in.key, track_in.energy, track_in.genre, f"tracks/{track_id}.flac"))
+    conn.commit()
+    conn.close()
+
+    new_track_data = {
+        "id": track_id,
+        "title": track_in.title,
+        "artist": track_in.artist,
+        "bpm": track_in.bpm,
+        "key": track_in.key,
+        "energy": track_in.energy,
+        "genre": track_in.genre,
+        "filepath": f"tracks/{track_id}.flac"
+    }
+    TRACK_CATALOG[track_id] = new_track_data
+    return {"status": "imported", "track": new_track_data}
 
 @app.post("/api/register")
 async def register(user: UserCreate):
@@ -596,188 +679,88 @@ async def get_sync_qr():
     img_byte_arr = io.BytesIO(); img.save(img_byte_arr, format='PNG')
     return Response(content=img_byte_arr.getvalue(), media_type="image/png")
 
-@app.post("/api/register")
-async def register(user: UserCreate):
+
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
+@app.post("/api/me/change-password")
+async def change_password(data: PasswordChange, current_user: dict = Depends(get_current_user)):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE username = ?", (user.username,))
-    if cursor.fetchone():
-        conn.close()
-        raise HTTPException(status_code=400, detail="Username already registered")
-
-    # Referral Logic
-    referrer_id = None
-    if user.referral_code:
-        cursor.execute("SELECT id FROM users WHERE referral_code = ?", (user.referral_code,))
-        row = cursor.fetchone()
-        if row:
-            referrer_id = row["id"]
-
-    hashed_pw = get_password_hash(user.password)
-    import uuid
-    user_id = "user_" + str(uuid.uuid4())
-
-    # Generate unique referral code for the new user
-    import random
-    import string
-    new_referral_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-
-    initial_points = 50 if referrer_id else 0
-
-    cursor.execute('''
-        INSERT INTO users (id, username, hashed_password, referral_code, referred_by_id, points)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (user_id, user.username, hashed_pw, new_referral_code, referrer_id, initial_points))
-
-    if referrer_id:
-        cursor.execute("UPDATE users SET points = points + 50 WHERE id = ?", (referrer_id,))
-
-    conn.commit()
-    conn.close()
-    return {"message": "User registered successfully", "referral_code": new_referral_code}
-
-@app.post("/api/login", response_model=Token)
-async def login(form_data: OAuth2PasswordRequestForm = Depends()):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE username = ?", (form_data.username,))
+    cursor.execute("SELECT hashed_password FROM users WHERE id = ?", (current_user["id"],))
     row = cursor.fetchone()
+    if not row or not verify_password(data.current_password, row["hashed_password"]):
+        conn.close()
+        raise HTTPException(status_code=400, detail="Invalid current password")
+
+    new_hash = get_password_hash(data.new_password)
+    cursor.execute("UPDATE users SET hashed_password = ? WHERE id = ?", (new_hash, current_user["id"]))
+    conn.commit()
     conn.close()
+    return {"message": "Password updated successfully"}
 
-    if not row or not verify_password(form_data.password, row["hashed_password"]):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+class SongFeedback(BaseModel):
+    track_id: str
+    is_like: bool
 
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": row["username"]}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+@app.post("/api/feedback/song")
+async def feedback_song(feedback: SongFeedback, current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    fb_id = "sf_" + str(uuid.uuid4())
+    cursor.execute('''
+        INSERT INTO song_feedback (id, user_id, track_id, is_like, timestamp)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (fb_id, current_user["id"], feedback.track_id, 1 if feedback.is_like else 0, time.time()))
+    conn.commit()
+    conn.close()
+    return {"message": "Song feedback recorded"}
 
-@app.get("/api/me", response_model=User)
-async def read_users_me(current_user: dict = Depends(get_current_user)):
-    # Convert JSON string badges to list
-    import json
-    badges = json.loads(current_user["badges"])
+@app.get("/api/me/history/likes")
+async def get_my_likes(current_user: dict = Depends(get_current_user)):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT sf.*, t.title, t.artist
+        FROM song_feedback sf
+        LEFT JOIN tracks t ON sf.track_id = t.id
+        WHERE sf.user_id = ? AND sf.is_like = 1
+        ORDER BY sf.timestamp DESC
+    ''', (current_user["id"],))
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+
+class AgentBattleRequest(BaseModel):
+    track_id: Optional[str] = None
+    track: Optional[Dict] = None
+
+@app.post("/api/agents/battle")
+async def run_agent_battle(req: AgentBattleRequest):
+    """
+    Simulates a battle between secondary AI DJ personas (The Purist, The Mashup King, The Goa Trance Shaman).
+    """
+    candidate = None
+    if req.track:
+        candidate = req.track
+    elif req.track_id and req.track_id in TRACK_CATALOG:
+        candidate = TRACK_CATALOG[req.track_id]
+    else:
+        candidate = TRACK_CATALOG.get("track_002")
+
+    current = dj_state.current_track or TRACK_CATALOG.get("track_001")
+    base_vibe = calculate_vibe_score(candidate, current)
+    battle_results = simulate_agent_battle(candidate, current, base_vibe)
+
     return {
-        "username": current_user["username"],
-        "points": current_user["points"],
-        "badges": badges,
-        "referral_code": current_user.get("referral_code")
+        "status": "success",
+        "candidate_track": candidate,
+        "current_track": current,
+        "base_vibe_score": base_vibe,
+        "agent_scores": battle_results
     }
-
-@app.get("/api/me/history/requests")
-async def get_my_requests(current_user: dict = Depends(get_current_user)):
-    """Retrieves the authenticated user's song request history."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT r.*, t.title, t.artist
-        FROM user_requests r
-        JOIN tracks t ON r.track_id = t.id
-        WHERE r.user_id = ?
-        ORDER BY r.timestamp DESC
-    ''', (current_user["id"],))
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
-
-@app.get("/api/me/history/votes")
-async def get_my_votes(current_user: dict = Depends(get_current_user)):
-    """Retrieves the authenticated user's voting history."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT v.*, t.title, t.artist
-        FROM user_votes v
-        JOIN tracks t ON v.track_id = t.id
-        WHERE v.user_id = ?
-        ORDER BY v.timestamp DESC
-    ''', (current_user["id"],))
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
-
-@app.get("/api/events")
-async def get_events():
-    """Returns a list of upcoming club events."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM events WHERE start_time > ?", (time.time(),))
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(row) for row in rows]
-
-@app.post("/api/admin/create-event")
-async def create_event(event: EventCreate, current_user: dict = Depends(get_current_user)):
-    """Creates a new event (restricted to logged in users in prototype)."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    import uuid
-    event_id = "event_" + str(uuid.uuid4())
-    cursor.execute("INSERT INTO events (id, title, description, start_time) VALUES (?, ?, ?, ?)",
-                   (event_id, event.title, event.description, event.start_time))
-    conn.commit()
-    conn.close()
-    return {"message": "Event created successfully", "id": event_id}
-
-@app.get("/api/leaderboard")
-async def get_leaderboard():
-    """Returns the top 20 users on the leaderboard."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT username, points, badges FROM users ORDER BY points DESC LIMIT 20")
-    rows = cursor.fetchall()
-    conn.close()
-
-    result = []
-    for row in rows:
-        result.append({
-            "username": row["username"],
-            "points": row["points"],
-            "badges": json.loads(row["badges"])
-        })
-    return result
-
-@app.post("/api/feedback")
-async def submit_feedback(feedback: FeedbackSubmit, current_user: dict = Depends(get_current_user)):
-    """Allows authenticated users to submit experience feedback during testing."""
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    import uuid
-    feedback_id = "fb_" + str(uuid.uuid4())
-    cursor.execute('''
-        INSERT INTO feedback (id, user_id, vibe_rating, technical_rating, comment, timestamp)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', (feedback_id, current_user["id"], feedback.vibe_rating,
-          feedback.technical_rating, feedback.comment, time.time()))
-    conn.commit()
-    conn.close()
-    return {"message": "Feedback submitted successfully. Thank you for helping refine the vibe!", "id": feedback_id}
-
-@app.get("/sync-qr")
-async def get_sync_qr():
-    """Generates a real QR code image for venue synchronization."""
-    ip = get_local_ip()
-    sync_data = {
-        "venue_name": "CDC Virtual Arena",
-        "conductor_url": f"http://{ip}:8000",
-        "websocket_url": f"ws://{ip}:8000/ws/clubgoer",
-        "session_id": "session_001"
-    }
-
-    qr = qrcode.QRCode(version=1, box_size=10, border=5)
-    qr.add_data(json.dumps(sync_data))
-    qr.make(fit=True)
-
-    img = qr.make_image(fill_color="black", back_color="white")
-    img_byte_arr = io.BytesIO()
-    img.save(img_byte_arr, format='PNG')
-
-    return Response(content=img_byte_arr.getvalue(), media_type="image/png")
 
 @app.websocket("/ws/clubgoer")
 async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
@@ -845,9 +828,12 @@ async def websocket_endpoint(websocket: WebSocket, token: Optional[str] = None):
             elif action == "REQUEST_SONG":
                 track_id = message.get("track_id")
                 track = TRACK_CATALOG.get(track_id)
-                if not track: continue
+                if not track:
+                    await websocket.send_json({"type": "ERROR", "message": "Track not found."})
+                    continue
+                requested_track = track
                 fits, reason = evaluate_track_fit(track, dj_state.current_track)
-                vibe_score = calculate_vibe_score(track, dj_state.current_track, dj_state.energy_trend, user_vibe_pref)
+                vibe_score = calculate_vibe_score(track, dj_state.current_track)
 
                 if fits:
                     # Append to queue and notify the entire room via real-time broadcast
@@ -1172,3 +1158,70 @@ async def get_track_streaming_links(track_id: str):
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
     return get_streaming_links(track["title"], track["artist"])
+
+@app.get("/api/audio/stream")
+async def live_audio_stream():
+    """
+    Streams live low-latency audio monitor stream for clubgoers and venue operators.
+    Generates a live infinite WAV stream (44.1kHz 16-bit mono PCM) synced to Conductor state.
+    """
+    async def audio_generator():
+        import math
+        sample_rate = 44100
+        num_channels = 1
+        bits_per_sample = 16
+        byte_rate = sample_rate * num_channels * (bits_per_sample // 8)
+        block_align = num_channels * (bits_per_sample // 8)
+
+        wav_header = bytearray()
+        wav_header.extend(b'RIFF')
+        wav_header.extend((0x7FFFFFFF).to_bytes(4, 'little'))
+        wav_header.extend(b'WAVE')
+        wav_header.extend(b'fmt ')
+        wav_header.extend((16).to_bytes(4, 'little'))
+        wav_header.extend((1).to_bytes(2, 'little'))
+        wav_header.extend(num_channels.to_bytes(2, 'little'))
+        wav_header.extend(sample_rate.to_bytes(4, 'little'))
+        wav_header.extend(byte_rate.to_bytes(4, 'little'))
+        wav_header.extend(block_align.to_bytes(2, 'little'))
+        wav_header.extend(bits_per_sample.to_bytes(2, 'little'))
+        wav_header.extend(b'data')
+        wav_header.extend((0x7FFFFFFF - 36).to_bytes(4, 'little'))
+        yield bytes(wav_header)
+
+        t = 0.0
+        chunk_duration = 0.1
+        samples_per_chunk = int(sample_rate * chunk_duration)
+        dt = 1.0 / sample_rate
+
+        while True:
+            bpm = dj_state.current_track.get("bpm", 130.0) if dj_state.current_track else 130.0
+            energy = dj_state.current_track.get("energy", 8.0) if dj_state.current_track else 8.0
+            base_freq = 55.0 * (bpm / 120.0)
+
+            chunk = bytearray()
+            for _ in range(samples_per_chunk):
+                envelope = 0.5 + 0.5 * math.sin(2 * math.pi * (bpm / 60.0) * t)
+                carrier = math.sin(2 * math.pi * base_freq * t)
+                overtone = 0.25 * math.sin(2 * math.pi * base_freq * 2.0 * t)
+                sample_val = int((carrier + overtone) * envelope * 8000.0 * (energy / 10.0))
+                sample_val = max(-32767, min(32767, sample_val))
+                chunk.extend(sample_val.to_bytes(2, 'little', signed=True))
+                t += dt
+
+            yield bytes(chunk)
+            await asyncio.sleep(chunk_duration)
+
+    return StreamingResponse(audio_generator(), media_type="audio/wav")
+
+@app.post("/api/admin/create-event")
+async def create_event_legacy(event: EventCreate, current_user: dict = Depends(get_current_user)):
+    """Creates a new event."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    event_id = "event_" + str(uuid.uuid4())
+    cursor.execute("INSERT INTO events (id, title, description, start_time) VALUES (?, ?, ?, ?)",
+                   (event_id, event.title, event.description, event.start_time))
+    conn.commit()
+    conn.close()
+    return {"message": "Event created successfully", "id": event_id}

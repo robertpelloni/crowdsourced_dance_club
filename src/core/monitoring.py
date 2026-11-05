@@ -43,3 +43,5 @@ class SystemMonitor:
             conn.close()
             return avg_vibe or 1.0
         except: return 0.0
+
+monitor = SystemMonitor()

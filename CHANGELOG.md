@@ -1,5 +1,26 @@
 # Changelog
 
+## [v3.5.3] - In-Browser Live Club Audio Stream & Monitor Integration
+- **In-Browser Live Club Audio Stream (`src/main.py`, `src/static/index.html`):** Implemented continuous PCM audio streaming endpoint `GET /api/audio/stream` generating a real-time 44.1kHz 16-bit stereo WAV stream dynamically synthesized and responsive to the live Conductor playback state (current BPM beat pulses and energy modulation).
+- **Audio Monitor Widget & Player Controls:** Added an interactive "Live Club Audio Monitor" in the dashboard's Live Floor Dynamics section, featuring play/stop controls, live volume slider, connection status indicator, and tooltip guidance.
+- **Automated Stream Test Suite (`tests/test_audio_stream.py`):** Added tests validating WAV header construction, audio chunk streaming, and parameter modulation based on Conductor engine state.
+
+## [v3.5.2] - Dynamic Infinite Catalog Search & Import Integration
+- **Infinite Catalog Search & Import (`src/core/spotify_integration.py`, `src/main.py`, `src/static/index.html`):** Integrated Spotify / external catalog searching with fallback mock pool and dynamic fallback generation. Users can search tracks directly in the unified command dashboard, view metadata (BPM, Camelot Key, Energy), and import & queue them into the live Conductor engine with one click.
+- **REST Endpoints (`GET /api/catalog/search`, `POST /api/catalog/spotify-import`):** Search returns unified local and external results; import dynamically persists tracks into SQLite `tracks` and in-memory `TRACK_CATALOG`.
+- **Automated Test Suite (`tests/test_spotify.py`):** Added tests covering search matching, dynamic fallback, search endpoint responses, and database catalog import persistence.
+
+## [v3.5.1] - Secondary AI DJ Battle Arena Integration
+- **Secondary AI DJ Battle Arena (`src/core/agents.py`, `src/static/index.html`):** Integrated the Secondary AI DJ personas ("The Purist", "The Mashup King", "The Goa Trance Shaman") into the unified single-page dashboard. Users can trigger AI agent battles for candidate tracks to view distinct style-biased vibe scores, risk thresholds, and commentary before queuing.
+- **Battle Simulation Endpoint (`/api/agents/battle`):** Implemented REST endpoint in `src/main.py` accepting track metadata and ML baseline scores, calculating multi-agent compatibility, and returning the winning persona and commentary.
+- **Unit & Integration Testing (`tests/test_agents.py`):** Added comprehensive automated test suite covering SecondaryDJAgent methods, agent battle simulations, and endpoint validation.
+
+## [v3.5.0] - Unified Single-Page Command Dashboard, System Tray & Router Deduplication
+- **Unified Single-Page Command Dashboard (`src/static/index.html`):** Redesigned and consolidated all venue operations into a single-page responsive command center prioritized by high-value features (Live Floor & Now Playing dynamics, real-time Queue & Transition voting, Telemetry/Wearables, ML Neural Conductor retraining/prediction, DAO Governance proposals/voting, Master Highlight rendering, and Clubgoer Profiles with helpful tooltip markers throughout).
+- **Desktop System Tray Controller (`src/tray.py`):** Added a system tray manager application providing server status inspection, background start/stop/restart, real-time log viewing, direct launching of the Dashboard and 3D Vibe Orb WebXR visualizer, and headless terminal CLI fallback.
+- **Backend Routing & Deduplication:** Mounted missing modular routers (`ml_endpoints`, `governance`, `telemetry`), eliminated duplicate routes in `src/main.py`, resolved variable bindings in WebSocket action handlers, and implemented profile extension routes (`/api/me/change-password`, `/api/feedback/song`, `/api/me/history/likes`).
+- **Test Suite Verification:** Fixed `VibePredictor` interface and `monitor` singleton binding, resulting in 100% test passing across the entire test suite (36 tests passing).
+
 ## [v3.4.0] - Neural Conductor & Generative Immersion
 - **Milestone 4 (Scaling & Expansion):** Fully activated the ML-driven `NeuralConductor` (using `scikit-learn` RandomForestRegressor). The Conductor now predicts transition `vibe_score` dynamically based on historical DB tracking logs instead of static heuristics.
 - **Milestone 11 (Biometric Sync):** Initialized `src/telemetry/` microservice. Added `BiometricAggregator` to process high-frequency WearOS/Apple Watch HR data, actively modifying Peak Mode logic.

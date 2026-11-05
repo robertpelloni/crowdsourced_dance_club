@@ -16,14 +16,16 @@
 - **Milestone 10: Stem-Level Mixing:** Real-time 4-stem separation (Demucs) for algorithmic mashups.
 
 ## Phase 4: Decentralized Collective & Extreme Interactivity (Active)
-- **Milestone 11: Biometric Sync**
-  - Implement a high-frequency telemetry ingestion microservice.
+- **Milestone 11: Biometric Sync (Completed in v3.4.0/v3.5.0)**
+  - Implement a high-frequency telemetry ingestion microservice (`src/telemetry/`).
   - Integrate with WearOS/Apple Watch to read aggregate crowd heart rates.
   - Trigger "Peak Mode" automatically based on biometric delta spikes.
-- **Milestone 12: Generative Immersion**
+- **Milestone 12: Generative Immersion (Completed in v3.4.0/v3.5.0)**
   - Connect audio feature extraction to a local ComfyUI/Stable Diffusion node.
   - Generate and project real-time, audio-reactive video synthesis (synced to specific stem isolation).
-  - Implement the "Vibe Orb" WebXR visualization for remote attendees.
-- **Milestone 13: Multi-Agent Autonomy & Governance**
-  - Introduce the CDC DAO governance structure for macro-venue rules.
+  - Implement the "Vibe Orb" WebXR visualization (`src/static/vibe_orb.html`) for remote attendees.
+- **Milestone 13: Unified Experience & Multi-Agent Autonomy (Active)**
+  - Consolidate all venue controls into a single-page command dashboard UI (`src/static/index.html`).
+  - Desktop System Tray Icon controller (`src/tray.py`) with process management and server logs.
+  - Introduce the CDC DAO governance structure for macro-venue rules (`src/api/governance.py`).
   - Deploy secondary AI DJ agents with distinct stylistic archetypes for live "DJ Battles."

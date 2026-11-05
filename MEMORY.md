@@ -9,6 +9,8 @@
 - **Audio Engine:** SoundTouch's real-time time-stretching is sensitive to sample rate mismatches. v1.7.0 added hardware-aware detection to mitigate this.
 - **Persistence:** SQLite is sufficient for single-venue participation, but multi-venue decentralization (v1.6.0+) requires careful connection management to avoid `database is locked` errors during peak voting.
 - **Admin Security:** Explicitly promoting users to "admin" role via the database is necessary for security, as the UI hidden gesture only reveals the panel, but the backend restricts the actual actions.
+- **Single-Page Dashboard Consolidation:** Fragmenting features across multiple disparate admin tabs harmed situational awareness for live DJ venue operation. Consolidating all floor telemetry, transition voting, queue reordering, and DAO governance into a single responsive screen (v3.5.0) significantly reduced interaction friction.
+- **Headless Desktop Tray Operations:** Implementing a dual GUI/CLI fallback in `src/tray.py` allows seamless process management across both remote Linux headless servers and desktop installations.
 
 ## Neural Conductor Observations
 - **Archetype Success:** "Crossfade" is a safe baseline, but "Filter Sweep" and "Bass Swap" have significantly higher "Vibe Up" rates during "Peak Mode".

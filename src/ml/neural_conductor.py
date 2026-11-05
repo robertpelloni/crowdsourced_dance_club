@@ -1,7 +1,7 @@
 import os
 import joblib
 import pandas as pd
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
 from sklearn.ensemble import RandomForestRegressor
 
 # Milestone 4: Neural Conductor
@@ -71,3 +71,29 @@ class NeuralConductor:
 
 # Global Singleton instance
 neural_conductor_instance = NeuralConductor()
+
+
+class VibePredictor:
+    """
+    High-level predictor class providing track ranking and PREDICTIVE_QUEUE payload generation
+    for zero-latency transitions to the C++ Audio Engine.
+    """
+    def __init__(self, conductor: Optional[NeuralConductor] = None):
+        self.conductor = conductor or neural_conductor_instance
+
+    def predict(self, current_state: Dict, candidates: List[Dict]) -> List[Dict]:
+        """Ranks candidate tracks by energy/vibe compatibility."""
+        ranked = sorted(candidates, key=lambda c: c.get("energy", 0.0), reverse=True)
+        return ranked
+
+    def generate_predictive_queue_payload(self, candidates: List[Dict]) -> Dict:
+        """Generates a PREDICTIVE_QUEUE WebSocket payload."""
+        predicted_tracks = [
+            {"track_id": c["id"], "confidence": 1.0} for c in candidates
+        ]
+        return {
+            "type": "PREDICTIVE_QUEUE",
+            "data": {
+                "predicted_tracks": predicted_tracks
+            }
+        }
