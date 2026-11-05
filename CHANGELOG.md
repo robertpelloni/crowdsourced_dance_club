@@ -1,5 +1,10 @@
 # Changelog
 
+## [v3.5.4] - Generative Visuals Studio & ComfyUI Prompt Bridge Integration
+- **Generative Visuals Studio (`src/core/generative_visuals.py`, `src/main.py`, `src/static/index.html`):** Integrated real-time ComfyUI / Stable Diffusion prompt synthesis into the unified command dashboard. Conductor state (genre, energy trend, audio RMS levels) is translated into dynamic audiovisual generation prompts.
+- **REST Endpoints (`GET /api/visuals/status`, `POST /api/visuals/trigger`):** Exposes current generative video synthesis state and allows manual prompt triggering and preview.
+- **Automated Test Suite (`tests/test_generative_visuals.py`):** Added tests validating prompt construction logic, endpoint responses, and latency handling.
+
 ## [v3.5.3] - In-Browser Live Club Audio Stream & Monitor Integration
 - **In-Browser Live Club Audio Stream (`src/main.py`, `src/static/index.html`):** Implemented continuous PCM audio streaming endpoint `GET /api/audio/stream` generating a real-time 44.1kHz 16-bit stereo WAV stream dynamically synthesized and responsive to the live Conductor playback state (current BPM beat pulses and energy modulation).
 - **Audio Monitor Widget & Player Controls:** Added an interactive "Live Club Audio Monitor" in the dashboard's Live Floor Dynamics section, featuring play/stop controls, live volume slider, connection status indicator, and tooltip guidance.

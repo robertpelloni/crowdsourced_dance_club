@@ -1,5 +1,6 @@
 from src.core.agents import simulate_agent_battle, AGENTS
 from src.core.spotify_integration import search_spotify_tracks, get_track_metadata
+from src.core.generative_visuals import comfy_bridge
 import asyncio
 import io
 import json
@@ -10,7 +11,7 @@ import string
 import sys
 import time
 from contextlib import asynccontextmanager
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 from datetime import timedelta
 
 import qrcode
@@ -18,7 +19,7 @@ import socket
 import sqlite3
 import uuid
 from datetime import datetime, timedelta
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException, Depends, status
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException, Depends, status, Body
 from fastapi.responses import Response, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -736,6 +737,27 @@ async def get_my_likes(current_user: dict = Depends(get_current_user)):
 class AgentBattleRequest(BaseModel):
     track_id: Optional[str] = None
     track: Optional[Dict] = None
+
+@app.get("/api/visuals/status")
+async def get_visuals_status():
+    """Returns the current Generative Visuals bridge state and last synthesized prompt."""
+    return comfy_bridge.get_state()
+
+@app.post("/api/visuals/trigger")
+async def trigger_visuals_synthesis(payload: Dict[str, Any] = Body(...)):
+    """
+    Manually triggers generative visuals synthesis or preview based on prompt inputs.
+    Payload: {"genre": "Psytrance", "energy_trend": "rising", "rms": 0.85}
+    """
+    genre = payload.get("genre", dj_state.current_track.get("genre", "Psytrance"))
+    energy_trend = payload.get("energy_trend", dj_state.energy_trend or "stable")
+    rms = float(payload.get("rms", dj_state.crowd_energy or 0.6))
+
+    success = await comfy_bridge.trigger_visual_synthesis(energy_trend=energy_trend, genre=genre, rms=rms)
+    return {
+        "success": success,
+        "state": comfy_bridge.get_state()
+    }
 
 @app.post("/api/agents/battle")
 async def run_agent_battle(req: AgentBattleRequest):
