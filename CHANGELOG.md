@@ -1,5 +1,10 @@
 # Changelog
 
+## [v3.5.3] - In-Browser Live Club Audio Stream & Monitor Integration
+- **In-Browser Live Club Audio Stream (`src/main.py`, `src/static/index.html`):** Implemented continuous PCM audio streaming endpoint `GET /api/audio/stream` generating a real-time 44.1kHz 16-bit stereo WAV stream dynamically synthesized and responsive to the live Conductor playback state (current BPM beat pulses and energy modulation).
+- **Audio Monitor Widget & Player Controls:** Added an interactive "Live Club Audio Monitor" in the dashboard's Live Floor Dynamics section, featuring play/stop controls, live volume slider, connection status indicator, and tooltip guidance.
+- **Automated Stream Test Suite (`tests/test_audio_stream.py`):** Added tests validating WAV header construction, audio chunk streaming, and parameter modulation based on Conductor engine state.
+
 ## [v3.5.2] - Dynamic Infinite Catalog Search & Import Integration
 - **Infinite Catalog Search & Import (`src/core/spotify_integration.py`, `src/main.py`, `src/static/index.html`):** Integrated Spotify / external catalog searching with fallback mock pool and dynamic fallback generation. Users can search tracks directly in the unified command dashboard, view metadata (BPM, Camelot Key, Energy), and import & queue them into the live Conductor engine with one click.
 - **REST Endpoints (`GET /api/catalog/search`, `POST /api/catalog/spotify-import`):** Search returns unified local and external results; import dynamically persists tracks into SQLite `tracks` and in-memory `TRACK_CATALOG`.

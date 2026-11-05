@@ -7,7 +7,8 @@
 - [x] Align `VibePredictor` interface with test specifications and pass all 36 test suite unit/integration tests.
 - [x] Wire Secondary AI DJ Agent Battle Arena into the dashboard UI and expose `/api/agents/battle` endpoint (`v3.5.1`).
 - [x] Connect Infinite Catalog Spotify dynamic search and import into dashboard UI (`v3.5.2`).
-- [ ] Connect WebSocket audio state directly to WebRTC audio stream for real-time clubgoer audio monitoring in browser.
+- [x] Connect In-Browser Live Club Audio Stream (`GET /api/audio/stream` chunked WAV stream + HTML5 audio monitor widget) (`v3.5.3`).
+- [ ] Connect WebSocket audio state directly to WebRTC audio stream for ultra-low latency sub-50ms clubgoer audio monitoring.
 
 ## Backlog / Technical Debt
 - [ ] Evaluate porting the core `evaluate_track_fit` Random Forest logic to a faster, compiled language (like Rust / C++ ONNX Runtime) if multi-agent concurrent evaluation becomes a bottleneck.

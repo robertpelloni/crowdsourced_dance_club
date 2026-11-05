@@ -19,9 +19,8 @@ import sqlite3
 import uuid
 from datetime import datetime, timedelta
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, BackgroundTasks, HTTPException, Depends, status
-from fastapi.responses import Response
+from fastapi.responses import Response, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -1159,6 +1158,61 @@ async def get_track_streaming_links(track_id: str):
     if not track:
         raise HTTPException(status_code=404, detail="Track not found")
     return get_streaming_links(track["title"], track["artist"])
+
+@app.get("/api/audio/stream")
+async def live_audio_stream():
+    """
+    Streams live low-latency audio monitor stream for clubgoers and venue operators.
+    Generates a live infinite WAV stream (44.1kHz 16-bit mono PCM) synced to Conductor state.
+    """
+    async def audio_generator():
+        import math
+        sample_rate = 44100
+        num_channels = 1
+        bits_per_sample = 16
+        byte_rate = sample_rate * num_channels * (bits_per_sample // 8)
+        block_align = num_channels * (bits_per_sample // 8)
+
+        wav_header = bytearray()
+        wav_header.extend(b'RIFF')
+        wav_header.extend((0x7FFFFFFF).to_bytes(4, 'little'))
+        wav_header.extend(b'WAVE')
+        wav_header.extend(b'fmt ')
+        wav_header.extend((16).to_bytes(4, 'little'))
+        wav_header.extend((1).to_bytes(2, 'little'))
+        wav_header.extend(num_channels.to_bytes(2, 'little'))
+        wav_header.extend(sample_rate.to_bytes(4, 'little'))
+        wav_header.extend(byte_rate.to_bytes(4, 'little'))
+        wav_header.extend(block_align.to_bytes(2, 'little'))
+        wav_header.extend(bits_per_sample.to_bytes(2, 'little'))
+        wav_header.extend(b'data')
+        wav_header.extend((0x7FFFFFFF - 36).to_bytes(4, 'little'))
+        yield bytes(wav_header)
+
+        t = 0.0
+        chunk_duration = 0.1
+        samples_per_chunk = int(sample_rate * chunk_duration)
+        dt = 1.0 / sample_rate
+
+        while True:
+            bpm = dj_state.current_track.get("bpm", 130.0) if dj_state.current_track else 130.0
+            energy = dj_state.current_track.get("energy", 8.0) if dj_state.current_track else 8.0
+            base_freq = 55.0 * (bpm / 120.0)
+
+            chunk = bytearray()
+            for _ in range(samples_per_chunk):
+                envelope = 0.5 + 0.5 * math.sin(2 * math.pi * (bpm / 60.0) * t)
+                carrier = math.sin(2 * math.pi * base_freq * t)
+                overtone = 0.25 * math.sin(2 * math.pi * base_freq * 2.0 * t)
+                sample_val = int((carrier + overtone) * envelope * 8000.0 * (energy / 10.0))
+                sample_val = max(-32767, min(32767, sample_val))
+                chunk.extend(sample_val.to_bytes(2, 'little', signed=True))
+                t += dt
+
+            yield bytes(chunk)
+            await asyncio.sleep(chunk_duration)
+
+    return StreamingResponse(audio_generator(), media_type="audio/wav")
 
 @app.post("/api/admin/create-event")
 async def create_event_legacy(event: EventCreate, current_user: dict = Depends(get_current_user)):

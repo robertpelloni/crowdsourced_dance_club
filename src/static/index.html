@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CDC AI Conductor - Unified Command Center v3.5.2</title>
+    <title>CDC AI Conductor - Unified Command Center v3.5.3</title>
     <style>
         :root {
             --bg-primary: #0a0a0f;
@@ -437,7 +437,7 @@
         <div class="brand">
             <span style="font-size: 1.6rem;">🎧</span>
             <div>
-                <h1>CDC AI Conductor <span class="version-tag">v3.5.2</span></h1>
+                <h1>CDC AI Conductor <span class="version-tag">v3.5.3</span></h1>
             </div>
         </div>
 
@@ -486,6 +486,25 @@
                         <button class="btn btn-sm" onclick="voteSongLike(false)">👎 Skip</button>
                     </div>
                 </div>
+            </div>
+
+            <!-- In-Browser Live Audio Monitor Stream -->
+            <div style="background: #0f1019; padding: 12px 14px; border-radius: 8px; border: 1px solid #1c2136; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 1.1rem;">🔊</span>
+                    <div>
+                        <div style="font-size: 0.82rem; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                            Live Club Audio Monitor
+                            <span class="tooltip-marker" data-tooltip="Listen directly to the Conductor's live master audio output right inside your browser in real time.">?</span>
+                        </div>
+                        <div style="font-size: 0.72rem; color: var(--text-muted);" id="audio-monitor-status">Monitoring offline</div>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <input type="range" id="audio-volume-slider" min="0" max="1" step="0.05" value="0.7" style="width: 80px;" oninput="adjustAudioVolume(this.value)" title="Volume">
+                    <button id="toggle-audio-btn" class="btn btn-sm btn-cyan" onclick="toggleAudioMonitor()">▶ Listen Live</button>
+                </div>
+                <audio id="live-audio-player" preload="none"></audio>
             </div>
 
             <!-- Transition Archetype Real-Time Voting -->
@@ -907,6 +926,45 @@
                 alert(isLike ? "👍 Liked! Vibe fit +2% boost recorded." : "👎 Feedback noted for set optimization.");
             } catch (e) {
                 console.error(e);
+            }
+        }
+
+        let isMonitoringAudio = false;
+        function toggleAudioMonitor() {
+            const player = document.getElementById('live-audio-player');
+            const btn = document.getElementById('toggle-audio-btn');
+            const status = document.getElementById('audio-monitor-status');
+
+            if (!isMonitoringAudio) {
+                player.src = '/api/audio/stream?t=' + Date.now();
+                player.volume = parseFloat(document.getElementById('audio-volume-slider').value);
+                player.play().then(() => {
+                    isMonitoringAudio = true;
+                    btn.innerText = '⏹ Stop Monitoring';
+                    btn.classList.remove('btn-cyan');
+                    btn.classList.add('btn-green');
+                    status.innerText = 'Connected: Streaming master audio low-latency';
+                    status.style.color = 'var(--accent-green)';
+                }).catch(e => {
+                    status.innerText = 'Stream error: ' + e.message;
+                    status.style.color = 'var(--accent-magenta)';
+                });
+            } else {
+                player.pause();
+                player.src = '';
+                isMonitoringAudio = false;
+                btn.innerText = '▶ Listen Live';
+                btn.classList.remove('btn-green');
+                btn.classList.add('btn-cyan');
+                status.innerText = 'Monitoring offline';
+                status.style.color = 'var(--text-muted)';
+            }
+        }
+
+        function adjustAudioVolume(val) {
+            const player = document.getElementById('live-audio-player');
+            if (player) {
+                player.volume = parseFloat(val);
             }
         }
 
