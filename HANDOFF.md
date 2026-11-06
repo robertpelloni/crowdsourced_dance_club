@@ -1,6 +1,9 @@
-# HANDOFF.md - v3.5.6 (DAO Governance Proposals TTL Cache & Concurrency Optimization)
+# HANDOFF.md - v3.5.7 (Consolidated Live Audio Monitor & Real-Time Transition Voting Studio)
 
 ## Summary of Progress
+- **Consolidated Master Audio & Transition Studio (`src/static/index.html`):** Re-engineered the audio monitoring and transition voting controls into a unified, low-friction studio card within the single-page dashboard.
+- **Dynamic VU/RMS Telemetry Level Meter:** Integrated animated VU meter driven by WebSocket playback telemetry (`audio_rms`, `audio_peak`) providing immediate visual feedback of output levels alongside the in-browser streaming player.
+- **Visual Consensus Voting Bars:** Added real-time distribution progress bars and live vote counters for all 4 transition archetypes (Classic Fade, Bass Swap, Echo Out, HPF Sweep) with an active winning archetype badge.
 - **DAO Governance Proposals TTL Cache (`src/api/governance.py`):** Added in-memory TTL caching layer for `/api/governance/proposals` (`CACHE_TTL_SECONDS = 15.0`) with immediate cache invalidation (`invalidate_governance_cache`) triggered upon proposal creation. Protects against SQLite read contention during high-concurrency voting rushes.
 - **Conductor Vibe Performance & Genre Effectiveness Analytics (`src/api/analytics.py`, `src/main.py`, `src/static/index.html`):** Fully integrated real-time Conductor performance logs and audience feedback analytics into the unified dashboard. Displays average crowd vibe rating, technical mixing rating, top performing genre by score, active genre coverage, and detailed genre breakdown metrics with real-time refresh capability.
 - **REST Analytics Endpoints:** Added public endpoint `GET /api/analytics/vibe-summary` alongside the RBAC-protected `GET /api/admin/analytics/vibe-report`.

@@ -1,5 +1,10 @@
 # Changelog
 
+## [v3.5.7] - Consolidated Live Audio Monitor & Real-Time Transition Voting Studio
+- **Consolidated Master Audio & Transition Studio (`src/static/index.html`):** Re-engineered the audio monitoring and transition controls into a unified studio card to minimize operator and clubgoer friction.
+- **Dynamic VU/RMS Telemetry Level Meter:** Integrated animated VU meter driven by WebSocket playback telemetry (`audio_rms`, `audio_peak`) providing immediate visual feedback of output levels alongside the in-browser streaming player.
+- **Visual Consensus Voting Bars:** Added real-time distribution progress bars and live vote counters for all 4 transition archetypes (Classic Fade, Bass Swap, Echo Out, HPF Sweep) with an active winning archetype badge.
+
 ## [v3.5.6] - DAO Governance Proposals TTL Cache & Concurrency Optimization
 - **Governance Proposals Caching (`src/api/governance.py`):** Added in-memory TTL caching (`CACHE_TTL_SECONDS = 15.0`) to `/api/governance/proposals` to prevent SQLite read contention during high-concurrency venue voting spikes.
 - **Cache Invalidation Lifecycle:** Added `invalidate_governance_cache()` invoked immediately on proposal submission (`POST /api/governance/proposals`) to guarantee zero-latency consistency.

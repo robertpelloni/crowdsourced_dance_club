@@ -11,6 +11,7 @@
 - [x] Integrate Generative Visuals Studio card & ComfyUI Prompt Bridge into Dashboard (`v3.5.4`).
 - [x] Integrate Conductor Vibe Performance & Genre Effectiveness analytics reporting (`v3.5.5`).
 - [x] Add TTL caching layer for `/api/governance/proposals` during massive load peaks (`v3.5.6`).
+- [x] Consolidate Live Audio Stream Monitor & Transition Voting Studio with dynamic VU meters (`v3.5.7`).
 - [ ] Connect WebSocket audio state directly to WebRTC audio stream for ultra-low latency sub-50ms clubgoer audio monitoring.
 
 ## Backlog / Technical Debt
