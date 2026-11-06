@@ -1,12 +1,26 @@
 # Crowdsourced Dance Club (CDC)
 
-A prototype "algorithmic DJ" system: a FastAPI backend (`src/main.py`,
-~50 KB, with `api/`, `core/`, `db/`, `ml/`, `telemetry/` packages) that
-tracks a music library in SQLite (`tracks.db`), takes crowd votes/requests
-over WebSockets, and picks tracks; a small C++ audio engine under
-`engine/` (Makefile + `include/` + `src/`); and a `mobile/` client
-directory. `requirements.txt` is short: FastAPI, uvicorn, pydantic, pytest,
-httpx, websockets, qrcode.
+An autonomous "algorithmic DJ & cybernetic venue" system featuring a Python FastAPI AI Conductor (`src/main.py`), a consolidated single-page command dashboard (`src/static/index.html`), a desktop System Tray application (`src/tray.py`), SQLite storage (`tracks.db`), and real-time C++ audio engine protocols.
+
+## Quickstart
+
+### 1. Launch the Server or Desktop Tray
+Run via the desktop system tray controller (GUI with terminal CLI fallback):
+```bash
+python3 src/tray.py
+```
+Or start the FastAPI server directly:
+```bash
+uvicorn src.main:app --host 0.0.0.0 --port 8000
+```
+
+### 2. Access the Command Center
+Open `http://localhost:8000` in any web browser to access the single-page dashboard.
+- **Master Audio & Transitions**: Listen live via continuous 44.1kHz PCM WAV streaming, adjust volume, view dynamic VU/RMS level meters, and vote on transition archetypes.
+- **Floor & Telemetry Dynamics**: Real-time Now Playing metadata, crowd energy metrics, and WearOS/Apple Watch biometrics simulation.
+- **Infinite Catalog**: Search and 1-click import tracks with automated BPM, energy, and harmonic Camelot key verification.
+- **Visuals & Analytics**: ComfyUI prompt synthesis bridge and venue vibe effectiveness reports.
+- **AI DJ Battle Arena**: Multi-agent deck battles between distinct DJ personas.
 
 ## Reality check against the old README
 

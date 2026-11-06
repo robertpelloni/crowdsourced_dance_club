@@ -1,5 +1,9 @@
 # Changelog
 
+## [v3.5.9] - Comprehensive User Testing Guide & Documentation Synchronization
+- **User Testing Guide (`USER_TESTING_GUIDE.md`):** Updated to v3.5.9 with step-by-step procedures for validating unified sticky navigation, live in-browser audio streaming, transition voting consensus bars, Infinite Spotify catalog search/import, generative visuals, and system tray management.
+- **README Quickstart Alignment (`README.md`):** Updated project overview and quickstart instructions to highlight the desktop tray controller (`src/tray.py`), single-page command dashboard (`src/static/index.html`), and all active sub-systems.
+
 ## [v3.5.8] - Cohesive Dashboard Navigation & Single-Page User Journey Optimization
 - **Sticky Quick-Navigation Bar (`src/static/index.html`):** Integrated a smooth-scrolling sticky sub-navigation bar with dedicated pills for all 10 operational cards (Floor Dynamics, Master Audio & Transitions, Crowd Biometrics, Visuals Studio, Vibe Analytics, Set Queue, Neural Conductor, DAO Governance, Profile, AI DJ Battles).
 - **Consolidated Anchor Targets:** Standardized section IDs across all cards for seamless single-page navigation and direct deep-linking.
