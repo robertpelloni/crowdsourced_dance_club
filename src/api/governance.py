@@ -3,10 +3,21 @@ import uuid
 import time
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from typing import List, Dict
+from typing import List, Dict, Optional
 from src.db.database import get_db_connection
 
 router = APIRouter(prefix="/api/governance", tags=["Governance"])
+
+# In-memory TTL cache to mitigate SQLite read contention during high-load voting peaks
+_proposals_cache: Optional[List[Dict]] = None
+_proposals_cache_expiry: float = 0.0
+CACHE_TTL_SECONDS = 15.0
+
+def invalidate_governance_cache():
+    """Invalidates the in-memory proposals cache immediately."""
+    global _proposals_cache, _proposals_cache_expiry
+    _proposals_cache = None
+    _proposals_cache_expiry = 0.0
 
 # Dependency mock for current user (assume imported correctly in main)
 def mock_get_current_user():
@@ -36,18 +47,29 @@ async def create_proposal(proposal: ProposalCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
     conn.close()
+    # Invalidate cache so fresh proposal appears immediately
+    invalidate_governance_cache()
     return {"status": "success", "proposal_id": proposal_id}
 
 @router.get("/proposals")
 async def list_proposals():
-    """List all active governance proposals."""
+    """List all active governance proposals, served via in-memory TTL cache to reduce DB load."""
+    global _proposals_cache, _proposals_cache_expiry
+    now = time.time()
+
+    if _proposals_cache is not None and now < _proposals_cache_expiry:
+        return _proposals_cache
+
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM governance_proposals WHERE status = 'active'")
     rows = cursor.fetchall()
     conn.close()
 
-    return [dict(row) for row in rows]
+    result = [dict(row) for row in rows]
+    _proposals_cache = result
+    _proposals_cache_expiry = now + CACHE_TTL_SECONDS
+    return result
 
 class ProposalVote(BaseModel):
     proposal_id: str

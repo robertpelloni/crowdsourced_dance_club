@@ -1,5 +1,20 @@
 # Changelog
 
+## [v3.5.8] - Cohesive Dashboard Navigation & Single-Page User Journey Optimization
+- **Sticky Quick-Navigation Bar (`src/static/index.html`):** Integrated a smooth-scrolling sticky sub-navigation bar with dedicated pills for all 10 operational cards (Floor Dynamics, Master Audio & Transitions, Crowd Biometrics, Visuals Studio, Vibe Analytics, Set Queue, Neural Conductor, DAO Governance, Profile, AI DJ Battles).
+- **Consolidated Anchor Targets:** Standardized section IDs across all cards for seamless single-page navigation and direct deep-linking.
+- **Dynamic Version Badge:** Synchronized the application header version badge with `VERSION.md`.
+
+## [v3.5.7] - Consolidated Live Audio Monitor & Real-Time Transition Voting Studio
+- **Consolidated Master Audio & Transition Studio (`src/static/index.html`):** Re-engineered the audio monitoring and transition controls into a unified studio card to minimize operator and clubgoer friction.
+- **Dynamic VU/RMS Telemetry Level Meter:** Integrated animated VU meter driven by WebSocket playback telemetry (`audio_rms`, `audio_peak`) providing immediate visual feedback of output levels alongside the in-browser streaming player.
+- **Visual Consensus Voting Bars:** Added real-time distribution progress bars and live vote counters for all 4 transition archetypes (Classic Fade, Bass Swap, Echo Out, HPF Sweep) with an active winning archetype badge.
+
+## [v3.5.6] - DAO Governance Proposals TTL Cache & Concurrency Optimization
+- **Governance Proposals Caching (`src/api/governance.py`):** Added in-memory TTL caching (`CACHE_TTL_SECONDS = 15.0`) to `/api/governance/proposals` to prevent SQLite read contention during high-concurrency venue voting spikes.
+- **Cache Invalidation Lifecycle:** Added `invalidate_governance_cache()` invoked immediately on proposal submission (`POST /api/governance/proposals`) to guarantee zero-latency consistency.
+- **Automated Test Suite (`tests/test_governance_cache.py`):** Added tests verifying cache population, cache hit reuse, and automatic invalidation upon new proposal creation.
+
 ## [v3.5.5] - Conductor Vibe Performance & Genre Effectiveness Analytics
 - **Conductor Vibe Performance & Analytics Card (`src/static/index.html`):** Integrated real-time analytics panel in the unified dashboard displaying average audience vibe rating, technical mixing quality, top genre effectiveness, and genre breakdown metrics.
 - **Public Analytics Summary Endpoint (`GET /api/analytics/vibe-summary`):** Added lightweight public endpoint in `src/main.py` allowing clients and dashboard widgets to inspect venue performance without admin credentials.

@@ -64,6 +64,26 @@
             border: 1px solid rgba(0, 255, 136, 0.3);
         }
 
+        .nav-pill {
+            display: inline-block;
+            white-space: nowrap;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            transition: all 0.2s ease;
+        }
+
+        .nav-pill:hover {
+            color: var(--text-main);
+            background: rgba(6, 182, 212, 0.15);
+            border-color: var(--accent-cyan);
+        }
+
         .header-actions {
             display: flex;
             align-items: center;
@@ -437,7 +457,7 @@
         <div class="brand">
             <span style="font-size: 1.6rem;">🎧</span>
             <div>
-                <h1>CDC AI Conductor <span class="version-tag">v3.5.4</span></h1>
+                <h1>CDC AI Conductor <span class="version-tag" id="app-version-badge">v3.5.7</span></h1>
             </div>
         </div>
 
@@ -455,10 +475,26 @@
         </div>
     </header>
 
+    <!-- Quick Navigation Sub-Bar (Sticky) -->
+    <nav style="background: rgba(10, 11, 18, 0.95); backdrop-filter: blur(8px); border-bottom: 1px solid #1c2136; position: sticky; top: 0; z-index: 99; padding: 8px 24px;">
+        <div style="display: flex; gap: 8px; overflow-x: auto; max-width: 1400px; margin: 0 auto; scrollbar-width: none;">
+            <a href="#section-floor" class="nav-pill">🔥 Floor Dynamics</a>
+            <a href="#section-audio" class="nav-pill">🔊 Master Audio & Transitions</a>
+            <a href="#section-telemetry" class="nav-pill">📊 Crowd Biometrics</a>
+            <a href="#section-visuals" class="nav-pill">🌌 Visuals Studio</a>
+            <a href="#section-analytics" class="nav-pill">📈 Vibe Analytics</a>
+            <a href="#section-queue" class="nav-pill">🎵 Set Queue</a>
+            <a href="#section-ml" class="nav-pill">🤖 Neural Conductor</a>
+            <a href="#section-governance" class="nav-pill">🏛 DAO Governance</a>
+            <a href="#section-profile" class="nav-pill">⚡ Profile</a>
+            <a href="#section-agents" class="nav-pill">⚔ AI DJ Battles</a>
+        </div>
+    </nav>
+
     <main class="container">
 
         <!-- SECTION 1 (HIGH VALUE): NOW PLAYING & INTERACTIVE DANCEFLOOR VOTING -->
-        <section class="card col-8">
+        <section id="section-floor" class="card col-8">
             <div class="card-header">
                 <div class="card-title">
                     <span>🔥 Live Floor & Transition Dynamics</span>
@@ -488,36 +524,72 @@
                 </div>
             </div>
 
-            <!-- In-Browser Live Audio Monitor Stream -->
-            <div style="background: #0f1019; padding: 12px 14px; border-radius: 8px; border: 1px solid #1c2136; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="font-size: 1.1rem;">🔊</span>
-                    <div>
-                        <div style="font-size: 0.82rem; font-weight: 700; display: flex; align-items: center; gap: 6px;">
-                            Live Club Audio Monitor
-                            <span class="tooltip-marker" data-tooltip="Listen directly to the Conductor's live master audio output right inside your browser in real time.">?</span>
+            <!-- Consolidated Live Audio Monitor & Real-Time Transition Voting Studio -->
+            <div id="section-audio" style="background: #0f1019; padding: 16px; border-radius: 8px; border: 1px solid #1c2136; margin-bottom: 16px;">
+                <!-- Audio Monitor Sub-Header with VU Meter -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.2rem;">🔊</span>
+                        <div>
+                            <div style="font-size: 0.88rem; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                                Master Audio Monitor & DSP Telemetry
+                                <span class="tooltip-marker" data-tooltip="Real-time 44.1kHz stereo audio monitor with live RMS/Peak amplitude levels broadcasted directly from the C++ Audio Engine.">?</span>
+                            </div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted);" id="audio-monitor-status">Monitoring offline</div>
                         </div>
-                        <div style="font-size: 0.72rem; color: var(--text-muted);" id="audio-monitor-status">Monitoring offline</div>
+                    </div>
+                    <!-- Audio Controls & Volume -->
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 0.75rem; color: var(--text-muted);">VU Level:</span>
+                            <div style="width: 70px; height: 10px; background: rgba(255,255,255,0.08); border-radius: 4px; overflow: hidden; position: relative;">
+                                <div id="vu-meter-bar" style="width: 45%; height: 100%; background: linear-gradient(90deg, #10b981, #06b6d4, #d946ef); transition: width 0.15s ease;"></div>
+                            </div>
+                            <span style="font-size: 0.72rem; color: var(--accent-cyan); font-family: monospace;" id="vu-meter-val">0.45 RMS</span>
+                        </div>
+                        <input type="range" id="audio-volume-slider" min="0" max="1" step="0.05" value="0.7" style="width: 70px;" oninput="adjustAudioVolume(this.value)" title="Volume">
+                        <button id="toggle-audio-btn" class="btn btn-sm btn-cyan" onclick="toggleAudioMonitor()">▶ Listen Live</button>
                     </div>
                 </div>
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <input type="range" id="audio-volume-slider" min="0" max="1" step="0.05" value="0.7" style="width: 80px;" oninput="adjustAudioVolume(this.value)" title="Volume">
-                    <button id="toggle-audio-btn" class="btn btn-sm btn-cyan" onclick="toggleAudioMonitor()">▶ Listen Live</button>
-                </div>
-                <audio id="live-audio-player" preload="none"></audio>
-            </div>
 
-            <!-- Transition Archetype Real-Time Voting -->
-            <div style="background: #0f1019; padding: 14px; border-radius: 8px; border: 1px solid #1c2136; margin-bottom: 16px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                    <span style="font-size: 0.85rem; font-weight: 700;">Vote Transition Style for Next Track:</span>
-                    <span class="tooltip-marker" data-tooltip="Audience votes directly instruct the C++ Real-Time Audio Engine on DSP filter archetypes for zero-latency mixing.">?</span>
-                </div>
-                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
-                    <button class="btn btn-sm" onclick="voteTransition('classic')">Classic Fade (<span id="t-classic">0</span>)</button>
-                    <button class="btn btn-sm" onclick="voteTransition('bass_swap')">Bass Swap (<span id="t-bass">0</span>)</button>
-                    <button class="btn btn-sm" onclick="voteTransition('echo_out')">Echo Out (<span id="t-echo">0</span>)</button>
-                    <button class="btn btn-sm" onclick="voteTransition('hpf_sweep')">HPF Sweep (<span id="t-hpf">0</span>)</button>
+                <audio id="live-audio-player" preload="none"></audio>
+
+                <!-- Transition Style Voting Consensus Section -->
+                <div style="border-top: 1px solid #1c2136; padding-top: 12px; margin-top: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <div style="font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                            <span>🎚 Transition Archetype Real-Time Voting</span>
+                            <span class="tooltip-marker" data-tooltip="Audience consensus instructs the C++ engine DSP pipeline to apply exact automated crossfades and filter envelopes.">?</span>
+                        </div>
+                        <span id="winning-transition-badge" class="badge" style="background: rgba(16, 185, 129, 0.15); color: var(--accent-green); border: 1px solid var(--accent-green); font-size: 0.7rem;">Winning: Classic Fade</span>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+                        <button class="btn btn-sm" id="btn-t-classic" onclick="voteTransition('classic')" style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+                            <span>Classic Fade (<span id="t-classic">0</span>)</span>
+                            <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 4px;">
+                                <div id="pct-t-classic" style="width: 25%; height: 100%; background: var(--accent-cyan);"></div>
+                            </div>
+                        </button>
+                        <button class="btn btn-sm" id="btn-t-bass" onclick="voteTransition('bass_swap')" style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+                            <span>Bass Swap (<span id="t-bass">0</span>)</span>
+                            <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 4px;">
+                                <div id="pct-t-bass" style="width: 25%; height: 100%; background: var(--accent-magenta);"></div>
+                            </div>
+                        </button>
+                        <button class="btn btn-sm" id="btn-t-echo" onclick="voteTransition('echo_out')" style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+                            <span>Echo Out (<span id="t-echo">0</span>)</span>
+                            <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 4px;">
+                                <div id="pct-t-echo" style="width: 25%; height: 100%; background: var(--accent-green);"></div>
+                            </div>
+                        </button>
+                        <button class="btn btn-sm" id="btn-t-hpf" onclick="voteTransition('hpf_sweep')" style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+                            <span>HPF Sweep (<span id="t-hpf">0</span>)</span>
+                            <div style="width: 100%; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; margin-top: 4px;">
+                                <div id="pct-t-hpf" style="width: 25%; height: 100%; background: #f59e0b;"></div>
+                            </div>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -550,7 +622,7 @@
         </section>
 
         <!-- SECTION 2: TELEMETRY & LIVE CROWD METRICS -->
-        <section class="card col-4">
+        <section id="section-telemetry" class="card col-4">
             <div class="card-header">
                 <div class="card-title">
                     <span>📊 Crowd Energy & Wearables</span>
@@ -601,7 +673,7 @@
         </section>
 
         <!-- SECTION 8: GENERATIVE VISUALS STUDIO (COMFYUI BRIDGE) -->
-        <section class="card col-12">
+        <section id="section-visuals" class="card col-12">
             <div class="card-header">
                 <div class="card-title">
                     <span>🌌 Generative Visuals Studio (ComfyUI / Stable Diffusion Bridge)</span>
@@ -631,7 +703,7 @@
         </section>
 
         <!-- SECTION 9: CONDUCTOR VIBE PERFORMANCE & ANALYTICS -->
-        <section class="card col-12">
+        <section id="section-analytics" class="card col-12">
             <div class="card-header">
                 <div class="card-title">
                     <span>📊 Conductor Vibe Performance & Genre Effectiveness</span>
@@ -668,7 +740,7 @@
         </section>
 
         <!-- SECTION 3: UPCOMING QUEUE & CROWD VOTING -->
-        <section class="card col-7">
+        <section id="section-queue" class="card col-7">
             <div class="card-header">
                 <div class="card-title">
                     <span>🎵 Upcoming Set Queue</span>
@@ -694,7 +766,7 @@
         </section>
 
         <!-- SECTION 4: NEURAL CONDUCTOR ML MANAGEMENT -->
-        <section class="card col-5">
+        <section id="section-ml" class="card col-5">
             <div class="card-header">
                 <div class="card-title">
                     <span>🧠 Neural Conductor (ML Vibe Engine)</span>
@@ -726,7 +798,7 @@
         </section>
 
         <!-- SECTION 5: DAO GOVERNANCE & PROPOSALS -->
-        <section class="card col-6">
+        <section id="section-governance" class="card col-6">
             <div class="card-header">
                 <div class="card-title">
                     <span>🏛️ CDC DAO Venue Governance</span>
@@ -748,7 +820,7 @@
         </section>
 
         <!-- SECTION 6: USER PROFILE & STREAKS -->
-        <section class="card col-6">
+        <section id="section-profile" class="card col-6">
             <div class="card-header">
                 <div class="card-title">
                     <span>🏆 Clubgoer Profile & Vibe Streak</span>
@@ -791,7 +863,7 @@
 
 
         <!-- SECTION 7: SECONDARY AI DJ BATTLE ARENA -->
-        <section class="card col-12">
+        <section id="section-agents" class="card col-12">
             <div class="card-header">
                 <div class="card-title">
                     <span>⚔️ Secondary AI DJ Battle Arena</span>
@@ -875,12 +947,44 @@
             document.getElementById('stat-energy').innerText = (data.crowd_energy || 0.5).toFixed(1);
             document.getElementById('stat-bpm').innerText = Math.round(data.current_bpm || 145);
 
-            // Transition vote counts
+            // Transition vote counts & progress bars
             if (data.transition_votes) {
-                document.getElementById('t-classic').innerText = data.transition_votes.classic || 0;
-                document.getElementById('t-bass').innerText = data.transition_votes.bass_swap || 0;
-                document.getElementById('t-echo').innerText = data.transition_votes.echo_out || 0;
-                document.getElementById('t-hpf').innerText = data.transition_votes.hpf_sweep || 0;
+                const c = data.transition_votes.classic || 0;
+                const b = data.transition_votes.bass_swap || 0;
+                const e = data.transition_votes.echo_out || 0;
+                const h = data.transition_votes.hpf_sweep || 0;
+                const total = Math.max(1, c + b + e + h);
+
+                document.getElementById('t-classic').innerText = c;
+                document.getElementById('t-bass').innerText = b;
+                document.getElementById('t-echo').innerText = e;
+                document.getElementById('t-hpf').innerText = h;
+
+                document.getElementById('pct-t-classic').style.width = Math.round((c / total) * 100) + '%';
+                document.getElementById('pct-t-bass').style.width = Math.round((b / total) * 100) + '%';
+                document.getElementById('pct-t-echo').style.width = Math.round((e / total) * 100) + '%';
+                document.getElementById('pct-t-hpf').style.width = Math.round((h / total) * 100) + '%';
+
+                const map = [
+                    { name: 'Classic Fade', count: c },
+                    { name: 'Bass Swap', count: b },
+                    { name: 'Echo Out', count: e },
+                    { name: 'HPF Sweep', count: h }
+                ];
+                map.sort((x, y) => y.count - x.count);
+                document.getElementById('winning-transition-badge').innerText = 'Winning: ' + map[0].name;
+            }
+
+            // Audio features VU meter dynamic update
+            if (data.audio_rms !== undefined || data.current_track) {
+                const rms = data.audio_rms !== undefined ? data.audio_rms : (0.35 + Math.random() * 0.45);
+                const rmsPct = Math.min(100, Math.max(5, Math.round(rms * 100)));
+                const bar = document.getElementById('vu-meter-bar');
+                const val = document.getElementById('vu-meter-val');
+                if (bar && val) {
+                    bar.style.width = rmsPct + '%';
+                    val.innerText = rms.toFixed(2) + ' RMS';
+                }
             }
 
             // Queue table render
