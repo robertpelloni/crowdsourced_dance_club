@@ -1,6 +1,7 @@
-# HANDOFF.md - v3.5.7 (Consolidated Live Audio Monitor & Real-Time Transition Voting Studio)
+# HANDOFF.md - v3.5.8 (Cohesive Dashboard Navigation & Single-Page User Journey Optimization)
 
 ## Summary of Progress
+- **Sticky Quick-Navigation Bar (`src/static/index.html`):** Added a persistent, smooth-scrolling navigation sub-bar with pills linking directly to each of the 10 consolidated command dashboard cards. Eliminates operator and clubgoer friction across desktop and mobile screens.
 - **Consolidated Master Audio & Transition Studio (`src/static/index.html`):** Re-engineered the audio monitoring and transition voting controls into a unified, low-friction studio card within the single-page dashboard.
 - **Dynamic VU/RMS Telemetry Level Meter:** Integrated animated VU meter driven by WebSocket playback telemetry (`audio_rms`, `audio_peak`) providing immediate visual feedback of output levels alongside the in-browser streaming player.
 - **Visual Consensus Voting Bars:** Added real-time distribution progress bars and live vote counters for all 4 transition archetypes (Classic Fade, Bass Swap, Echo Out, HPF Sweep) with an active winning archetype badge.

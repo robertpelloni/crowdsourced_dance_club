@@ -64,6 +64,26 @@
             border: 1px solid rgba(0, 255, 136, 0.3);
         }
 
+        .nav-pill {
+            display: inline-block;
+            white-space: nowrap;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-decoration: none;
+            padding: 5px 12px;
+            border-radius: 20px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            transition: all 0.2s ease;
+        }
+
+        .nav-pill:hover {
+            color: var(--text-main);
+            background: rgba(6, 182, 212, 0.15);
+            border-color: var(--accent-cyan);
+        }
+
         .header-actions {
             display: flex;
             align-items: center;
@@ -437,7 +457,7 @@
         <div class="brand">
             <span style="font-size: 1.6rem;">🎧</span>
             <div>
-                <h1>CDC AI Conductor <span class="version-tag">v3.5.4</span></h1>
+                <h1>CDC AI Conductor <span class="version-tag" id="app-version-badge">v3.5.7</span></h1>
             </div>
         </div>
 
@@ -455,10 +475,26 @@
         </div>
     </header>
 
+    <!-- Quick Navigation Sub-Bar (Sticky) -->
+    <nav style="background: rgba(10, 11, 18, 0.95); backdrop-filter: blur(8px); border-bottom: 1px solid #1c2136; position: sticky; top: 0; z-index: 99; padding: 8px 24px;">
+        <div style="display: flex; gap: 8px; overflow-x: auto; max-width: 1400px; margin: 0 auto; scrollbar-width: none;">
+            <a href="#section-floor" class="nav-pill">🔥 Floor Dynamics</a>
+            <a href="#section-audio" class="nav-pill">🔊 Master Audio & Transitions</a>
+            <a href="#section-telemetry" class="nav-pill">📊 Crowd Biometrics</a>
+            <a href="#section-visuals" class="nav-pill">🌌 Visuals Studio</a>
+            <a href="#section-analytics" class="nav-pill">📈 Vibe Analytics</a>
+            <a href="#section-queue" class="nav-pill">🎵 Set Queue</a>
+            <a href="#section-ml" class="nav-pill">🤖 Neural Conductor</a>
+            <a href="#section-governance" class="nav-pill">🏛 DAO Governance</a>
+            <a href="#section-profile" class="nav-pill">⚡ Profile</a>
+            <a href="#section-agents" class="nav-pill">⚔ AI DJ Battles</a>
+        </div>
+    </nav>
+
     <main class="container">
 
         <!-- SECTION 1 (HIGH VALUE): NOW PLAYING & INTERACTIVE DANCEFLOOR VOTING -->
-        <section class="card col-8">
+        <section id="section-floor" class="card col-8">
             <div class="card-header">
                 <div class="card-title">
                     <span>🔥 Live Floor & Transition Dynamics</span>
@@ -489,7 +525,7 @@
             </div>
 
             <!-- Consolidated Live Audio Monitor & Real-Time Transition Voting Studio -->
-            <div style="background: #0f1019; padding: 16px; border-radius: 8px; border: 1px solid #1c2136; margin-bottom: 16px;">
+            <div id="section-audio" style="background: #0f1019; padding: 16px; border-radius: 8px; border: 1px solid #1c2136; margin-bottom: 16px;">
                 <!-- Audio Monitor Sub-Header with VU Meter -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
                     <div style="display: flex; align-items: center; gap: 10px;">
@@ -586,7 +622,7 @@
         </section>
 
         <!-- SECTION 2: TELEMETRY & LIVE CROWD METRICS -->
-        <section class="card col-4">
+        <section id="section-telemetry" class="card col-4">
             <div class="card-header">
                 <div class="card-title">
                     <span>📊 Crowd Energy & Wearables</span>
@@ -637,7 +673,7 @@
         </section>
 
         <!-- SECTION 8: GENERATIVE VISUALS STUDIO (COMFYUI BRIDGE) -->
-        <section class="card col-12">
+        <section id="section-visuals" class="card col-12">
             <div class="card-header">
                 <div class="card-title">
                     <span>🌌 Generative Visuals Studio (ComfyUI / Stable Diffusion Bridge)</span>
@@ -667,7 +703,7 @@
         </section>
 
         <!-- SECTION 9: CONDUCTOR VIBE PERFORMANCE & ANALYTICS -->
-        <section class="card col-12">
+        <section id="section-analytics" class="card col-12">
             <div class="card-header">
                 <div class="card-title">
                     <span>📊 Conductor Vibe Performance & Genre Effectiveness</span>
@@ -704,7 +740,7 @@
         </section>
 
         <!-- SECTION 3: UPCOMING QUEUE & CROWD VOTING -->
-        <section class="card col-7">
+        <section id="section-queue" class="card col-7">
             <div class="card-header">
                 <div class="card-title">
                     <span>🎵 Upcoming Set Queue</span>
@@ -730,7 +766,7 @@
         </section>
 
         <!-- SECTION 4: NEURAL CONDUCTOR ML MANAGEMENT -->
-        <section class="card col-5">
+        <section id="section-ml" class="card col-5">
             <div class="card-header">
                 <div class="card-title">
                     <span>🧠 Neural Conductor (ML Vibe Engine)</span>
@@ -762,7 +798,7 @@
         </section>
 
         <!-- SECTION 5: DAO GOVERNANCE & PROPOSALS -->
-        <section class="card col-6">
+        <section id="section-governance" class="card col-6">
             <div class="card-header">
                 <div class="card-title">
                     <span>🏛️ CDC DAO Venue Governance</span>
@@ -784,7 +820,7 @@
         </section>
 
         <!-- SECTION 6: USER PROFILE & STREAKS -->
-        <section class="card col-6">
+        <section id="section-profile" class="card col-6">
             <div class="card-header">
                 <div class="card-title">
                     <span>🏆 Clubgoer Profile & Vibe Streak</span>
@@ -827,7 +863,7 @@
 
 
         <!-- SECTION 7: SECONDARY AI DJ BATTLE ARENA -->
-        <section class="card col-12">
+        <section id="section-agents" class="card col-12">
             <div class="card-header">
                 <div class="card-title">
                     <span>⚔️ Secondary AI DJ Battle Arena</span>
