@@ -1,5 +1,10 @@
 # Changelog
 
+## [v3.5.6] - DAO Governance Proposals TTL Cache & Concurrency Optimization
+- **Governance Proposals Caching (`src/api/governance.py`):** Added in-memory TTL caching (`CACHE_TTL_SECONDS = 15.0`) to `/api/governance/proposals` to prevent SQLite read contention during high-concurrency venue voting spikes.
+- **Cache Invalidation Lifecycle:** Added `invalidate_governance_cache()` invoked immediately on proposal submission (`POST /api/governance/proposals`) to guarantee zero-latency consistency.
+- **Automated Test Suite (`tests/test_governance_cache.py`):** Added tests verifying cache population, cache hit reuse, and automatic invalidation upon new proposal creation.
+
 ## [v3.5.5] - Conductor Vibe Performance & Genre Effectiveness Analytics
 - **Conductor Vibe Performance & Analytics Card (`src/static/index.html`):** Integrated real-time analytics panel in the unified dashboard displaying average audience vibe rating, technical mixing quality, top genre effectiveness, and genre breakdown metrics.
 - **Public Analytics Summary Endpoint (`GET /api/analytics/vibe-summary`):** Added lightweight public endpoint in `src/main.py` allowing clients and dashboard widgets to inspect venue performance without admin credentials.

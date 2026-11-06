@@ -10,11 +10,11 @@
 - [x] Connect In-Browser Live Club Audio Stream (`GET /api/audio/stream` chunked WAV stream + HTML5 audio monitor widget) (`v3.5.3`).
 - [x] Integrate Generative Visuals Studio card & ComfyUI Prompt Bridge into Dashboard (`v3.5.4`).
 - [x] Integrate Conductor Vibe Performance & Genre Effectiveness analytics reporting (`v3.5.5`).
+- [x] Add TTL caching layer for `/api/governance/proposals` during massive load peaks (`v3.5.6`).
 - [ ] Connect WebSocket audio state directly to WebRTC audio stream for ultra-low latency sub-50ms clubgoer audio monitoring.
 
 ## Backlog / Technical Debt
 - [ ] Evaluate porting the core `evaluate_track_fit` Random Forest logic to a faster, compiled language (like Rust / C++ ONNX Runtime) if multi-agent concurrent evaluation becomes a bottleneck.
-- [ ] Add Redis caching layer for `/api/governance/proposals` and active venue states during massive load peaks.
 
 ## Phase 5 Ideation
 - [ ] Draft an architecture diagram for real-time mobile AR visualizers running on iOS/Android clients tracking native spatial position against the DMX venue grid.

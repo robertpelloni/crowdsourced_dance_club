@@ -1,6 +1,7 @@
-# HANDOFF.md - v3.5.5 (Conductor Vibe Performance & Analytics Integration)
+# HANDOFF.md - v3.5.6 (DAO Governance Proposals TTL Cache & Concurrency Optimization)
 
 ## Summary of Progress
+- **DAO Governance Proposals TTL Cache (`src/api/governance.py`):** Added in-memory TTL caching layer for `/api/governance/proposals` (`CACHE_TTL_SECONDS = 15.0`) with immediate cache invalidation (`invalidate_governance_cache`) triggered upon proposal creation. Protects against SQLite read contention during high-concurrency voting rushes.
 - **Conductor Vibe Performance & Genre Effectiveness Analytics (`src/api/analytics.py`, `src/main.py`, `src/static/index.html`):** Fully integrated real-time Conductor performance logs and audience feedback analytics into the unified dashboard. Displays average crowd vibe rating, technical mixing rating, top performing genre by score, active genre coverage, and detailed genre breakdown metrics with real-time refresh capability.
 - **REST Analytics Endpoints:** Added public endpoint `GET /api/analytics/vibe-summary` alongside the RBAC-protected `GET /api/admin/analytics/vibe-report`.
 - **Generative Visuals Studio (`src/core/generative_visuals.py`, `src/main.py`, `src/static/index.html`):** Integrated ComfyUI / Stable Diffusion bridge into dashboard with live floor variables (audio RMS, crowd energy trends, track genre) converting to high-fidelity visual synthesis prompts.
