@@ -1,31 +1,47 @@
-# CrowdClub User Testing Guide (v2.2.0)
+# CrowdClub User Testing Guide (v3.5.9)
 
 ## Overview
-This guide provides instructions for validating the 'Cybernetic Intelligence' release candidate. Testing is divided into three personas: Venue Admin, Registered Member, and Guest.
+This guide provides instructions for validating the unified single-page command dashboard, real-time master audio streaming monitor, dynamic transition archetype voting consensus, and desktop system tray controller.
 
 ## Environment Setup
-1. Ensure the Conductor Server is running: `python src/main.py`
-2. Ensure the Audio Engine is active: `./engine/cdc_engine`
-3. Launch the Mobile Client or Web Prototype.
+1. Launch the Conductor server via system tray or command line:
+   ```bash
+   python3 src/tray.py  # or uvicorn src.main:app --port 8000
+   ```
+2. Navigate to `http://localhost:8000` to access the unified command dashboard.
+3. (Optional) Launch the 3D WebXR Vibe Orb at `http://localhost:8000/static/vibe_orb.html`.
 
-## Persona 1: Venue Admin
-**Goal:** Manage the room and optimize the AI.
-1. **Login:** Authenticate using admin credentials.
-2. **ML Retraining:** Navigate to the Admin Dashboard and trigger a 'Model Retrain'. Verify status changes to 'READY'.
-3. **Analytics Audit:** View the 'Vibe Report' and ensure user impact metrics are populating.
-4. **Manual Override:** Execute an 'ADMIN_SKIP' to verify immediate audio engine response.
+## Testing Modules
 
-## Persona 2: Registered Member
-**Goal:** Engage with the vibe and earn points.
-1. **Registration/Referral:** Create a new account using a referral code. Verify both users receive +50 points.
-2. **Requesting:** Request a song. Verify it appears in the queue after the 'Algorithmic Vibe Check'.
-3. **Voting:** Upvote an upcoming track. Verify the queue re-sorts based on the weighted vibe/vote algorithm.
-4. **Feedback:** At the end of a track, submit a 'Vibe Rating' (1-5 stars).
+### 1. Unified Sticky Navigation
+- Use the sticky navigation bar pills (`🔥 Floor Dynamics`, `🔊 Master Audio & Transitions`, `📊 Crowd Biometrics`, etc.) to smoothly jump between cards.
+- Confirm that deep links and smooth scrolling function properly on desktop and mobile viewports.
 
-## Persona 3: Guest (Anonymous)
-**Goal:** Low-friction interaction.
-1. **Sync:** Scan the venue QR code to connect.
-2. **Vibe Check:** Request a track that clashes with the current BPM (e.g., 145 BPM vs 100 BPM). Verify 'REQUEST_DENIED' with a clear reason.
+### 2. Live Audio Monitor & Real-Time Transition Voting Studio
+- Click **▶ Listen Live** to connect to the `/api/audio/stream` chunked WAV stream.
+- Adjust the volume slider and confirm output level modulation.
+- Inspect the dynamic VU/RMS level meter reacting to playback telemetry.
+- Click any of the 4 transition archetype buttons (`Classic Fade`, `Bass Swap`, `Echo Out`, `HPF Sweep`) and verify immediate vote increments, progress bar distribution shifts, and winning archetype updates.
+
+### 3. Infinite Spotify Catalog & Instant Vibe Request
+- Type a track title (e.g., "Strobe", "Trance") into the Infinite Catalog search box and click **Search**.
+- Select a search result and click **Import & Queue**. Verify the track is harmonically evaluated (BPM & Camelot key) and placed into the set queue.
+
+### 4. Generative Visuals Studio (ComfyUI Bridge)
+- Select genre (Psytrance/Techno/Ambient) and energy trend (Rising/Stable/Falling).
+- Click **Generate & Inject Prompt** and verify the active prompt is synthesized and dispatched.
+
+### 5. Conductor Vibe Performance & Analytics
+- Click **🔄 Refresh Analytics** to query `/api/analytics/vibe-summary`.
+- Verify average vibe rating, technical rating, top genre, and genre breakdown metrics populate.
+
+### 6. Secondary AI DJ Battle Arena
+- Click **⚔️ Trigger AI DJ Battle** to pit "The Purist", "The Mashup King", and "The Goa Trance Shaman" against the current candidate track.
+- Verify score calculations, style biases, and DJ commentary are displayed.
+
+### 7. Desktop System Tray Application
+- Launch `python3 src/tray.py` in GUI or headless terminal mode.
+- Test server status checks, log viewing, and process controls.
 
 ## Success Criteria
 - 100% of 'Perfect Matches' are accepted.
